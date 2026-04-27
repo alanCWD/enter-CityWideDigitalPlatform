@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Zap } from "lucide-react";
+import { Menu, X, Zap, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +66,17 @@ export default function Navbar() {
 
           {/* Desktop CTAs */}
           <div className="hidden md:flex items-center gap-3">
+            <Link
+              to="/dashboard"
+              className={cn(
+                "flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all",
+                location.pathname.startsWith("/dashboard") || ["/builder","/gbp","/restaurant","/analytics","/leads","/coaching"].includes(location.pathname)
+                  ? "border-[#0078D7] text-[#0078D7] bg-[#0078D7]/10"
+                  : "border-white/20 text-[rgba(238,241,250,0.65)] hover:text-[#EEF1FA] hover:bg-white/10"
+              )}
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
+            </Link>
             <Button variant="ghost-dark" size="sm" asChild>
               <Link to="/contact">Book a Demo</Link>
             </Button>
@@ -118,6 +129,12 @@ export default function Navbar() {
               {link.label}
             </Link>
           ))}
+          <Link
+            to="/dashboard"
+            className="flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-bold text-[#0078D7] bg-[#0078D7]/10 border border-[#0078D7]/20 transition-colors hover:bg-[#0078D7]/20"
+          >
+            <LayoutDashboard className="w-4 h-4" /> Agency Dashboard
+          </Link>
           <div className="mt-4 flex flex-col gap-3 pt-4 border-t border-white/10">
             <Button variant="ghost-dark" asChild>
               <Link to="/contact">Book a Demo</Link>
