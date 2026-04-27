@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef } from "react";
-import { fetchEventSource } from "@microsoft/fetch-event-source";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 
 export interface CodeGenParams {
@@ -10,32 +9,42 @@ export interface CodeGenParams {
   template: string;
 }
 
-interface SSEData {
-  type?: string;
-  delta?: { type?: string; text?: string };
-  error?: { type?: string; message?: string };
-}
-
 export function useCodeGen() {
   const [files, setFiles] = useState<Record<string, string> | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState(0); // approximate streamed char count
+  const [progress, setProgress] = useState(0);
   const abortRef = useRef<AbortController | null>(null);
 
   const generateCode = useCallback(async (params: CodeGenParams) => {
+    abortRef.current?.abort();
+    abortRef.current = new AbortController();
+
     setIsGenerating(true);
     setFiles(null);
     setError(null);
     setProgress(0);
 
-    abortRef.current?.abort();
-    abortRef.current = new AbortController();
-
     let accumulated = "";
 
+    const parseAccumulatedJson = (raw: string): Record<string, string> | null => {
+      let cleaned = raw.trim();
+      if (cleaned.startsWith("```")) {
+        cleaned = cleaned.replace(/^```[a-z]*\n?/i, "").replace(/\n?```\s*$/, "").trim();
+      }
+      try {
+        return JSON.parse(cleaned);
+      } catch {
+        const match = cleaned.match(/\{[\s\S]+\}/);
+        if (match) {
+          try { return JSON.parse(match[0]); } catch { return null; }
+        }
+        return null;
+      }
+    };
+
     try {
-      await fetchEventSource(`${SUPABASE_URL}/functions/v1/app-code-gen`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/app-code-gen`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -43,62 +52,82 @@ export function useCodeGen() {
         },
         body: JSON.stringify(params),
         signal: abortRef.current.signal,
-        openWhenHidden: true,
-
-        async onopen(response) {
-          if (!response.ok) {
-            throw new Error(`Code generation failed: ${response.status}`);
-          }
-        },
-
-        onmessage(ev) {
-          if (!ev.data) return;
-          try {
-            const data: SSEData = JSON.parse(ev.data);
-
-            if (data.type === "content_block_delta" && data.delta?.text) {
-              accumulated += data.delta.text;
-              setProgress(accumulated.length);
-            }
-
-            if (data.type === "error") {
-              setError(data.error?.message || "AI returned an error.");
-              setIsGenerating(false);
-              abortRef.current?.abort();
-            }
-
-            if (data.type === "message_stop") {
-              // Parse accumulated JSON
-              let cleaned = accumulated.trim();
-              if (cleaned.startsWith("```")) {
-                cleaned = cleaned.replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/, "").trim();
-              }
-              try {
-                const parsed = JSON.parse(cleaned);
-                setFiles(parsed);
-              } catch {
-                const jsonMatch = cleaned.match(/\{[\s\S]+\}/);
-                if (jsonMatch) {
-                  try {
-                    setFiles(JSON.parse(jsonMatch[0]));
-                  } catch {
-                    setError("AI returned invalid JSON.");
-                  }
-                } else {
-                  setError("AI did not return valid JSON.");
-                }
-              }
-              setIsGenerating(false);
-            }
-          } catch {
-            /* ignore non-JSON SSE frames */
-          }
-        },
-
-        onerror(err) {
-          throw err;
-        },
       });
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Code generation failed: ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete SSE events (separated by blank line)
+        const events = buffer.split("\n\n");
+        buffer = events.pop() || ""; // last (possibly incomplete) chunk stays in buffer
+
+        for (const evt of events) {
+          // Extract the data line(s)
+          const lines = evt.split("\n");
+          let dataLine = "";
+          let isErrorEvent = false;
+          for (const line of lines) {
+            if (line.startsWith("event:") && line.includes("error")) isErrorEvent = true;
+            if (line.startsWith("data:")) {
+              dataLine += line.slice(5).trimStart();
+            }
+          }
+          if (!dataLine) continue;
+
+          let data: { type?: string; delta?: { text?: string; type?: string }; error?: { message?: string; type?: string } };
+          try {
+            data = JSON.parse(dataLine);
+          } catch {
+            continue; // skip malformed
+          }
+
+          if (isErrorEvent || data.type === "error") {
+            setError(data.error?.message || "AI returned an error.");
+            setIsGenerating(false);
+            return;
+          }
+
+          if (data.type === "content_block_delta" && data.delta?.text) {
+            accumulated += data.delta.text;
+            setProgress(accumulated.length);
+          }
+
+          if (data.type === "message_stop") {
+            const parsed = parseAccumulatedJson(accumulated);
+            if (parsed) {
+              setFiles(parsed);
+            } else {
+              setError("AI did not return valid JSON. Try again.");
+            }
+            setIsGenerating(false);
+            return;
+          }
+        }
+      }
+
+      // Stream ended without message_stop — try parsing what we have
+      if (accumulated) {
+        const parsed = parseAccumulatedJson(accumulated);
+        if (parsed) {
+          setFiles(parsed);
+        } else {
+          setError("Stream ended unexpectedly with invalid output.");
+        }
+      } else {
+        setError("Stream ended with no output.");
+      }
+      setIsGenerating(false);
     } catch (err: unknown) {
       if (err instanceof Error && err.name !== "AbortError") {
         setError(err.message || "Code generation failed.");
