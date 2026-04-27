@@ -60,10 +60,18 @@ export function GbpCallback() {
 
         const data = await res.json();
 
+        if (data.diagnostics) {
+          console.log("[GBP Diagnostics]", JSON.stringify(data.diagnostics, null, 2));
+        }
+
         if (data.success) {
+          const hasLocation = !!data.diagnostics?.resolvedLocationId;
           setStatus("success");
-          setMessage(`${data.businessName || clientLabel} connected!`);
-          setTimeout(() => navigate(`/gbp?status=connected&business=${encodeURIComponent(data.businessName || clientLabel)}`), 1500);
+          setMessage(hasLocation
+            ? `${data.businessName} connected with ${data.reviewCount || 0} reviews`
+            : `${data.businessName} connected (no GBP location found on this account)`
+          );
+          setTimeout(() => navigate(`/gbp?status=connected&business=${encodeURIComponent(data.businessName || clientLabel)}&noLocation=${hasLocation ? "0" : "1"}`), 2000);
         } else {
           setStatus("error");
           setMessage(data.error || "Connection failed.");
