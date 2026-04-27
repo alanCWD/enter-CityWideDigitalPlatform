@@ -105,7 +105,7 @@ Remember: Return ONLY the JSON object with all files. The business name is "${cl
         Authorization: `Bearer ${aiToken}`,
       },
       body: JSON.stringify({
-        model: "anthropic/claude-sonnet-4-5",
+        model: "anthropic/claude-sonnet-4.5",
         max_tokens: 16000,
         messages: [{ role: "user", content: userPrompt }],
         system: SYSTEM_PROMPT,
