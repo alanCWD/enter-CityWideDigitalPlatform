@@ -1,169 +1,77 @@
-# GBP OAuth Integration — Full Build Plan
+# Agency Command Center — App Builder: Blueprint → Code
 
 ## Context
-The `/gbp` page is currently fully static/mocked. We're building a real Google Business Profile
-OAuth integration so agency staff can connect any client's GBP account, sync live data
-(reviews, posts, hours, NAP), and display it in the dashboard.
+The App Builder currently generates a text **blueprint/spec** via Claude (Step 1). The user wants a **Step 2**: a second AI pass that converts that blueprint into real, deployable React files — viewable in a tabbed code panel and downloadable as a ZIP for use in a new Enter.pro project.
 
 ---
 
-## How the OAuth Flow Works
+## What Changes
+
+### 1. New Edge Function: `app-code-gen`
+**File:** `supabase/functions/app-code-gen/index.ts`
+
+- Input (POST JSON): `{ blueprint, niche, tier, clientName, template }`
+- Calls Claude Sonnet 4.5 (non-streaming) with a strict code-generation system prompt
+- System prompt instructs Claude to return **only a JSON object** where keys = file paths, values = file contents (React + Vite + Tailwind + TypeScript)
+- Files to generate:
+  - `package.json`, `index.html`, `vite.config.ts`, `tailwind.config.ts`
+  - `src/main.tsx`, `src/index.css`, `src/App.tsx`
+  - `src/components/Navbar.tsx`, `src/components/Hero.tsx`
+  - Niche-specific: `Menu.tsx` (restaurant) / `Services.tsx` (contractor) / `Products.tsx` (retail)
+  - `src/components/Reviews.tsx`, `src/components/Contact.tsx`, `src/components/Footer.tsx`
+- Returns: `{ files: Record<string, string> }` or `{ error: string }`
+
+### 2. New Hook: `src/hooks/useCodeGen.ts`
+- `generateCode({ blueprint, niche, tier, clientName, template })` — POST to `app-code-gen`
+- States: `files: Record<string, string> | null`, `isGenerating: boolean`, `error: string | null`
+- Parses the JSON response and stores the file map
+
+### 3. New Component: `src/components/dashboard/CodePanel.tsx`
+Props: `{ files: Record<string, string>, clientName: string }`
+
+- **Tab bar** listing all generated files (sorted: config files first, then src files)
+- **Code viewer** — scrollable `<pre>` block with monospace font matching existing design
+- **"Download ZIP" button** — uses JSZip to bundle all files and trigger download as `{clientName}-site.zip`
+- **"Copy File" button** — copies current tab's content to clipboard
+- **"Open in Enter.pro" button** — copies the blueprint + instructions to clipboard + opens `https://enter.pro` in new tab with a toast: "Blueprint copied! Paste it as your first prompt in the new project."
+
+### 4. Updated `src/pages/dashboard/Builder.tsx`
+After `OutputPanel` renders with `isDone === true`, append a new **"Build Code" section**:
 
 ```
-1. Staff clicks "Connect GBP" in the dashboard
-2. Frontend calls edge fn → gets a Google OAuth URL
-3. Browser opens Google consent screen (user signs in with the client's Google account)
-4. Google redirects to: https://[supabase-project]/functions/v1/gbp-auth-callback?code=...
-5. Edge fn exchanges code for tokens, fetches business info, saves everything to DB
-6. Redirects back to /gbp — page now shows live business data
+┌─────────────────────────────────────────────────────┐
+│  Blueprint Ready                              [Step 2]│
+│  Convert this spec into deployable React code        │
+│                                                       │
+│  [  Generate Code Files  ]  ←  button                │
+└─────────────────────────────────────────────────────┘
 ```
+
+- Button calls `useCodeGen.generateCode({ blueprint: output, niche, tier, clientName, template: selectedTemplate })`
+- While generating: shows a spinner card "Building {clientName} website..."
+- On complete: renders `<CodePanel files={files} clientName={clientName} />`
+
+### 5. Install JSZip
+`jszip` package for client-side ZIP creation.
 
 ---
 
-## Google Cloud Setup (User Must Do First — Instructions in Plan)
-
-1. **Enable APIs** in Google Cloud Console:
-   - "My Business Account Management API"
-   - "My Business Business Information API"
-   
-   (Reviews, posts, and hours are served via the legacy v4 endpoint — no separate API needed)
-
-2. **OAuth Consent Screen** (APIs & Services → OAuth consent screen):
-   - User Type: External
-   - App name: "CityWide Digital"
-   - Scopes: `https://www.googleapis.com/auth/business.manage`
-   - Add test users (your own Google account for testing)
-
-3. **Create OAuth 2.0 Client ID** (APIs & Services → Credentials → + Create Credentials):
-   - Application type: **Web application**
-   - Authorized redirect URI: `https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/functions/v1/gbp-auth-callback`
-
-4. **Store secrets** (two secrets to add):
-   - `GOOGLE_CLIENT_ID`
-   - `GOOGLE_CLIENT_SECRET`
-
----
-
-## Database
-
-### Table: `gbp_connections`
-```sql
-id uuid PK
-client_label text          -- "Acme Plumbing" (agency-assigned nickname)
-google_account_id text     -- GBP account ID from API
-location_id text           -- GBP location resource name
-business_name text         -- synced from GBP
-address text
-phone text
-website text
-category text
-rating numeric
-review_count int
-access_token text
-refresh_token text
-token_expires_at timestamptz
-last_synced_at timestamptz
-created_at timestamptz
-```
-Enable RLS + realtime.
-
-### Table: `gbp_reviews`
-```sql
-id uuid PK
-connection_id uuid FK → gbp_connections.id
-review_id text
-reviewer_name text
-rating int
-comment text
-reply text
-review_time timestamptz
-```
-
-### Table: `gbp_posts`
-```sql
-id uuid PK
-connection_id uuid FK → gbp_connections.id
-post_id text
-summary text
-topic_type text   -- STANDARD | OFFER | EVENT
-media_url text
-create_time timestamptz
-```
-
----
-
-## Edge Functions
-
-### 1. `gbp-auth-url`
-- Input: `{ clientLabel, redirectTo }`
-- Builds Google OAuth URL with scope `business.manage`, encodes `state` (clientLabel + redirectTo)
-- Returns: `{ url: "https://accounts.google.com/o/oauth2/auth?..." }`
-
-### 2. `gbp-auth-callback`
-- Receives: `?code=...&state=...` from Google redirect
-- Exchanges code for `access_token` + `refresh_token`
-- Calls GBP API to get accounts list → locations list → business details
-- Saves to `gbp_connections` table
-- HTTP 302 redirect → `/gbp?connected=true`
-
-### 3. `gbp-sync`
-- Input: `{ connectionId }`
-- Checks if access token is expired → refreshes if needed
-- Fetches: business info, recent reviews, recent posts
-- Upserts into `gbp_reviews` and `gbp_posts` tables
-- Updates `last_synced_at` on the connection record
-- Returns: `{ success: true, reviewCount, postCount }`
-
----
-
-## Frontend
-
-### New: `src/pages/dashboard/GbpCallback.tsx`
-- Route: `/gbp/callback` (handles the OAuth redirect from Google)
-- Shows loading spinner while redirect happens, falls back to navigating to `/gbp`
-
-### Rewrite: `src/pages/dashboard/GBPIntegration.tsx`
-Two states:
-
-**State A — No connections:**
-- Empty state card with "Connect a Business Profile" button
-- Calls `gbp-auth-url` → opens Google OAuth in same tab
-
-**State B — Has connections (list):**
-- Connection cards (one per client) showing: status badge, business name, address, rating
-- "Sync Now" button calls `gbp-sync`
-- "+ Connect Another" button
-- Expandable detail panel per card:
-  - Reviews tab (latest 5 reviews from `gbp_reviews`)
-  - Posts tab (latest 5 posts from `gbp_posts`)
-  - NAP tab (name, address, phone, hours from `gbp_connections`)
-
-### Updated: `src/router.tsx`
-Add `/gbp/callback` route.
-
----
-
-## Files to Create/Modify
-```
-supabase/functions/gbp-auth-url/index.ts      NEW
-supabase/functions/gbp-auth-callback/index.ts NEW
-supabase/functions/gbp-sync/index.ts          NEW
-src/pages/dashboard/GBPIntegration.tsx        REWRITE
-src/pages/dashboard/GbpCallback.tsx           NEW
-src/router.tsx                                ADD /gbp/callback route
-```
-Database migration: creates 3 tables with RLS.
-
----
-
-## Secrets Needed (prompt user to add)
-- `GOOGLE_CLIENT_ID`
-- `GOOGLE_CLIENT_SECRET`
+## Files Modified
+| File | Action |
+|---|---|
+| `supabase/functions/app-code-gen/index.ts` | Create new |
+| `src/hooks/useCodeGen.ts` | Create new |
+| `src/components/dashboard/CodePanel.tsx` | Create new |
+| `src/pages/dashboard/Builder.tsx` | Add Step 2 section below `OutputPanel` |
+| `package.json` | Add `jszip` dependency |
 
 ---
 
 ## Verification
-1. Add secrets → click "Connect GBP" → Google consent screen opens
-2. After approval → redirected to `/gbp?connected=true`
-3. Business info appears on the page
-4. "Sync Now" fetches live reviews + posts
+1. Generate a blueprint for "Mash & Dash" (restaurant, pro tier)
+2. Click "Generate Code Files" — spinner appears, ~15-30s
+3. Code panel appears with tabs: `package.json`, `src/App.tsx`, `src/components/Hero.tsx`, etc.
+4. Switch tabs — each shows the correct file content
+5. Click "Download ZIP" — `Mash-Dash-site.zip` downloads with all files
+6. Unzip and run `pnpm install && pnpm dev` — site loads locally
+7. Click "Open in Enter.pro" — enter.pro opens in new tab, toast confirms clipboard copy
