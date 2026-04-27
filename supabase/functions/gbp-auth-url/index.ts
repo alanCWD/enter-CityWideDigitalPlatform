@@ -17,14 +17,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { clientLabel, origin } = await req.json();
+    const { clientLabel, redirectUri } = await req.json();
 
-    // Redirect URI goes to the FRONTEND callback page (not this edge function)
-    // This allows the frontend to call us back with proper auth headers
-    const redirectUri = `${origin}/gbp/callback`;
+    if (!redirectUri) {
+      return new Response(JSON.stringify({ error: "redirectUri is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Encode state: clientLabel so the callback page can pass it to the exchange function
-    const state = btoa(JSON.stringify({ clientLabel: clientLabel || "New Client", origin }));
+    // Encode state: clientLabel + redirectUri for the token exchange step
+    const state = btoa(JSON.stringify({ clientLabel: clientLabel || "New Client", redirectUri }));
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -37,6 +40,7 @@ Deno.serve(async (req) => {
     });
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+    console.log("Generated auth URL with redirectUri:", redirectUri);
 
     return new Response(JSON.stringify({ url: authUrl, redirectUri }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

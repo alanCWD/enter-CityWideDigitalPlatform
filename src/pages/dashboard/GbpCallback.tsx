@@ -32,8 +32,10 @@ export function GbpCallback() {
       return;
     }
 
-    // Parse client label from state
+    // Parse client label + redirectUri from state
     let clientLabel = "New Client";
+    // The redirectUri must exactly match what was sent to Google in the auth URL
+    const redirectUri = window.location.href.split("?")[0]; // current URL without query params
     try {
       const parsed = JSON.parse(atob(state || ""));
       clientLabel = parsed.clientLabel || clientLabel;
@@ -52,7 +54,7 @@ export function GbpCallback() {
           body: JSON.stringify({
             code,
             clientLabel,
-            origin: window.location.origin,
+            redirectUri, // exact URI registered with Google
           }),
         });
 

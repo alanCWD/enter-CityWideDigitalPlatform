@@ -16,8 +16,8 @@ Deno.serve(async (req) => {
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
 
-    // Now called from frontend with JSON body (not Google redirect)
-    const { code, clientLabel, origin } = await req.json();
+    // Frontend passes: code, clientLabel, and the exact redirectUri used in the auth URL
+    const { code, clientLabel, redirectUri } = await req.json();
 
     if (!code) {
       return new Response(JSON.stringify({ error: "No auth code provided" }), {
@@ -26,9 +26,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    const redirectUri = `${origin}/gbp/callback`;
+    if (!redirectUri) {
+      return new Response(JSON.stringify({ error: "redirectUri is required for token exchange" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    // Exchange code for tokens
+    console.log("Exchanging code with redirectUri:", redirectUri);
+
+    // Exchange code for tokens — redirectUri must exactly match the one used in the auth URL
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -42,10 +49,13 @@ Deno.serve(async (req) => {
     });
 
     const tokens = await tokenRes.json();
-    console.log("Token response:", JSON.stringify({ ...tokens, access_token: tokens.access_token ? "***" : undefined, refresh_token: tokens.refresh_token ? "***" : undefined }));
+    console.log("Token exchange status:", tokenRes.status, tokens.error || "ok");
 
     if (!tokens.access_token) {
-      return new Response(JSON.stringify({ error: "Token exchange failed", detail: tokens.error_description || tokens.error }), {
+      return new Response(JSON.stringify({
+        error: "Token exchange failed",
+        detail: tokens.error_description || tokens.error,
+      }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -61,7 +71,7 @@ Deno.serve(async (req) => {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const accountsData = await accountsRes.json();
-    console.log("Accounts:", JSON.stringify(accountsData));
+    console.log("Accounts count:", accountsData.accounts?.length || 0);
     const accounts = accountsData.accounts || [];
 
     let googleAccountId = null;
@@ -83,7 +93,7 @@ Deno.serve(async (req) => {
         { headers: { Authorization: `Bearer ${accessToken}` } }
       );
       const locationsData = await locationsRes.json();
-      console.log("Locations:", JSON.stringify(locationsData));
+      console.log("Locations count:", locationsData.locations?.length || 0);
       const locations = locationsData.locations || [];
 
       if (locations.length > 0) {
@@ -101,7 +111,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Save to Supabase
+    // Save connection to Supabase
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: connection, error: dbError } = await supabase
       .from("gbp_connections")
@@ -130,7 +140,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Fetch reviews (best effort)
+    // Sync reviews (best effort)
     if (locationId) {
       try {
         const reviewsRes = await fetch(
@@ -152,9 +162,9 @@ Deno.serve(async (req) => {
             }))
           );
         }
-      } catch (e) { console.warn("Reviews fetch failed:", e); }
+      } catch (e) { console.warn("Reviews sync failed:", e); }
 
-      // Fetch posts (best effort)
+      // Sync posts (best effort)
       try {
         const postsRes = await fetch(
           `https://mybusiness.googleapis.com/v4/${locationId}/localPosts`,
@@ -174,7 +184,7 @@ Deno.serve(async (req) => {
             }))
           );
         }
-      } catch (e) { console.warn("Posts fetch failed:", e); }
+      } catch (e) { console.warn("Posts sync failed:", e); }
     }
 
     return new Response(JSON.stringify({

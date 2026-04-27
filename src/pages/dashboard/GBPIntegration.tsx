@@ -76,7 +76,11 @@ function ConnectDialog({ onClose }: { onClose: () => void }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ clientLabel: label.trim(), origin: window.location.origin }),
+        body: JSON.stringify({
+          clientLabel: label.trim(),
+          // Build exact redirect URI: strip /gbp... from current path, append /gbp/callback
+          redirectUri: window.location.origin + window.location.pathname.replace(/\/gbp(\/.*)?$/, "") + "/gbp/callback",
+        }),
       });
       const data = await res.json();
       if (data.url) {
