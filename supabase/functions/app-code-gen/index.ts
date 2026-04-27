@@ -6,14 +6,22 @@ const corsHeaders = {
 const SYSTEM_PROMPT = `You are an expert React developer building production-ready websites for local businesses.
 Given a website blueprint/spec, generate a complete, deployable web app.
 
-CRITICAL: Return ONLY a valid JSON object. No markdown fences, no explanation, no text before or after the JSON.
-The JSON object must have file paths as keys and complete file contents as strings as values.
+OUTPUT FORMAT — CRITICAL:
+Return each file using this EXACT delimiter format. No JSON, no markdown fences, no explanation.
+
+===FILE:path/to/file.ext===
+<file contents here, exactly as they should appear in the file>
+===END===
+
+Repeat for every file. The first line of every file block must be "===FILE:<path>===" and end with "===END===" on its own line.
 
 Generate these exact files:
 - package.json
 - index.html
 - vite.config.ts
 - tailwind.config.ts
+- tsconfig.json
+- postcss.config.js
 - src/main.tsx
 - src/index.css
 - src/App.tsx
@@ -23,25 +31,28 @@ Generate these exact files:
 - src/components/Reviews.tsx
 - src/components/Contact.tsx
 - src/components/Footer.tsx
-- Plus 1-2 niche-specific components (e.g. src/components/Menu.tsx for restaurants, src/components/Services.tsx for contractors, src/components/Products.tsx for retail)
+- 1-2 niche-specific components (Menu.tsx for restaurants, Services.tsx for contractors, Products.tsx for retail)
 
-TECH STACK (use exactly):
+TECH STACK:
 - React 18 + TypeScript
 - Vite 5
-- Tailwind CSS 3 (via CDN in index.html OR configured via tailwind.config.ts)
-- React Router DOM v6 (single page, hash router is fine)
+- Tailwind CSS 3
+- React Router DOM v6 (HashRouter is fine)
 - Lucide React for icons
-- No backend, no API calls — static data only
+- No backend, static data only
 
 DESIGN RULES:
-- Beautiful, modern design with the business's brand colors
-- Mobile-first responsive layout
-- Real placeholder content that matches the business name and niche
-- Smooth CSS transitions and hover effects
-- ALL sections must be complete — no TODO comments, no placeholder components
+- Beautiful, modern, mobile-first responsive design
+- Real placeholder content matching the business name and niche
+- Smooth transitions and hover states
+- ALL components fully implemented — no TODO comments
 
-package.json MUST use these exact dependency versions:
+package.json must use these exact versions:
 {
+  "name": "<slugified-business-name>",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
   "dependencies": {
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -63,7 +74,21 @@ package.json MUST use these exact dependency versions:
     "build": "tsc && vite build",
     "preview": "vite preview"
   }
-}`;
+}
+
+EXAMPLE OUTPUT FORMAT:
+===FILE:package.json===
+{
+  "name": "example",
+  "version": "0.1.0"
+}
+===END===
+===FILE:src/App.tsx===
+import React from 'react';
+export default function App() {
+  return <div>Hello</div>;
+}
+===END===`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -93,7 +118,7 @@ Tier: ${tier || "pro"}
 APP BLUEPRINT:
 ${blueprint}
 
-Return ONLY the JSON object with all files. The business name is "${clientName}" — use it throughout the code.`;
+Use the delimiter format. Business name "${clientName}" must appear throughout the code.`;
 
     const response = await fetch("https://api.enter.pro/code/api/v1/ai/messages", {
       method: "POST",
@@ -103,7 +128,7 @@ Return ONLY the JSON object with all files. The business name is "${clientName}"
       },
       body: JSON.stringify({
         model: "anthropic/claude-sonnet-4.5",
-        max_tokens: 16000,
+        max_tokens: 32000,
         stream: true,
         messages: [{ role: "user", content: userPrompt }],
         system: SYSTEM_PROMPT,
@@ -126,7 +151,6 @@ Return ONLY the JSON object with all files. The business name is "${clientName}"
       return new Response(errorSSE, { status: response.status, headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
-    // Pipe SSE stream directly to frontend
     return new Response(response.body, {
       headers: {
         ...corsHeaders,

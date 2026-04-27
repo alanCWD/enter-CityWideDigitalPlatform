@@ -27,20 +27,19 @@ export function useCodeGen() {
 
     let accumulated = "";
 
-    const parseAccumulatedJson = (raw: string): Record<string, string> | null => {
-      let cleaned = raw.trim();
-      if (cleaned.startsWith("```")) {
-        cleaned = cleaned.replace(/^```[a-z]*\n?/i, "").replace(/\n?```\s*$/, "").trim();
+    const parseDelimitedFiles = (raw: string): Record<string, string> | null => {
+      // Format: ===FILE:path===\n<content>\n===END===
+      // Robust to surrounding markdown fences or text
+      const cleaned = raw.replace(/^```[a-z]*\n?/i, "").replace(/\n?```\s*$/, "");
+      const files: Record<string, string> = {};
+      const regex = /===FILE:([^=]+?)===\s*\n([\s\S]*?)\n===END===/g;
+      let match;
+      while ((match = regex.exec(cleaned)) !== null) {
+        const path = match[1].trim();
+        const content = match[2];
+        if (path) files[path] = content;
       }
-      try {
-        return JSON.parse(cleaned);
-      } catch {
-        const match = cleaned.match(/\{[\s\S]+\}/);
-        if (match) {
-          try { return JSON.parse(match[0]); } catch { return null; }
-        }
-        return null;
-      }
+      return Object.keys(files).length > 0 ? files : null;
     };
 
     try {
@@ -104,11 +103,11 @@ export function useCodeGen() {
           }
 
           if (data.type === "message_stop") {
-            const parsed = parseAccumulatedJson(accumulated);
+            const parsed = parseDelimitedFiles(accumulated);
             if (parsed) {
               setFiles(parsed);
             } else {
-              setError("AI did not return valid JSON. Try again.");
+              setError("AI returned malformed output. Try again.");
             }
             setIsGenerating(false);
             return;
@@ -118,11 +117,11 @@ export function useCodeGen() {
 
       // Stream ended without message_stop — try parsing what we have
       if (accumulated) {
-        const parsed = parseAccumulatedJson(accumulated);
+        const parsed = parseDelimitedFiles(accumulated);
         if (parsed) {
           setFiles(parsed);
         } else {
-          setError("Stream ended unexpectedly with invalid output.");
+          setError("Stream ended unexpectedly with malformed output.");
         }
       } else {
         setError("Stream ended with no output.");
