@@ -178,7 +178,7 @@ export function Builder() {
   const [clientName, setClientName] = useState("");
 
   const { output, isGenerating, error, isDone, generate, cancel, reset } = useAppBuilderAI();
-  const { files, isGenerating: isGeneratingCode, error: codeError, generateCode, resetCode } = useCodeGen();
+  const { files, isGenerating: isGeneratingCode, error: codeError, progress: codeProgress, generateCode, resetCode } = useCodeGen();
 
   const showOutput = isGenerating || isDone || !!error;
   const showStep2 = isDone && !isGenerating;
@@ -521,7 +521,7 @@ export function Builder() {
                   )}
                 >
                   {isGeneratingCode
-                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Building code...</>
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Building... {codeProgress > 0 && <span className="text-[10px] opacity-70">({(codeProgress / 1024).toFixed(1)}KB)</span>}</>
                     : <><Code2 className="w-4 h-4" /> Generate Code Files <ArrowRight className="w-3.5 h-3.5" /></>
                   }
                 </button>

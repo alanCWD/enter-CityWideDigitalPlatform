@@ -36,7 +36,6 @@ TECH STACK (use exactly):
 DESIGN RULES:
 - Beautiful, modern design with the business's brand colors
 - Mobile-first responsive layout
-- Dark or light theme based on niche (restaurants: warm/inviting, contractors: bold/professional, retail: clean/modern)
 - Real placeholder content that matches the business name and niche
 - Smooth CSS transitions and hover effects
 - ALL sections must be complete — no TODO comments, no placeholder components
@@ -74,17 +73,15 @@ Deno.serve(async (req) => {
   try {
     const aiToken = Deno.env.get("AI_API_TOKEN_5831877fc23c");
     if (!aiToken) {
-      return new Response(JSON.stringify({ error: "AI token not configured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const err = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message: "AI token not configured" } })}\n\n`;
+      return new Response(err, { status: 500, headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
     const { blueprint, niche, tier, clientName, template } = await req.json();
 
     if (!blueprint) {
-      return new Response(JSON.stringify({ error: "blueprint is required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const err = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "blueprint is required" } })}\n\n`;
+      return new Response(err, { status: 400, headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
     const userPrompt = `Generate a complete website for:
@@ -96,7 +93,7 @@ Tier: ${tier || "pro"}
 APP BLUEPRINT:
 ${blueprint}
 
-Remember: Return ONLY the JSON object with all files. The business name is "${clientName}" — use it throughout the code.`;
+Return ONLY the JSON object with all files. The business name is "${clientName}" — use it throughout the code.`;
 
     const response = await fetch("https://api.enter.pro/code/api/v1/ai/messages", {
       method: "POST",
@@ -107,53 +104,38 @@ Remember: Return ONLY the JSON object with all files. The business name is "${cl
       body: JSON.stringify({
         model: "anthropic/claude-sonnet-4.5",
         max_tokens: 16000,
+        stream: true,
         messages: [{ role: "user", content: userPrompt }],
         system: SYSTEM_PROMPT,
       }),
     });
 
     if (!response.ok) {
-      const errText = await response.text();
-      return new Response(JSON.stringify({ error: `AI API error: ${response.status}`, detail: errText }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const aiData = await response.json();
-    const rawContent = aiData.content?.[0]?.text || "";
-
-    // Parse JSON — strip any accidental markdown fences
-    let cleaned = rawContent.trim();
-    if (cleaned.startsWith("```")) {
-      cleaned = cleaned.replace(/^```[a-z]*\n?/, "").replace(/\n?```$/, "").trim();
-    }
-
-    let files: Record<string, string>;
-    try {
-      files = JSON.parse(cleaned);
-    } catch {
-      // Attempt to extract JSON object if there's surrounding text
-      const jsonMatch = cleaned.match(/\{[\s\S]+\}/);
-      if (!jsonMatch) {
-        return new Response(JSON.stringify({ error: "AI did not return valid JSON", raw: cleaned.slice(0, 500) }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      const text = await response.text();
+      let errorMessage = "AI service error";
+      let errorCode = "api_error";
+      const dataMatch = text.match(/data: (.+)/);
+      if (dataMatch) {
+        try {
+          const errorData = JSON.parse(dataMatch[1]);
+          errorMessage = errorData.error?.message || errorMessage;
+          errorCode = errorData.error?.type || errorCode;
+        } catch { /* use defaults */ }
       }
-      try {
-        files = JSON.parse(jsonMatch[0]);
-      } catch {
-        return new Response(JSON.stringify({ error: "Failed to parse AI response as JSON", raw: cleaned.slice(0, 500) }), {
-          status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
+      const errorSSE = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: errorCode, message: errorMessage } })}\n\n`;
+      return new Response(errorSSE, { status: response.status, headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
     }
 
-    return new Response(JSON.stringify({ files }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Pipe SSE stream directly to frontend
+    return new Response(response.body, {
+      headers: {
+        ...corsHeaders,
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+      },
     });
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  } catch (error) {
+    const errorSSE = `event: error\ndata: ${JSON.stringify({ type: "error", error: { type: "api_error", message: error.message } })}\n\n`;
+    return new Response(errorSSE, { status: 500, headers: { ...corsHeaders, "Content-Type": "text/event-stream" } });
   }
 });
