@@ -1,37 +1,33 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 Deno.serve(async (req) => {
-  const url = new URL(req.url);
-  const code = url.searchParams.get("code");
-  const state = url.searchParams.get("state");
-  const error = url.searchParams.get("error");
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
-  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
-  const redirectUri = `https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/functions/v1/gbp-auth-callback`;
-
-  // Parse state
-  let clientLabel = "New Client";
-  let returnTo = "/gbp";
-  try {
-    const parsed = JSON.parse(atob(state || ""));
-    clientLabel = parsed.clientLabel || clientLabel;
-    returnTo = parsed.returnTo || returnTo;
-  } catch { /* use defaults */ }
-
-  // Handle OAuth error
-  if (error) {
-    console.error("OAuth error:", error);
-    return Response.redirect(`https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/gbp?error=${encodeURIComponent(error)}`, 302);
-  }
-
-  if (!code) {
-    return Response.redirect(`https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/gbp?error=no_code`, 302);
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
+    const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
+
+    // Now called from frontend with JSON body (not Google redirect)
+    const { code, clientLabel, origin } = await req.json();
+
+    if (!code) {
+      return new Response(JSON.stringify({ error: "No auth code provided" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const redirectUri = `${origin}/gbp/callback`;
+
     // Exchange code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
@@ -46,9 +42,13 @@ Deno.serve(async (req) => {
     });
 
     const tokens = await tokenRes.json();
+    console.log("Token response:", JSON.stringify({ ...tokens, access_token: tokens.access_token ? "***" : undefined, refresh_token: tokens.refresh_token ? "***" : undefined }));
+
     if (!tokens.access_token) {
-      console.error("Token exchange failed:", tokens);
-      return Response.redirect(`https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/gbp?error=token_exchange_failed`, 302);
+      return new Response(JSON.stringify({ error: "Token exchange failed", detail: tokens.error_description || tokens.error }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const accessToken = tokens.access_token;
@@ -61,44 +61,52 @@ Deno.serve(async (req) => {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const accountsData = await accountsRes.json();
+    console.log("Accounts:", JSON.stringify(accountsData));
     const accounts = accountsData.accounts || [];
 
-    if (accounts.length === 0) {
-      return Response.redirect(`https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/gbp?error=no_accounts`, 302);
+    let googleAccountId = null;
+    let locationId = null;
+    let businessName = clientLabel || "New Client";
+    let address = null;
+    let phone = null;
+    let website = null;
+    let category = null;
+
+    if (accounts.length > 0) {
+      const account = accounts[0];
+      const accountName = account.name;
+      googleAccountId = accountName.split("/")[1];
+
+      // Fetch locations
+      const locationsRes = await fetch(
+        `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri,categories`,
+        { headers: { Authorization: `Bearer ${accessToken}` } }
+      );
+      const locationsData = await locationsRes.json();
+      console.log("Locations:", JSON.stringify(locationsData));
+      const locations = locationsData.locations || [];
+
+      if (locations.length > 0) {
+        const location = locations[0];
+        locationId = location.name;
+        businessName = location.title || clientLabel;
+        address = [
+          location.storefrontAddress?.addressLines?.[0],
+          location.storefrontAddress?.locality,
+          location.storefrontAddress?.administrativeArea,
+        ].filter(Boolean).join(", ") || null;
+        phone = location.phoneNumbers?.primaryPhone || null;
+        website = location.websiteUri || null;
+        category = location.categories?.primaryCategory?.displayName || null;
+      }
     }
-
-    // Use first account
-    const account = accounts[0];
-    const accountName = account.name; // e.g. "accounts/123456789"
-    const googleAccountId = accountName.split("/")[1];
-
-    // Fetch locations
-    const locationsRes = await fetch(
-      `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri,categories`,
-      { headers: { Authorization: `Bearer ${accessToken}` } }
-    );
-    const locationsData = await locationsRes.json();
-    const locations = locationsData.locations || [];
-
-    // Use first location
-    const location = locations[0] || {};
-    const locationId = location.name || "";
-    const businessName = location.title || clientLabel;
-    const address = [
-      location.storefrontAddress?.addressLines?.[0],
-      location.storefrontAddress?.locality,
-      location.storefrontAddress?.administrativeArea,
-    ].filter(Boolean).join(", ");
-    const phone = location.phoneNumbers?.primaryPhone || "";
-    const website = location.websiteUri || "";
-    const category = location.categories?.primaryCategory?.displayName || "";
 
     // Save to Supabase
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: connection, error: dbError } = await supabase
       .from("gbp_connections")
       .insert({
-        client_label: clientLabel,
+        client_label: clientLabel || "New Client",
         google_account_id: googleAccountId,
         location_id: locationId,
         business_name: businessName,
@@ -116,10 +124,13 @@ Deno.serve(async (req) => {
 
     if (dbError) {
       console.error("DB error:", dbError);
-      return Response.redirect(`https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/gbp?error=db_error`, 302);
+      return new Response(JSON.stringify({ error: "Database error", detail: dbError.message }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // Fetch and store reviews
+    // Fetch reviews (best effort)
     if (locationId) {
       try {
         const reviewsRes = await fetch(
@@ -128,7 +139,6 @@ Deno.serve(async (req) => {
         );
         const reviewsData = await reviewsRes.json();
         const reviews = reviewsData.reviews || [];
-
         if (reviews.length > 0) {
           await supabase.from("gbp_reviews").insert(
             reviews.slice(0, 20).map((r: { reviewId: string; reviewer?: { displayName?: string }; starRating?: string; comment?: string; reviewReply?: { comment?: string }; createTime?: string }) => ({
@@ -142,11 +152,9 @@ Deno.serve(async (req) => {
             }))
           );
         }
-      } catch (e) {
-        console.warn("Reviews fetch failed:", e);
-      }
+      } catch (e) { console.warn("Reviews fetch failed:", e); }
 
-      // Fetch and store posts
+      // Fetch posts (best effort)
       try {
         const postsRes = await fetch(
           `https://mybusiness.googleapis.com/v4/${locationId}/localPosts`,
@@ -154,7 +162,6 @@ Deno.serve(async (req) => {
         );
         const postsData = await postsRes.json();
         const posts = postsData.localPosts || [];
-
         if (posts.length > 0) {
           await supabase.from("gbp_posts").insert(
             posts.slice(0, 10).map((p: { name: string; summary?: string; topicType?: string; media?: Array<{ googleUrl?: string }>; createTime?: string }) => ({
@@ -167,18 +174,21 @@ Deno.serve(async (req) => {
             }))
           );
         }
-      } catch (e) {
-        console.warn("Posts fetch failed:", e);
-      }
+      } catch (e) { console.warn("Posts fetch failed:", e); }
     }
 
-    // Redirect back to app with success
-    return Response.redirect(
-      `https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/gbp?status=connected&business=${encodeURIComponent(businessName)}`,
-      302
-    );
+    return new Response(JSON.stringify({
+      success: true,
+      connectionId: connection.id,
+      businessName,
+    }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   } catch (err) {
     console.error("Callback error:", err);
-    return Response.redirect(`https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/gbp?error=unexpected`, 302);
+    return new Response(JSON.stringify({ error: err.message }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

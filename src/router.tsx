@@ -7,6 +7,7 @@ import NotFound from "./pages/NotFound";
 import { Dashboard } from "./pages/dashboard/Dashboard";
 import { Builder } from "./pages/dashboard/Builder";
 import { GBPIntegration } from "./pages/dashboard/GBPIntegration";
+import { GbpCallback } from "./pages/dashboard/GbpCallback";
 import { RestaurantHub } from "./pages/dashboard/RestaurantHub";
 import { Analytics } from "./pages/dashboard/Analytics";
 import { Leads } from "./pages/dashboard/Leads";
@@ -53,6 +54,11 @@ export const routers = [
     path: "/gbp",
     name: "gbp",
     element: <GBPIntegration />,
+  },
+  {
+    path: "/gbp/callback",
+    name: "gbp-callback",
+    element: <GbpCallback />,
   },
   {
     path: "/restaurant",

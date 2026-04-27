@@ -76,7 +76,7 @@ function ConnectDialog({ onClose }: { onClose: () => void }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
         },
-        body: JSON.stringify({ clientLabel: label.trim(), returnTo: "/gbp" }),
+        body: JSON.stringify({ clientLabel: label.trim(), origin: window.location.origin }),
       });
       const data = await res.json();
       if (data.url) {

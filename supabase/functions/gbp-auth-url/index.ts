@@ -17,12 +17,14 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { clientLabel, returnTo } = await req.json();
+    const { clientLabel, origin } = await req.json();
 
-    // Encode state: clientLabel + return URL for post-auth redirect
-    const state = btoa(JSON.stringify({ clientLabel: clientLabel || "New Client", returnTo: returnTo || "/gbp" }));
+    // Redirect URI goes to the FRONTEND callback page (not this edge function)
+    // This allows the frontend to call us back with proper auth headers
+    const redirectUri = `${origin}/gbp/callback`;
 
-    const redirectUri = `https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/functions/v1/gbp-auth-callback`;
+    // Encode state: clientLabel so the callback page can pass it to the exchange function
+    const state = btoa(JSON.stringify({ clientLabel: clientLabel || "New Client", origin }));
 
     const params = new URLSearchParams({
       client_id: clientId,
@@ -36,7 +38,7 @@ Deno.serve(async (req) => {
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 
-    return new Response(JSON.stringify({ url: authUrl }), {
+    return new Response(JSON.stringify({ url: authUrl, redirectUri }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
