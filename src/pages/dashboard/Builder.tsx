@@ -19,11 +19,15 @@ import {
   RotateCcw,
   Sparkles,
   User,
+  Code2,
+  ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { CodePanel } from "@/components/dashboard/CodePanel";
 import { useAppBuilderAI } from "@/hooks/useAppBuilderAI";
+import { useCodeGen } from "@/hooks/useCodeGen";
 
 type CreationMode = "template" | "copy";
 type Tier = "basic" | "pro" | "enterprise";
@@ -174,17 +178,37 @@ export function Builder() {
   const [clientName, setClientName] = useState("");
 
   const { output, isGenerating, error, isDone, generate, cancel, reset } = useAppBuilderAI();
+  const { files, isGenerating: isGeneratingCode, error: codeError, generateCode, resetCode } = useCodeGen();
 
   const showOutput = isGenerating || isDone || !!error;
+  const showStep2 = isDone && !isGenerating;
+  const showCodePanel = !!files;
+
+  const handleGenerateCode = () => {
+    generateCode({
+      blueprint: output,
+      niche: mode === "copy" ? "Business" : (nicheMap[selectedTemplate] ?? "Restaurant"),
+      tier,
+      clientName,
+      template: selectedTemplate,
+    });
+  };
+
+  // Reset code when blueprint is reset
+  const handleReset = () => {
+    reset();
+    resetCode();
+  };
+
+  const nicheMap: Record<string, string> = {
+    restaurant: "Restaurant",
+    contractor: "Contractor / Home Services",
+    retail: "Retail Store",
+  };
 
   const handleGenerate = () => {
-    const nicheMap: Record<string, string> = {
-      restaurant: "Restaurant",
-      contractor: "Contractor / Home Services",
-      retail: "Retail Store",
-    };
     generate({
-      niche: mode === "copy" ? "Business" : nicheMap[selectedTemplate],
+      niche: mode === "copy" ? "Business" : (nicheMap[selectedTemplate] ?? "Restaurant"),
       tier,
       mode,
       gbp: useGbp,
@@ -454,8 +478,62 @@ export function Builder() {
               error={error}
               isDone={isDone}
               onCancel={cancel}
-              onReset={reset}
+              onReset={handleReset}
             />
+          )}
+        </AnimatePresence>
+
+        {/* Step 2: Generate Code */}
+        <AnimatePresence>
+          {showStep2 && !showCodePanel && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="bg-[#111E33] rounded-xl border border-[#0078D7]/25 p-5 flex items-center justify-between gap-4 flex-wrap"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#0078D7]/15 flex items-center justify-center flex-shrink-0">
+                  <Code2 className="w-5 h-5 text-[#0078D7]" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-sm font-bold text-[#EEF1FA]">Blueprint Ready</span>
+                    <span className="text-[9px] font-bold bg-[#22C55E]/15 text-[#22C55E] px-1.5 py-0.5 rounded-full">Step 2</span>
+                  </div>
+                  <p className="text-xs text-[rgba(238,241,250,0.5)]">
+                    Convert this spec into real, downloadable React code for {clientName || "your client"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {codeError && (
+                  <span className="text-xs text-red-400">{codeError}</span>
+                )}
+                <button
+                  onClick={handleGenerateCode}
+                  disabled={isGeneratingCode}
+                  className={cn(
+                    "flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl transition-all",
+                    isGeneratingCode
+                      ? "bg-white/10 text-[rgba(238,241,250,0.4)] cursor-not-allowed"
+                      : "bg-[linear-gradient(90deg,#0078D7,#00447A)] text-white hover:opacity-90 shadow-[0_4px_12px_rgba(0,120,215,0.3)]"
+                  )}
+                >
+                  {isGeneratingCode
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Building code...</>
+                    : <><Code2 className="w-4 h-4" /> Generate Code Files <ArrowRight className="w-3.5 h-3.5" /></>
+                  }
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Code Panel */}
+        <AnimatePresence>
+          {showCodePanel && files && (
+            <CodePanel files={files} clientName={clientName || "website"} blueprint={output} />
           )}
         </AnimatePresence>
       </div>
