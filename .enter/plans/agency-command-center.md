@@ -25,8 +25,8 @@ OAuth integration so agency staff can connect any client's GBP account, sync liv
 1. **Enable APIs** in Google Cloud Console:
    - "My Business Account Management API"
    - "My Business Business Information API"
-   - "My Business Reviews API"
-   - "My Business Verifications API"
+   
+   (Reviews, posts, and hours are served via the legacy v4 endpoint — no separate API needed)
 
 2. **OAuth Consent Screen** (APIs & Services → OAuth consent screen):
    - User Type: External
