@@ -1,0 +1,55 @@
+-- GBP Connections table
+create table if not exists gbp_connections (
+  id uuid primary key default gen_random_uuid(),
+  client_label text not null,
+  google_account_id text,
+  location_id text,
+  business_name text,
+  address text,
+  phone text,
+  website text,
+  category text,
+  rating numeric,
+  review_count int default 0,
+  access_token text,
+  refresh_token text,
+  token_expires_at timestamptz,
+  last_synced_at timestamptz,
+  created_at timestamptz default now()
+);
+
+alter table gbp_connections enable row level security;
+create policy "Allow all for now" on gbp_connections for all using (true) with check (true);
+
+alter publication supabase_realtime add table gbp_connections;
+
+-- GBP Reviews table
+create table if not exists gbp_reviews (
+  id uuid primary key default gen_random_uuid(),
+  connection_id uuid references gbp_connections(id) on delete cascade,
+  review_id text unique,
+  reviewer_name text,
+  rating int,
+  comment text,
+  reply text,
+  review_time timestamptz,
+  created_at timestamptz default now()
+);
+
+alter table gbp_reviews enable row level security;
+create policy "Allow all for now" on gbp_reviews for all using (true) with check (true);
+
+-- GBP Posts table
+create table if not exists gbp_posts (
+  id uuid primary key default gen_random_uuid(),
+  connection_id uuid references gbp_connections(id) on delete cascade,
+  post_id text unique,
+  summary text,
+  topic_type text,
+  media_url text,
+  post_time timestamptz,
+  created_at timestamptz default now()
+);
+
+alter table gbp_posts enable row level security;
+create policy "Allow all for now" on gbp_posts for all using (true) with check (true);

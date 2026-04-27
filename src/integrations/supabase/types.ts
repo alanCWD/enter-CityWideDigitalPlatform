@@ -3109,7 +3109,146 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      gbp_connections: {
+        Row: {
+          access_token: string | null
+          address: string | null
+          business_name: string | null
+          category: string | null
+          client_label: string
+          created_at: string | null
+          google_account_id: string | null
+          id: string
+          last_synced_at: string | null
+          location_id: string | null
+          phone: string | null
+          rating: number | null
+          refresh_token: string | null
+          review_count: number | null
+          token_expires_at: string | null
+          website: string | null
+        }
+        Insert: {
+          access_token?: string | null
+          address?: string | null
+          business_name?: string | null
+          category?: string | null
+          client_label: string
+          created_at?: string | null
+          google_account_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          location_id?: string | null
+          phone?: string | null
+          rating?: number | null
+          refresh_token?: string | null
+          review_count?: number | null
+          token_expires_at?: string | null
+          website?: string | null
+        }
+        Update: {
+          access_token?: string | null
+          address?: string | null
+          business_name?: string | null
+          category?: string | null
+          client_label?: string
+          created_at?: string | null
+          google_account_id?: string | null
+          id?: string
+          last_synced_at?: string | null
+          location_id?: string | null
+          phone?: string | null
+          rating?: number | null
+          refresh_token?: string | null
+          review_count?: number | null
+          token_expires_at?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      gbp_posts: {
+        Row: {
+          connection_id: string | null
+          created_at: string | null
+          id: string
+          media_url: string | null
+          post_id: string | null
+          post_time: string | null
+          summary: string | null
+          topic_type: string | null
+        }
+        Insert: {
+          connection_id?: string | null
+          created_at?: string | null
+          id?: string
+          media_url?: string | null
+          post_id?: string | null
+          post_time?: string | null
+          summary?: string | null
+          topic_type?: string | null
+        }
+        Update: {
+          connection_id?: string | null
+          created_at?: string | null
+          id?: string
+          media_url?: string | null
+          post_id?: string | null
+          post_time?: string | null
+          summary?: string | null
+          topic_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gbp_posts_connection_id_fkey"
+            columns: ["connection_id"]
+            referencedRelation: "gbp_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gbp_reviews: {
+        Row: {
+          comment: string | null
+          connection_id: string | null
+          created_at: string | null
+          id: string
+          rating: number | null
+          reply: string | null
+          review_id: string | null
+          review_time: string | null
+          reviewer_name: string | null
+        }
+        Insert: {
+          comment?: string | null
+          connection_id?: string | null
+          created_at?: string | null
+          id?: string
+          rating?: number | null
+          reply?: string | null
+          review_id?: string | null
+          review_time?: string | null
+          reviewer_name?: string | null
+        }
+        Update: {
+          comment?: string | null
+          connection_id?: string | null
+          created_at?: string | null
+          id?: string
+          rating?: number | null
+          reply?: string | null
+          review_id?: string | null
+          review_time?: string | null
+          reviewer_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gbp_reviews_connection_id_fkey"
+            columns: ["connection_id"]
+            referencedRelation: "gbp_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
