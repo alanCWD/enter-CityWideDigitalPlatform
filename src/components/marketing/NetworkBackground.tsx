@@ -522,12 +522,12 @@ export default function NetworkBackground() {
           continue;
         }
         const haloMul = h.tier === "star" ? 5 : 4;
-        const haloAlpha = h.tier === "star" ? 0.22 : 0.18;
+        const haloAlpha = h.tier === "star" ? 0.11 : 0.09;
         ctx.fillStyle = `rgba(${HUB_COLOR}, ${haloAlpha})`;
         ctx.beginPath();
         ctx.arc(hp.sx, hp.sy, r * haloMul, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = `rgba(${HUB_COLOR}, 0.95)`;
+        ctx.fillStyle = `rgba(${HUB_COLOR}, 0.475)`;
         ctx.beginPath();
         ctx.arc(hp.sx, hp.sy, r, 0, Math.PI * 2);
         ctx.fill();
