@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, CheckCircle, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import NetworkBackground from "@/components/marketing/NetworkBackground";
 
 const trustPoints = [
   "No manual updates ever",
@@ -12,6 +13,9 @@ const trustPoints = [
 export default function HeroSection() {
   return (
     <section className="relative overflow-hidden bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_55%,#00447A_100%)] pt-20 pb-24 md:pt-28 md:pb-32">
+      {/* Scroll-driven network animation */}
+      <NetworkBackground />
+
       {/* Background glow effects */}
       <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-[#0078D7]/10 rounded-full blur-[100px] pointer-events-none" />
       <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-[#00447A]/20 rounded-full blur-[80px] pointer-events-none" />
