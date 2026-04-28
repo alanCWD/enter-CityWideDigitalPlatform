@@ -1,19 +1,29 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Business-presence ecosystem animation.
+ * Business-presence "nebula" animation.
  *
- * Visual model:
- *  - Hubs = businesses. A few are "fully optimized" (many long connections),
- *    most are sparse (a handful of short ones).
- *  - Each connection represents a service channel: Google, social, citations,
- *    reviews, directories, blog, maps, etc. Each channel type has its own colour.
- *  - Lines DRAW themselves as the user scrolls and remain visible once drawn.
- *  - All hubs are tied together by sparse "ecosystem" lines so the whole canvas
- *    feels like one connected network.
- *  - Cursor proximity gently brightens nearby lines (subtle, no movement).
+ * - Many thin lines of varied colours form a soft, layered cloud.
+ * - At any moment: ~70% of connections are already fully drawn (stable),
+ *   the remaining ~30% are slowly extending toward their endpoint.
+ * - When a line completes, after a brief pause it picks a NEW endpoint
+ *   and starts retracting / re-extending, so the nebula is always alive.
+ * - Scroll progress accelerates the formation rate (more lines bloom faster
+ *   the further you scroll into the section).
+ * - Cursor proximity gently brightens lines passing near it.
  */
-type ChannelKey = "google" | "social" | "reviews" | "citations" | "directory" | "maps" | "blog" | "ads";
+type ChannelKey =
+  | "google"
+  | "social"
+  | "reviews"
+  | "citations"
+  | "directory"
+  | "maps"
+  | "blog"
+  | "ads"
+  | "email"
+  | "video";
+
 const CHANNEL_COLORS: Record<ChannelKey, string> = {
   google: "234, 179, 8", // amber
   social: "168, 85, 247", // violet
@@ -23,6 +33,8 @@ const CHANNEL_COLORS: Record<ChannelKey, string> = {
   maps: "239, 68, 68", // red
   blog: "20, 184, 166", // teal
   ads: "249, 115, 22", // orange
+  email: "129, 140, 248", // indigo
+  video: "244, 114, 182", // rose
 };
 const CHANNEL_KEYS = Object.keys(CHANNEL_COLORS) as ChannelKey[];
 
@@ -30,42 +42,53 @@ type Hub = {
   x: number;
   y: number;
   radius: number;
-  /** 0..1 — how optimized. Drives connection count + reach. */
-  optimization: number;
+  optimization: number; // 0..1
 };
 
-type Satellite = {
-  x: number;
-  y: number;
-  radius: number;
+type Phase = "extending" | "stable" | "retracting" | "paused";
+
+type Connection = {
   hubIndex: number;
+  /** Endpoint position (recomputed each cycle). */
+  ex: number;
+  ey: number;
   channel: ChannelKey;
-  /** Order in which this connection draws as scroll advances (0..1). */
-  drawAt: number;
+  /** Line thickness. */
+  width: number;
+  /** Base alpha. */
+  alpha: number;
+  /** 0..1 progress along the line. */
+  t: number;
+  phase: Phase;
+  /** Speed of extension/retraction in units/frame. Very slow. */
+  speed: number;
+  /** Frames until the next phase change (used in stable/paused). */
+  hold: number;
 };
 
-type EcosystemLink = {
+type EcoLink = {
   fromHub: number;
   toHub: number;
   channel: ChannelKey;
-  drawAt: number;
+  t: number;
+  phase: Phase;
+  width: number;
+  speed: number;
+  hold: number;
+  alpha: number;
 };
 
-const HUB_COUNT = 8;
+const HUB_COUNT = 9;
 const HUB_COLOR = "255, 255, 255";
 
 export default function NetworkBackground() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const hubsRef = useRef<Hub[]>([]);
-  const satellitesRef = useRef<Satellite[]>([]);
-  const ecosystemRef = useRef<EcosystemLink[]>([]);
+  const connectionsRef = useRef<Connection[]>([]);
+  const ecoLinksRef = useRef<EcoLink[]>([]);
   const scrollProgressRef = useRef(0);
-  const mouseRef = useRef<{ x: number; y: number; active: boolean }>({
-    x: -9999,
-    y: -9999,
-    active: false,
-  });
+  const mouseRef = useRef({ x: -9999, y: -9999, active: false });
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -79,7 +102,23 @@ export default function NetworkBackground() {
     let height = 0;
     let dpr = window.devicePixelRatio || 1;
 
+    const randChannel = (): ChannelKey =>
+      CHANNEL_KEYS[Math.floor(Math.random() * CHANNEL_KEYS.length)];
+
+    /** Pick a fresh endpoint around a hub. */
+    const pickEndpoint = (hub: Hub) => {
+      const minReach = 60;
+      const maxReach = 140 + hub.optimization * 260;
+      const angle = Math.random() * Math.PI * 2;
+      const dist = minReach + Math.random() * (maxReach - minReach);
+      return {
+        x: hub.x + Math.cos(angle) * dist,
+        y: hub.y + Math.sin(angle) * dist,
+      };
+    };
+
     const seed = () => {
+      // ---- Hubs ----
       const hubs: Hub[] = [];
       const cols = Math.ceil(Math.sqrt(HUB_COUNT));
       const rows = Math.ceil(HUB_COUNT / cols);
@@ -89,20 +128,19 @@ export default function NetworkBackground() {
           if (placed >= HUB_COUNT) break;
           const cellW = width / cols;
           const cellH = height / rows;
-          const cx = cellW * (c + 0.5) + (Math.random() - 0.5) * cellW * 0.45;
-          const cy = cellH * (r + 0.5) + (Math.random() - 0.5) * cellH * 0.45;
-          // Mostly sparse, a few highly optimized ones
+          const cx = cellW * (c + 0.5) + (Math.random() - 0.5) * cellW * 0.5;
+          const cy = cellH * (r + 0.5) + (Math.random() - 0.5) * cellH * 0.5;
           const roll = Math.random();
           const optimization =
-            roll > 0.75
-              ? 0.85 + Math.random() * 0.15 // ~25% are stars
-              : roll > 0.5
-                ? 0.4 + Math.random() * 0.25
-                : 0.1 + Math.random() * 0.2;
+            roll > 0.7
+              ? 0.85 + Math.random() * 0.15
+              : roll > 0.45
+                ? 0.45 + Math.random() * 0.25
+                : 0.1 + Math.random() * 0.25;
           hubs.push({
             x: cx,
             y: cy,
-            radius: 2 + optimization * 2.5,
+            radius: 1.8 + optimization * 2.5,
             optimization,
           });
           placed++;
@@ -110,70 +148,84 @@ export default function NetworkBackground() {
       }
       hubsRef.current = hubs;
 
-      // Build satellites for each hub
-      const sats: Satellite[] = [];
+      // ---- Per-hub connections (lots, mostly thin) ----
+      const conns: Connection[] = [];
       hubs.forEach((hub, i) => {
-        // Number of connections scales with optimization. Stars get up to 16.
-        const count = Math.round(3 + hub.optimization * 14);
-        // Reach (distance) also scales with optimization.
-        const minReach = 60;
-        const maxReach = 120 + hub.optimization * 220;
+        // Optimized hubs get many more channels
+        const count = Math.round(8 + hub.optimization * 30);
         for (let s = 0; s < count; s++) {
-          const angle = (s / count) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
-          const dist = minReach + Math.random() * (maxReach - minReach);
-          const x = hub.x + Math.cos(angle) * dist;
-          const y = hub.y + Math.sin(angle) * dist;
-          const channel = CHANNEL_KEYS[Math.floor(Math.random() * CHANNEL_KEYS.length)];
-          sats.push({
-            x,
-            y,
-            radius: 0.9 + Math.random() * 0.8,
+          const ep = pickEndpoint(hub);
+          // 70% start already stable (drawn), 30% start mid-extension
+          const startStable = Math.random() < 0.7;
+          // Mostly thin lines; a few slightly thicker
+          const thicknessRoll = Math.random();
+          const lineWidth =
+            thicknessRoll > 0.92
+              ? 0.9
+              : thicknessRoll > 0.7
+                ? 0.55
+                : 0.35;
+          conns.push({
             hubIndex: i,
-            channel,
-            // Each hub spreads its draws across a portion of the scroll range.
-            // Stars start drawing earlier so they bloom first.
-            drawAt: 0.05 + Math.random() * 0.85,
+            ex: ep.x,
+            ey: ep.y,
+            channel: randChannel(),
+            width: lineWidth,
+            alpha: 0.35 + Math.random() * 0.3,
+            t: startStable ? 1 : Math.random() * 0.7,
+            phase: startStable ? "stable" : "extending",
+            // Very slow growth: ~6-12 seconds end-to-end
+            speed: 0.0015 + Math.random() * 0.0025,
+            hold: startStable ? 60 + Math.floor(Math.random() * 600) : 0,
           });
         }
       });
-      satellitesRef.current = sats;
+      connectionsRef.current = conns;
 
-      // Ecosystem links: connect all hubs together via a few cross-lines.
-      // Use a "ring + a couple of chords" pattern for organic feel.
-      const links: EcosystemLink[] = [];
+      // ---- Ecosystem links between hubs ----
+      const eco: EcoLink[] = [];
       const order = hubs.map((_, i) => i);
-      // Sort hubs by angle around centre for a natural ring
-      const cx = width / 2;
-      const cy = height / 2;
+      const cx0 = width / 2;
+      const cy0 = height / 2;
       order.sort((a, b) => {
-        const aa = Math.atan2(hubs[a].y - cy, hubs[a].x - cx);
-        const bb = Math.atan2(hubs[b].y - cy, hubs[b].x - cx);
+        const aa = Math.atan2(hubs[a].y - cy0, hubs[a].x - cx0);
+        const bb = Math.atan2(hubs[b].y - cy0, hubs[b].x - cx0);
         return aa - bb;
       });
       for (let i = 0; i < order.length; i++) {
-        const from = order[i];
-        const to = order[(i + 1) % order.length];
-        links.push({
-          fromHub: from,
-          toHub: to,
+        const startStable = Math.random() < 0.7;
+        eco.push({
+          fromHub: order[i],
+          toHub: order[(i + 1) % order.length],
           channel: CHANNEL_KEYS[i % CHANNEL_KEYS.length],
-          drawAt: 0.55 + (i / order.length) * 0.35,
+          width: 0.5,
+          alpha: 0.25,
+          t: startStable ? 1 : Math.random() * 0.6,
+          phase: startStable ? "stable" : "extending",
+          speed: 0.001 + Math.random() * 0.0015,
+          hold: startStable ? 100 + Math.floor(Math.random() * 600) : 0,
         });
       }
-      // A few long chords for richness
-      const chordCount = Math.max(2, Math.floor(hubs.length / 3));
+      // Some long chord crossings
+      const chordCount = Math.max(3, Math.floor(hubs.length / 2));
       for (let k = 0; k < chordCount; k++) {
         const a = Math.floor(Math.random() * hubs.length);
         let b = Math.floor(Math.random() * hubs.length);
         if (b === a) b = (b + 1) % hubs.length;
-        links.push({
+        const startStable = Math.random() < 0.6;
+        eco.push({
           fromHub: a,
           toHub: b,
-          channel: CHANNEL_KEYS[(k + 3) % CHANNEL_KEYS.length],
-          drawAt: 0.7 + Math.random() * 0.25,
+          channel: CHANNEL_KEYS[(k + 4) % CHANNEL_KEYS.length],
+          width: 0.4,
+          alpha: 0.2,
+          t: startStable ? 1 : Math.random() * 0.5,
+          phase: startStable ? "stable" : "extending",
+          speed: 0.0008 + Math.random() * 0.0012,
+          hold: startStable ? 100 + Math.floor(Math.random() * 600) : 0,
         });
       }
-      ecosystemRef.current = links;
+      ecoLinksRef.current = eco;
     };
 
     const resize = () => {
@@ -213,91 +265,139 @@ export default function NetworkBackground() {
       mouseRef.current.active = false;
     };
 
-    /**
-     * Compute a 0..1 "draw amount" for an item given the current scroll progress.
-     * Each item draws over a small window starting at its drawAt value.
-     */
-    const drawAmount = (drawAt: number, progress: number, window = 0.18) => {
-      if (progress <= drawAt) return 0;
-      if (progress >= drawAt + window) return 1;
-      const t = (progress - drawAt) / window;
-      // Smoothstep for nicer "drawing" easing
-      return t * t * (3 - 2 * t);
-    };
+    /** Smooth easing for line drawing. */
+    const ease = (t: number) => t * t * (3 - 2 * t);
 
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
       const hubs = hubsRef.current;
-      const sats = satellitesRef.current;
-      const links = ecosystemRef.current;
+      const conns = connectionsRef.current;
+      const eco = ecoLinksRef.current;
       const progress = scrollProgressRef.current;
       const mouse = mouseRef.current;
 
-      // Always show a small base reveal so it doesn't start completely empty
-      const effectiveProgress = Math.max(progress, 0.08);
+      // Scroll multiplier on speed (faster animation as user scrolls deeper)
+      const speedMul = 0.6 + progress * 1.8;
 
-      // ---- Ecosystem lines (under everything else) ----
-      for (const l of links) {
-        const amt = drawAmount(l.drawAt, effectiveProgress, 0.22);
-        if (amt <= 0) continue;
+      // ---- Eco links (under) ----
+      for (const l of eco) {
+        // Phase machine
+        if (l.phase === "extending") {
+          l.t += l.speed * speedMul;
+          if (l.t >= 1) {
+            l.t = 1;
+            l.phase = "stable";
+            l.hold = 240 + Math.floor(Math.random() * 600);
+          }
+        } else if (l.phase === "stable") {
+          l.hold -= 1;
+          if (l.hold <= 0) {
+            l.phase = "retracting";
+          }
+        } else if (l.phase === "retracting") {
+          l.t -= l.speed * speedMul * 1.2;
+          if (l.t <= 0) {
+            l.t = 0;
+            l.phase = "paused";
+            l.hold = 30 + Math.floor(Math.random() * 120);
+          }
+        } else {
+          // paused
+          l.hold -= 1;
+          if (l.hold <= 0) {
+            // Maybe re-route to a different hub for organic re-wiring
+            if (Math.random() < 0.4) {
+              let nb = Math.floor(Math.random() * hubs.length);
+              if (nb === l.fromHub) nb = (nb + 1) % hubs.length;
+              l.toHub = nb;
+              l.channel = randChannel();
+            }
+            l.phase = "extending";
+          }
+        }
+
+        if (l.t <= 0) continue;
         const a = hubs[l.fromHub];
         const b = hubs[l.toHub];
         if (!a || !b) continue;
-        const ex = a.x + (b.x - a.x) * amt;
-        const ey = a.y + (b.y - a.y) * amt;
-        // Cursor brighten
+        const drawT = ease(l.t);
+        const ex = a.x + (b.x - a.x) * drawT;
+        const ey = a.y + (b.y - a.y) * drawT;
+
         let boost = 0;
         if (mouse.active) {
-          const mx = (a.x + ex) / 2;
-          const my = (a.y + ey) / 2;
-          const md = Math.hypot(mouse.x - mx, mouse.y - my);
+          const md = Math.hypot(mouse.x - (a.x + ex) / 2, mouse.y - (a.y + ey) / 2);
           if (md < 180) boost = (1 - md / 180) * 0.25;
         }
-        ctx.strokeStyle = `rgba(${CHANNEL_COLORS[l.channel]}, ${(0.18 + boost).toFixed(3)})`;
-        ctx.lineWidth = 0.6;
+        ctx.strokeStyle = `rgba(${CHANNEL_COLORS[l.channel]}, ${(l.alpha + boost).toFixed(3)})`;
+        ctx.lineWidth = l.width;
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
         ctx.lineTo(ex, ey);
         ctx.stroke();
       }
 
-      // ---- Hub-to-satellite connections ----
-      for (const s of sats) {
-        const amt = drawAmount(s.drawAt, effectiveProgress, 0.16);
-        if (amt <= 0) continue;
-        const hub = hubs[s.hubIndex];
+      // ---- Hub-to-satellite connections (the bulk of the nebula) ----
+      for (const c of conns) {
+        const hub = hubs[c.hubIndex];
         if (!hub) continue;
-        const ex = hub.x + (s.x - hub.x) * amt;
-        const ey = hub.y + (s.y - hub.y) * amt;
 
-        // Cursor proximity glow
-        let boost = 0;
-        if (mouse.active) {
-          const mx = (hub.x + ex) / 2;
-          const my = (hub.y + ey) / 2;
-          const md = Math.hypot(mouse.x - mx, mouse.y - my);
-          if (md < 140) boost = (1 - md / 140) * 0.4;
+        // Phase machine
+        if (c.phase === "extending") {
+          c.t += c.speed * speedMul;
+          if (c.t >= 1) {
+            c.t = 1;
+            c.phase = "stable";
+            c.hold = 180 + Math.floor(Math.random() * 800);
+          }
+        } else if (c.phase === "stable") {
+          c.hold -= 1;
+          if (c.hold <= 0) {
+            c.phase = "retracting";
+          }
+        } else if (c.phase === "retracting") {
+          c.t -= c.speed * speedMul * 1.2;
+          if (c.t <= 0) {
+            c.t = 0;
+            c.phase = "paused";
+            c.hold = 20 + Math.floor(Math.random() * 100);
+          }
+        } else {
+          c.hold -= 1;
+          if (c.hold <= 0) {
+            // Re-aim: new endpoint, sometimes new channel
+            const ep = pickEndpoint(hub);
+            c.ex = ep.x;
+            c.ey = ep.y;
+            if (Math.random() < 0.3) c.channel = randChannel();
+            c.phase = "extending";
+          }
         }
 
-        const baseAlpha = 0.55;
-        ctx.strokeStyle = `rgba(${CHANNEL_COLORS[s.channel]}, ${(baseAlpha + boost).toFixed(3)})`;
-        ctx.lineWidth = 0.7;
+        if (c.t <= 0) continue;
+        const drawT = ease(c.t);
+        const ex = hub.x + (c.ex - hub.x) * drawT;
+        const ey = hub.y + (c.ey - hub.y) * drawT;
+
+        let boost = 0;
+        if (mouse.active) {
+          const md = Math.hypot(mouse.x - (hub.x + ex) / 2, mouse.y - (hub.y + ey) / 2);
+          if (md < 130) boost = (1 - md / 130) * 0.4;
+        }
+
+        ctx.strokeStyle = `rgba(${CHANNEL_COLORS[c.channel]}, ${(c.alpha + boost).toFixed(3)})`;
+        ctx.lineWidth = c.width;
         ctx.beginPath();
         ctx.moveTo(hub.x, hub.y);
         ctx.lineTo(ex, ey);
         ctx.stroke();
 
-        // Once mostly drawn, render the satellite endpoint dot in its channel colour
-        if (amt > 0.85) {
-          const dotAlpha = (amt - 0.85) / 0.15;
-          ctx.fillStyle = `rgba(${CHANNEL_COLORS[s.channel]}, ${(0.95 * dotAlpha).toFixed(3)})`;
+        // Endpoint dot once line is at full reach
+        if (c.t > 0.95 && c.phase !== "retracting") {
+          const dotAlpha = (c.t - 0.95) / 0.05;
+          ctx.fillStyle = `rgba(${CHANNEL_COLORS[c.channel]}, ${(0.85 * dotAlpha).toFixed(3)})`;
           ctx.beginPath();
-          ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
-          ctx.fill();
-          // Soft halo
-          ctx.fillStyle = `rgba(${CHANNEL_COLORS[s.channel]}, ${(0.18 * dotAlpha).toFixed(3)})`;
-          ctx.beginPath();
-          ctx.arc(s.x, s.y, s.radius * 3, 0, Math.PI * 2);
+          ctx.arc(c.ex, c.ey, 1.1, 0, Math.PI * 2);
           ctx.fill();
         }
       }
