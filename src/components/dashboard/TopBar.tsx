@@ -1,5 +1,6 @@
-import { Bell, Search, ExternalLink } from "lucide-react";
+import { Bell, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
+import { ClientSearch } from "./ClientSearch";
 
 interface TopBarProps {
   title: string;
@@ -16,11 +17,8 @@ export function TopBar({ title, subtitle, action }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Search */}
-        <div className="hidden sm:flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-[rgba(238,241,250,0.4)] w-52">
-          <Search className="w-3.5 h-3.5 flex-shrink-0" />
-          <span className="text-xs">Search clients...</span>
-        </div>
+        {/* GBP Client Search */}
+        <ClientSearch />
 
         {/* Notifications */}
         <button className="relative p-2 rounded-lg bg-white/5 border border-white/10 text-[rgba(238,241,250,0.6)] hover:text-[#EEF1FA] hover:bg-white/10 transition-colors">
