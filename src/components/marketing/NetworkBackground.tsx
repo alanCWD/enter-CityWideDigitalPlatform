@@ -41,17 +41,22 @@ const CHANNEL_KEYS = Object.keys(CHANNEL_COLORS) as ChannelKey[];
 type Hub = {
   x: number;
   y: number;
+  /** Original (un-magnetized) position, used to ease back when cursor leaves. */
+  baseX: number;
+  baseY: number;
   radius: number;
   optimization: number; // 0..1
+  /** prospect = barely any presence, client = active customer, star = fully optimized. */
+  tier: "prospect" | "client" | "star";
 };
 
 type Phase = "extending" | "stable" | "retracting" | "paused";
 
 type Connection = {
   hubIndex: number;
-  /** Endpoint position (recomputed each cycle). */
-  ex: number;
-  ey: number;
+  /** Endpoint as OFFSET from the hub centre (so it moves with the hub). */
+  ox: number;
+  oy: number;
   channel: ChannelKey;
   /** Line thickness. */
   width: number;
@@ -78,7 +83,7 @@ type EcoLink = {
   alpha: number;
 };
 
-const HUB_COUNT = 9;
+const HUB_COUNT = 27;
 const HUB_COLOR = "255, 255, 255";
 
 export default function NetworkBackground() {
@@ -105,15 +110,15 @@ export default function NetworkBackground() {
     const randChannel = (): ChannelKey =>
       CHANNEL_KEYS[Math.floor(Math.random() * CHANNEL_KEYS.length)];
 
-    /** Pick a fresh endpoint around a hub. */
+    /** Pick a fresh endpoint OFFSET around a hub. */
     const pickEndpoint = (hub: Hub) => {
       const minReach = 60;
       const maxReach = 140 + hub.optimization * 260;
       const angle = Math.random() * Math.PI * 2;
       const dist = minReach + Math.random() * (maxReach - minReach);
       return {
-        x: hub.x + Math.cos(angle) * dist,
-        y: hub.y + Math.sin(angle) * dist,
+        ox: Math.cos(angle) * dist,
+        oy: Math.sin(angle) * dist,
       };
     };
 
@@ -128,20 +133,37 @@ export default function NetworkBackground() {
           if (placed >= HUB_COUNT) break;
           const cellW = width / cols;
           const cellH = height / rows;
-          const cx = cellW * (c + 0.5) + (Math.random() - 0.5) * cellW * 0.5;
-          const cy = cellH * (r + 0.5) + (Math.random() - 0.5) * cellH * 0.5;
+          const cx = cellW * (c + 0.5) + (Math.random() - 0.5) * cellW * 0.65;
+          const cy = cellH * (r + 0.5) + (Math.random() - 0.5) * cellH * 0.65;
+          // Distribution:
+          //   ~55% prospects (small, 0-2 lines)
+          //   ~30% clients (medium, several lines)
+          //   ~15% stars (large, fully optimized, lots of long lines)
           const roll = Math.random();
-          const optimization =
-            roll > 0.7
-              ? 0.85 + Math.random() * 0.15
-              : roll > 0.45
-                ? 0.45 + Math.random() * 0.25
-                : 0.1 + Math.random() * 0.25;
+          let tier: Hub["tier"];
+          let optimization: number;
+          let radius: number;
+          if (roll > 0.85) {
+            tier = "star";
+            optimization = 0.85 + Math.random() * 0.15;
+            radius = 3.2 + Math.random() * 1.5;
+          } else if (roll > 0.55) {
+            tier = "client";
+            optimization = 0.4 + Math.random() * 0.3;
+            radius = 1.8 + Math.random() * 1.0;
+          } else {
+            tier = "prospect";
+            optimization = Math.random() * 0.12; // very low
+            radius = 0.6 + Math.random() * 0.6; // tiny
+          }
           hubs.push({
             x: cx,
             y: cy,
-            radius: 1.8 + optimization * 2.5,
+            baseX: cx,
+            baseY: cy,
+            radius,
             optimization,
+            tier,
           });
           placed++;
         }
@@ -151,13 +173,18 @@ export default function NetworkBackground() {
       // ---- Per-hub connections (lots, mostly thin) ----
       const conns: Connection[] = [];
       hubs.forEach((hub, i) => {
-        // Optimized hubs get many more channels
-        const count = Math.round(8 + hub.optimization * 30);
+        // Prospects: 0-2 lines. Clients: several. Stars: many.
+        let count: number;
+        if (hub.tier === "prospect") {
+          count = Math.random() < 0.5 ? 0 : Math.floor(Math.random() * 3); // 0, 1 or 2
+        } else if (hub.tier === "client") {
+          count = Math.round(5 + hub.optimization * 12);
+        } else {
+          count = Math.round(18 + hub.optimization * 28);
+        }
         for (let s = 0; s < count; s++) {
           const ep = pickEndpoint(hub);
-          // 70% start already stable (drawn), 30% start mid-extension
           const startStable = Math.random() < 0.7;
-          // Mostly thin lines; a few slightly thicker
           const thicknessRoll = Math.random();
           const lineWidth =
             thicknessRoll > 0.92
@@ -167,14 +194,13 @@ export default function NetworkBackground() {
                 : 0.35;
           conns.push({
             hubIndex: i,
-            ex: ep.x,
-            ey: ep.y,
+            ox: ep.ox,
+            oy: ep.oy,
             channel: randChannel(),
             width: lineWidth,
             alpha: 0.35 + Math.random() * 0.3,
             t: startStable ? 1 : Math.random() * 0.7,
             phase: startStable ? "stable" : "extending",
-            // Very slow growth: ~6-12 seconds end-to-end
             speed: 0.0015 + Math.random() * 0.0025,
             hold: startStable ? 60 + Math.floor(Math.random() * 600) : 0,
           });
@@ -182,9 +208,11 @@ export default function NetworkBackground() {
       });
       connectionsRef.current = conns;
 
-      // ---- Ecosystem links between hubs ----
+      // ---- Ecosystem links between hubs (only between non-prospects) ----
       const eco: EcoLink[] = [];
-      const order = hubs.map((_, i) => i);
+      const order = hubs
+        .map((_, i) => i)
+        .filter((i) => hubs[i].tier !== "prospect");
       const cx0 = width / 2;
       const cy0 = height / 2;
       order.sort((a, b) => {
@@ -206,12 +234,16 @@ export default function NetworkBackground() {
           hold: startStable ? 100 + Math.floor(Math.random() * 600) : 0,
         });
       }
-      // Some long chord crossings
-      const chordCount = Math.max(3, Math.floor(hubs.length / 2));
+      // Some long chord crossings (between non-prospects)
+      const candidates = hubs
+        .map((_, i) => i)
+        .filter((i) => hubs[i].tier !== "prospect");
+      const chordCount = Math.max(3, Math.floor(candidates.length / 2));
       for (let k = 0; k < chordCount; k++) {
-        const a = Math.floor(Math.random() * hubs.length);
-        let b = Math.floor(Math.random() * hubs.length);
-        if (b === a) b = (b + 1) % hubs.length;
+        if (candidates.length < 2) break;
+        const a = candidates[Math.floor(Math.random() * candidates.length)];
+        let b = candidates[Math.floor(Math.random() * candidates.length)];
+        if (b === a) b = candidates[(candidates.indexOf(a) + 1) % candidates.length];
         const startStable = Math.random() < 0.6;
         eco.push({
           fromHub: a,
@@ -278,6 +310,27 @@ export default function NetworkBackground() {
 
       // Scroll multiplier on speed (faster animation as user scrolls deeper)
       const speedMul = 0.6 + progress * 1.8;
+
+      // ---- Cursor magnetism: pull hubs toward cursor, ease back when away ----
+      const MAG_RADIUS = 220;
+      for (const h of hubs) {
+        let tx = h.baseX;
+        let ty = h.baseY;
+        if (mouse.active) {
+          const dx = mouse.x - h.baseX;
+          const dy = mouse.y - h.baseY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < MAG_RADIUS && dist > 0.001) {
+            // Smaller hubs (prospects) react more (lighter mass), stars are heavier
+            const mass = h.tier === "prospect" ? 0.4 : h.tier === "client" ? 0.7 : 1.1;
+            const pull = ((1 - dist / MAG_RADIUS) * 50) / mass;
+            tx = h.baseX + (dx / dist) * pull;
+            ty = h.baseY + (dy / dist) * pull;
+          }
+        }
+        h.x += (tx - h.x) * 0.08;
+        h.y += (ty - h.y) * 0.08;
+      }
 
       // ---- Eco links (under) ----
       for (const l of eco) {
@@ -367,8 +420,8 @@ export default function NetworkBackground() {
           if (c.hold <= 0) {
             // Re-aim: new endpoint, sometimes new channel
             const ep = pickEndpoint(hub);
-            c.ex = ep.x;
-            c.ey = ep.y;
+            c.ox = ep.ox;
+            c.oy = ep.oy;
             if (Math.random() < 0.3) c.channel = randChannel();
             c.phase = "extending";
           }
@@ -376,8 +429,11 @@ export default function NetworkBackground() {
 
         if (c.t <= 0) continue;
         const drawT = ease(c.t);
-        const ex = hub.x + (c.ex - hub.x) * drawT;
-        const ey = hub.y + (c.ey - hub.y) * drawT;
+        // Endpoint travels with the hub (offset stays fixed relative to hub)
+        const endX = hub.x + c.ox;
+        const endY = hub.y + c.oy;
+        const ex = hub.x + (endX - hub.x) * drawT;
+        const ey = hub.y + (endY - hub.y) * drawT;
 
         let boost = 0;
         if (mouse.active) {
@@ -397,18 +453,22 @@ export default function NetworkBackground() {
           const dotAlpha = (c.t - 0.95) / 0.05;
           ctx.fillStyle = `rgba(${CHANNEL_COLORS[c.channel]}, ${(0.85 * dotAlpha).toFixed(3)})`;
           ctx.beginPath();
-          ctx.arc(c.ex, c.ey, 1.1, 0, Math.PI * 2);
+          ctx.arc(endX, endY, 1.1, 0, Math.PI * 2);
           ctx.fill();
         }
       }
 
       // ---- Hubs on top ----
       for (const h of hubs) {
-        ctx.fillStyle = `rgba(${HUB_COLOR}, 0.18)`;
+        // Prospects: just a tiny dim point. Clients: normal. Stars: bigger glow.
+        const haloMul = h.tier === "prospect" ? 2 : h.tier === "star" ? 5 : 4;
+        const haloAlpha = h.tier === "prospect" ? 0.06 : h.tier === "star" ? 0.22 : 0.18;
+        const coreAlpha = h.tier === "prospect" ? 0.55 : 0.95;
+        ctx.fillStyle = `rgba(${HUB_COLOR}, ${haloAlpha})`;
         ctx.beginPath();
-        ctx.arc(h.x, h.y, h.radius * 4, 0, Math.PI * 2);
+        ctx.arc(h.x, h.y, h.radius * haloMul, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = `rgba(${HUB_COLOR}, 0.95)`;
+        ctx.fillStyle = `rgba(${HUB_COLOR}, ${coreAlpha})`;
         ctx.beginPath();
         ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
         ctx.fill();
