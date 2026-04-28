@@ -83,7 +83,7 @@ type EcoLink = {
   alpha: number;
 };
 
-const HUB_COUNT = 27;
+const HUB_COUNT = 270;
 const HUB_COLOR = "255, 255, 255";
 
 export default function NetworkBackground() {
@@ -124,59 +124,94 @@ export default function NetworkBackground() {
 
     const seed = () => {
       // ---- Hubs ----
+      // Distribution:
+      //   90% prospects (tiny, very faint, "far away" — barely visible specks)
+      //   ~7% clients (medium hubs with several lines)
+      //   ~3% stars (fully optimized — many long bright connections)
+      // We scatter prospects randomly across the canvas (no grid, since there are many).
+      // Clients and stars use a coarser grid so they remain spatially well-separated.
       const hubs: Hub[] = [];
-      const cols = Math.ceil(Math.sqrt(HUB_COUNT));
-      const rows = Math.ceil(HUB_COUNT / cols);
+
+      const starCount = Math.max(3, Math.round(HUB_COUNT * 0.03));
+      const clientCount = Math.max(6, Math.round(HUB_COUNT * 0.07));
+      const prospectCount = HUB_COUNT - starCount - clientCount;
+
+      // Clients + stars on a grid for nice spread
+      const featuredCount = starCount + clientCount;
+      const cols = Math.ceil(Math.sqrt(featuredCount));
+      const rows = Math.ceil(featuredCount / cols);
+      const featured: { x: number; y: number; tier: "star" | "client" }[] = [];
       let placed = 0;
+      // Decide which grid cells hold stars vs clients (interleaved randomly)
+      const tiers: ("star" | "client")[] = [
+        ...Array(starCount).fill("star"),
+        ...Array(clientCount).fill("client"),
+      ];
+      // Fisher-Yates shuffle
+      for (let i = tiers.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [tiers[i], tiers[j]] = [tiers[j], tiers[i]];
+      }
       for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (placed >= HUB_COUNT) break;
+        for (let cidx = 0; cidx < cols; cidx++) {
+          if (placed >= featuredCount) break;
           const cellW = width / cols;
           const cellH = height / rows;
-          const cx = cellW * (c + 0.5) + (Math.random() - 0.5) * cellW * 0.65;
-          const cy = cellH * (r + 0.5) + (Math.random() - 0.5) * cellH * 0.65;
-          // Distribution:
-          //   ~55% prospects (small, 0-2 lines)
-          //   ~30% clients (medium, several lines)
-          //   ~15% stars (large, fully optimized, lots of long lines)
-          const roll = Math.random();
-          let tier: Hub["tier"];
-          let optimization: number;
-          let radius: number;
-          if (roll > 0.85) {
-            tier = "star";
-            optimization = 0.85 + Math.random() * 0.15;
-            radius = 3.2 + Math.random() * 1.5;
-          } else if (roll > 0.55) {
-            tier = "client";
-            optimization = 0.4 + Math.random() * 0.3;
-            radius = 1.8 + Math.random() * 1.0;
-          } else {
-            tier = "prospect";
-            optimization = Math.random() * 0.12; // very low
-            radius = 0.6 + Math.random() * 0.6; // tiny
-          }
-          hubs.push({
-            x: cx,
-            y: cy,
-            baseX: cx,
-            baseY: cy,
-            radius,
-            optimization,
-            tier,
-          });
+          const cx = cellW * (cidx + 0.5) + (Math.random() - 0.5) * cellW * 0.5;
+          const cy = cellH * (r + 0.5) + (Math.random() - 0.5) * cellH * 0.5;
+          featured.push({ x: cx, y: cy, tier: tiers[placed] });
           placed++;
         }
       }
+
+      // Push featured hubs first
+      for (const f of featured) {
+        let optimization: number;
+        let radius: number;
+        if (f.tier === "star") {
+          optimization = 0.85 + Math.random() * 0.15;
+          radius = 3.2 + Math.random() * 1.5;
+        } else {
+          optimization = 0.4 + Math.random() * 0.3;
+          radius = 1.8 + Math.random() * 1.0;
+        }
+        hubs.push({
+          x: f.x,
+          y: f.y,
+          baseX: f.x,
+          baseY: f.y,
+          radius,
+          optimization,
+          tier: f.tier,
+        });
+      }
+
+      // Prospects: scattered randomly, very tiny, very faint
+      for (let p = 0; p < prospectCount; p++) {
+        const cx = Math.random() * width;
+        const cy = Math.random() * height;
+        hubs.push({
+          x: cx,
+          y: cy,
+          baseX: cx,
+          baseY: cy,
+          // Tiny — feels distant. 60% are sub-pixel-ish points.
+          radius: 0.25 + Math.random() * 0.55,
+          optimization: Math.random() * 0.08,
+          tier: "prospect",
+        });
+      }
       hubsRef.current = hubs;
 
-      // ---- Per-hub connections (lots, mostly thin) ----
+      // ---- Per-hub connections ----
       const conns: Connection[] = [];
       hubs.forEach((hub, i) => {
-        // Prospects: 0-2 lines. Clients: several. Stars: many.
         let count: number;
         if (hub.tier === "prospect") {
-          count = Math.random() < 0.5 ? 0 : Math.floor(Math.random() * 3); // 0, 1 or 2
+          // Most prospects have NO lines at all (truly dormant)
+          // ~12% have 1 faint short line
+          const r = Math.random();
+          count = r < 0.88 ? 0 : 1;
         } else if (hub.tier === "client") {
           count = Math.round(5 + hub.optimization * 12);
         } else {
@@ -192,13 +227,18 @@ export default function NetworkBackground() {
               : thicknessRoll > 0.7
                 ? 0.55
                 : 0.35;
+          // Prospects' rare lines are extra faint
+          const baseAlpha =
+            hub.tier === "prospect"
+              ? 0.08 + Math.random() * 0.07
+              : 0.35 + Math.random() * 0.3;
           conns.push({
             hubIndex: i,
             ox: ep.ox,
             oy: ep.oy,
             channel: randChannel(),
-            width: lineWidth,
-            alpha: 0.35 + Math.random() * 0.3,
+            width: hub.tier === "prospect" ? 0.3 : lineWidth,
+            alpha: baseAlpha,
             t: startStable ? 1 : Math.random() * 0.7,
             phase: startStable ? "stable" : "extending",
             speed: 0.0015 + Math.random() * 0.0025,
@@ -460,15 +500,21 @@ export default function NetworkBackground() {
 
       // ---- Hubs on top ----
       for (const h of hubs) {
-        // Prospects: just a tiny dim point. Clients: normal. Stars: bigger glow.
-        const haloMul = h.tier === "prospect" ? 2 : h.tier === "star" ? 5 : 4;
-        const haloAlpha = h.tier === "prospect" ? 0.06 : h.tier === "star" ? 0.22 : 0.18;
-        const coreAlpha = h.tier === "prospect" ? 0.55 : 0.95;
+        if (h.tier === "prospect") {
+          // Very faint, distant — no halo, just a tiny dim speck
+          ctx.fillStyle = `rgba(${HUB_COLOR}, 0.22)`;
+          ctx.beginPath();
+          ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
+          ctx.fill();
+          continue;
+        }
+        const haloMul = h.tier === "star" ? 5 : 4;
+        const haloAlpha = h.tier === "star" ? 0.22 : 0.18;
         ctx.fillStyle = `rgba(${HUB_COLOR}, ${haloAlpha})`;
         ctx.beginPath();
         ctx.arc(h.x, h.y, h.radius * haloMul, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = `rgba(${HUB_COLOR}, ${coreAlpha})`;
+        ctx.fillStyle = `rgba(${HUB_COLOR}, 0.95)`;
         ctx.beginPath();
         ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
         ctx.fill();
