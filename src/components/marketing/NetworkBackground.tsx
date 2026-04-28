@@ -3,14 +3,17 @@ import { useEffect, useRef } from "react";
 /**
  * Business-presence "nebula" animation.
  *
- * - Many thin lines of varied colours form a soft, layered cloud.
- * - At any moment: ~70% of connections are already fully drawn (stable),
- *   the remaining ~30% are slowly extending toward their endpoint.
- * - When a line completes, after a brief pause it picks a NEW endpoint
- *   and starts retracting / re-extending, so the nebula is always alive.
- * - Scroll progress accelerates the formation rate (more lines bloom faster
- *   the further you scroll into the section).
- * - Cursor proximity gently brightens lines passing near it.
+ * Now rendered in pseudo-3D:
+ *  - Every hub has a fixed (x, y, z) position in space — they NEVER move
+ *    (businesses are like stars).
+ *  - The camera (viewing angle) rotates around the nebula based on:
+ *      * scroll progress  -> tilts up/down (X-axis rotation)
+ *      * cursor X         -> spins left/right (Y-axis rotation)
+ *      * cursor Y         -> additional tilt (X-axis nudge)
+ *  - This lets the user see the same nebula from different angles.
+ *  - Lines still extend / retract / re-route over time (the "alive" feel).
+ *  - Cursor proximity gently brightens lines passing near the cursor in
+ *    screen space.
  */
 type ChannelKey =
   | "google"
@@ -25,28 +28,26 @@ type ChannelKey =
   | "video";
 
 const CHANNEL_COLORS: Record<ChannelKey, string> = {
-  google: "234, 179, 8", // amber
-  social: "168, 85, 247", // violet
-  reviews: "34, 197, 94", // green
-  citations: "14, 165, 233", // sky
-  directory: "236, 72, 153", // pink
-  maps: "239, 68, 68", // red
-  blog: "20, 184, 166", // teal
-  ads: "249, 115, 22", // orange
-  email: "129, 140, 248", // indigo
-  video: "244, 114, 182", // rose
+  google: "234, 179, 8",
+  social: "168, 85, 247",
+  reviews: "34, 197, 94",
+  citations: "14, 165, 233",
+  directory: "236, 72, 153",
+  maps: "239, 68, 68",
+  blog: "20, 184, 166",
+  ads: "249, 115, 22",
+  email: "129, 140, 248",
+  video: "244, 114, 182",
 };
 const CHANNEL_KEYS = Object.keys(CHANNEL_COLORS) as ChannelKey[];
 
 type Hub = {
+  /** Fixed world-space position (centred around origin). */
   x: number;
   y: number;
-  /** Original (un-magnetized) position, used to ease back when cursor leaves. */
-  baseX: number;
-  baseY: number;
+  z: number;
   radius: number;
-  optimization: number; // 0..1
-  /** prospect = barely any presence, client = active customer, star = fully optimized. */
+  optimization: number;
   tier: "prospect" | "client" | "star";
 };
 
@@ -54,20 +55,16 @@ type Phase = "extending" | "stable" | "retracting" | "paused";
 
 type Connection = {
   hubIndex: number;
-  /** Endpoint as OFFSET from the hub centre (so it moves with the hub). */
+  /** Endpoint offset in 3D from the hub centre. */
   ox: number;
   oy: number;
+  oz: number;
   channel: ChannelKey;
-  /** Line thickness. */
   width: number;
-  /** Base alpha. */
   alpha: number;
-  /** 0..1 progress along the line. */
   t: number;
   phase: Phase;
-  /** Speed of extension/retraction in units/frame. Very slow. */
   speed: number;
-  /** Frames until the next phase change (used in stable/paused). */
   hold: number;
 };
 
@@ -93,7 +90,10 @@ export default function NetworkBackground() {
   const connectionsRef = useRef<Connection[]>([]);
   const ecoLinksRef = useRef<EcoLink[]>([]);
   const scrollProgressRef = useRef(0);
-  const mouseRef = useRef({ x: -9999, y: -9999, active: false });
+  /** Normalised cursor position (-1..1) relative to viewport centre. */
+  const cursorRef = useRef({ nx: 0, ny: 0, sx: -9999, sy: -9999, active: false });
+  /** Smoothed camera angles. */
+  const camRef = useRef({ rotX: 0, rotY: 0 });
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -106,96 +106,86 @@ export default function NetworkBackground() {
     let width = 0;
     let height = 0;
     let dpr = window.devicePixelRatio || 1;
+    /** Z distance from camera to nebula centre — affects perspective strength. */
+    const CAMERA_DIST = 900;
+    /** Half-extents of world space (cube the hubs live in). */
+    let worldW = 0;
+    let worldH = 0;
+    const worldD = 320; // depth half-extent
 
     const randChannel = (): ChannelKey =>
       CHANNEL_KEYS[Math.floor(Math.random() * CHANNEL_KEYS.length)];
 
-    /** Pick a fresh endpoint OFFSET around a hub. */
+    /** Pick a fresh endpoint OFFSET around a hub, in 3D. */
     const pickEndpoint = (hub: Hub) => {
       const minReach = 60;
       const maxReach = 140 + hub.optimization * 260;
-      const angle = Math.random() * Math.PI * 2;
-      const dist = minReach + Math.random() * (maxReach - minReach);
+      // Random direction on a sphere
+      const u = Math.random() * 2 - 1; // cos(theta)
+      const phi = Math.random() * Math.PI * 2;
+      const r = minReach + Math.random() * (maxReach - minReach);
+      const sinTheta = Math.sqrt(1 - u * u);
       return {
-        ox: Math.cos(angle) * dist,
-        oy: Math.sin(angle) * dist,
+        ox: r * sinTheta * Math.cos(phi),
+        oy: r * sinTheta * Math.sin(phi),
+        oz: r * u * 0.6, // slightly flattened so the nebula reads as a disc
       };
     };
 
     const seed = () => {
-      // ---- Hubs ----
-      // Distribution:
-      //   90% prospects (tiny, very faint, "far away" — barely visible specks)
-      //   ~7% clients (medium hubs with several lines)
-      //   ~3% stars (fully optimized — many long bright connections)
-      // We scatter prospects randomly across the canvas (no grid, since there are many).
-      // Clients and stars use a coarser grid so they remain spatially well-separated.
+      worldW = width / 2;
+      worldH = height / 2;
       const hubs: Hub[] = [];
 
       const starCount = Math.max(3, Math.round(HUB_COUNT * 0.03));
       const clientCount = Math.max(6, Math.round(HUB_COUNT * 0.07));
       const prospectCount = HUB_COUNT - starCount - clientCount;
 
-      // Clients + stars on a grid for nice spread
+      // Featured hubs: spread on a coarse 3D-ish grid (random z)
       const featuredCount = starCount + clientCount;
       const cols = Math.ceil(Math.sqrt(featuredCount));
       const rows = Math.ceil(featuredCount / cols);
-      const featured: { x: number; y: number; tier: "star" | "client" }[] = [];
-      let placed = 0;
-      // Decide which grid cells hold stars vs clients (interleaved randomly)
       const tiers: ("star" | "client")[] = [
         ...Array(starCount).fill("star"),
         ...Array(clientCount).fill("client"),
       ];
-      // Fisher-Yates shuffle
       for (let i = tiers.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [tiers[i], tiers[j]] = [tiers[j], tiers[i]];
       }
+      let placed = 0;
       for (let r = 0; r < rows; r++) {
         for (let cidx = 0; cidx < cols; cidx++) {
           if (placed >= featuredCount) break;
           const cellW = width / cols;
           const cellH = height / rows;
-          const cx = cellW * (cidx + 0.5) + (Math.random() - 0.5) * cellW * 0.5;
-          const cy = cellH * (r + 0.5) + (Math.random() - 0.5) * cellH * 0.5;
-          featured.push({ x: cx, y: cy, tier: tiers[placed] });
+          const cx = cellW * (cidx + 0.5) - worldW + (Math.random() - 0.5) * cellW * 0.5;
+          const cy = cellH * (r + 0.5) - worldH + (Math.random() - 0.5) * cellH * 0.5;
+          const cz = (Math.random() * 2 - 1) * worldD * 0.6;
+          const tier = tiers[placed];
+          let optimization: number;
+          let radius: number;
+          if (tier === "star") {
+            optimization = 0.85 + Math.random() * 0.15;
+            radius = 3.2 + Math.random() * 1.5;
+          } else {
+            optimization = 0.4 + Math.random() * 0.3;
+            radius = 1.8 + Math.random() * 1.0;
+          }
+          hubs.push({ x: cx, y: cy, z: cz, radius, optimization, tier });
           placed++;
         }
       }
 
-      // Push featured hubs first
-      for (const f of featured) {
-        let optimization: number;
-        let radius: number;
-        if (f.tier === "star") {
-          optimization = 0.85 + Math.random() * 0.15;
-          radius = 3.2 + Math.random() * 1.5;
-        } else {
-          optimization = 0.4 + Math.random() * 0.3;
-          radius = 1.8 + Math.random() * 1.0;
-        }
-        hubs.push({
-          x: f.x,
-          y: f.y,
-          baseX: f.x,
-          baseY: f.y,
-          radius,
-          optimization,
-          tier: f.tier,
-        });
-      }
-
-      // Prospects: scattered randomly, very tiny, very faint
+      // Prospects: scattered randomly through the whole 3D volume
       for (let p = 0; p < prospectCount; p++) {
-        const cx = Math.random() * width;
-        const cy = Math.random() * height;
+        const cx = (Math.random() - 0.5) * width;
+        const cy = (Math.random() - 0.5) * height;
+        const cz = (Math.random() * 2 - 1) * worldD;
         hubs.push({
           x: cx,
           y: cy,
-          baseX: cx,
-          baseY: cy,
-          // Tiny — feels distant. 60% are sub-pixel-ish points.
+          z: cz,
           radius: 0.25 + Math.random() * 0.55,
           optimization: Math.random() * 0.08,
           tier: "prospect",
@@ -208,10 +198,7 @@ export default function NetworkBackground() {
       hubs.forEach((hub, i) => {
         let count: number;
         if (hub.tier === "prospect") {
-          // Most prospects have NO lines at all (truly dormant)
-          // ~12% have 1 faint short line
-          const r = Math.random();
-          count = r < 0.88 ? 0 : 1;
+          count = Math.random() < 0.88 ? 0 : 1;
         } else if (hub.tier === "client") {
           count = Math.round(5 + hub.optimization * 12);
         } else {
@@ -222,12 +209,7 @@ export default function NetworkBackground() {
           const startStable = Math.random() < 0.7;
           const thicknessRoll = Math.random();
           const lineWidth =
-            thicknessRoll > 0.92
-              ? 0.9
-              : thicknessRoll > 0.7
-                ? 0.55
-                : 0.35;
-          // Prospects' rare lines are extra faint
+            thicknessRoll > 0.92 ? 0.9 : thicknessRoll > 0.7 ? 0.55 : 0.35;
           const baseAlpha =
             hub.tier === "prospect"
               ? 0.08 + Math.random() * 0.07
@@ -236,6 +218,7 @@ export default function NetworkBackground() {
             hubIndex: i,
             ox: ep.ox,
             oy: ep.oy,
+            oz: ep.oz,
             channel: randChannel(),
             width: hub.tier === "prospect" ? 0.3 : lineWidth,
             alpha: baseAlpha,
@@ -248,18 +231,10 @@ export default function NetworkBackground() {
       });
       connectionsRef.current = conns;
 
-      // ---- Ecosystem links between hubs (only between non-prospects) ----
+      // ---- Ecosystem links (only between non-prospects) ----
       const eco: EcoLink[] = [];
-      const order = hubs
-        .map((_, i) => i)
-        .filter((i) => hubs[i].tier !== "prospect");
-      const cx0 = width / 2;
-      const cy0 = height / 2;
-      order.sort((a, b) => {
-        const aa = Math.atan2(hubs[a].y - cy0, hubs[a].x - cx0);
-        const bb = Math.atan2(hubs[b].y - cy0, hubs[b].x - cx0);
-        return aa - bb;
-      });
+      const order = hubs.map((_, i) => i).filter((i) => hubs[i].tier !== "prospect");
+      order.sort((a, b) => Math.atan2(hubs[a].y, hubs[a].x) - Math.atan2(hubs[b].y, hubs[b].x));
       for (let i = 0; i < order.length; i++) {
         const startStable = Math.random() < 0.7;
         eco.push({
@@ -274,10 +249,7 @@ export default function NetworkBackground() {
           hold: startStable ? 100 + Math.floor(Math.random() * 600) : 0,
         });
       }
-      // Some long chord crossings (between non-prospects)
-      const candidates = hubs
-        .map((_, i) => i)
-        .filter((i) => hubs[i].tier !== "prospect");
+      const candidates = order.slice();
       const chordCount = Math.max(3, Math.floor(candidates.length / 2));
       for (let k = 0; k < chordCount; k++) {
         if (candidates.length < 2) break;
@@ -323,22 +295,53 @@ export default function NetworkBackground() {
 
     const onMouseMove = (e: MouseEvent) => {
       const rect = container.getBoundingClientRect();
-      const x = e.clientX - rect.left;
-      const y = e.clientY - rect.top;
-      if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
-        mouseRef.current.x = x;
-        mouseRef.current.y = y;
-        mouseRef.current.active = true;
-      } else {
-        mouseRef.current.active = false;
-      }
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      // Track even when off the hero, but mark inactive for proximity boost
+      cursorRef.current.sx = sx;
+      cursorRef.current.sy = sy;
+      // Normalised based on viewport so it works anywhere on the page
+      const vw = window.innerWidth || 1;
+      const vh = window.innerHeight || 1;
+      cursorRef.current.nx = (e.clientX / vw) * 2 - 1; // -1..1
+      cursorRef.current.ny = (e.clientY / vh) * 2 - 1;
+      cursorRef.current.active = sx >= 0 && sx <= rect.width && sy >= 0 && sy <= rect.height;
     };
     const onMouseOut = () => {
-      mouseRef.current.active = false;
+      cursorRef.current.active = false;
     };
 
-    /** Smooth easing for line drawing. */
     const ease = (t: number) => t * t * (3 - 2 * t);
+
+    /**
+     * Project a 3D point to screen space using the current camera angles.
+     * Returns null if behind the camera.
+     */
+    const project = (
+      x: number,
+      y: number,
+      z: number,
+      sinX: number,
+      cosX: number,
+      sinY: number,
+      cosY: number,
+    ): { sx: number; sy: number; scale: number } | null => {
+      // Rotate around Y axis (left/right pan)
+      const x1 = x * cosY + z * sinY;
+      const z1 = -x * sinY + z * cosY;
+      // Rotate around X axis (up/down tilt)
+      const y2 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+      // Perspective project
+      const camZ = CAMERA_DIST + z2;
+      if (camZ <= 1) return null;
+      const scale = CAMERA_DIST / camZ;
+      return {
+        sx: x1 * scale + width / 2,
+        sy: y2 * scale + height / 2,
+        scale,
+      };
+    };
 
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
@@ -346,35 +349,33 @@ export default function NetworkBackground() {
       const conns = connectionsRef.current;
       const eco = ecoLinksRef.current;
       const progress = scrollProgressRef.current;
-      const mouse = mouseRef.current;
+      const cursor = cursorRef.current;
 
-      // Scroll multiplier on speed (faster animation as user scrolls deeper)
-      const speedMul = 0.6 + progress * 1.8;
+      // ---- Update camera angles (smoothed) ----
+      // Target rotation:
+      //   rotY (yaw)   <- cursor X (-0.6..0.6 rad) + slow autorotate via scroll
+      //   rotX (pitch) <- scroll progress (-0.4..0.4) + cursor Y nudge
+      const targetRotY = cursor.nx * 0.55 + (progress - 0.5) * 0.4;
+      const targetRotX = (progress - 0.5) * 0.7 + cursor.ny * 0.25;
+      camRef.current.rotX += (targetRotX - camRef.current.rotX) * 0.05;
+      camRef.current.rotY += (targetRotY - camRef.current.rotY) * 0.05;
+      const rotX = camRef.current.rotX;
+      const rotY = camRef.current.rotY;
+      const sinX = Math.sin(rotX);
+      const cosX = Math.cos(rotX);
+      const sinY = Math.sin(rotY);
+      const cosY = Math.cos(rotY);
 
-      // ---- Cursor magnetism: pull hubs toward cursor, ease back when away ----
-      const MAG_RADIUS = 220;
-      for (const h of hubs) {
-        let tx = h.baseX;
-        let ty = h.baseY;
-        if (mouse.active) {
-          const dx = mouse.x - h.baseX;
-          const dy = mouse.y - h.baseY;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < MAG_RADIUS && dist > 0.001) {
-            // Smaller hubs (prospects) react more (lighter mass), stars are heavier
-            const mass = h.tier === "prospect" ? 0.4 : h.tier === "client" ? 0.7 : 1.1;
-            const pull = ((1 - dist / MAG_RADIUS) * 50) / mass;
-            tx = h.baseX + (dx / dist) * pull;
-            ty = h.baseY + (dy / dist) * pull;
-          }
-        }
-        h.x += (tx - h.x) * 0.08;
-        h.y += (ty - h.y) * 0.08;
-      }
+      // Scroll multiplier on line-formation speed
+      const speedMul = 0.7 + progress * 1.5;
 
-      // ---- Eco links (under) ----
+      // Pre-project hubs once for this frame
+      const hubProj: (ReturnType<typeof project> | null)[] = hubs.map((h) =>
+        project(h.x, h.y, h.z, sinX, cosX, sinY, cosY),
+      );
+
+      // ---- Eco links ----
       for (const l of eco) {
-        // Phase machine
         if (l.phase === "extending") {
           l.t += l.speed * speedMul;
           if (l.t >= 1) {
@@ -384,9 +385,7 @@ export default function NetworkBackground() {
           }
         } else if (l.phase === "stable") {
           l.hold -= 1;
-          if (l.hold <= 0) {
-            l.phase = "retracting";
-          }
+          if (l.hold <= 0) l.phase = "retracting";
         } else if (l.phase === "retracting") {
           l.t -= l.speed * speedMul * 1.2;
           if (l.t <= 0) {
@@ -395,47 +394,47 @@ export default function NetworkBackground() {
             l.hold = 30 + Math.floor(Math.random() * 120);
           }
         } else {
-          // paused
           l.hold -= 1;
           if (l.hold <= 0) {
-            // Maybe re-route to a different hub for organic re-wiring
             if (Math.random() < 0.4) {
-              let nb = Math.floor(Math.random() * hubs.length);
-              if (nb === l.fromHub) nb = (nb + 1) % hubs.length;
-              l.toHub = nb;
-              l.channel = randChannel();
+              const nonProspects = hubs
+                .map((_, i) => i)
+                .filter((i) => hubs[i].tier !== "prospect" && i !== l.fromHub);
+              if (nonProspects.length > 0) {
+                l.toHub = nonProspects[Math.floor(Math.random() * nonProspects.length)];
+                l.channel = randChannel();
+              }
             }
             l.phase = "extending";
           }
         }
 
         if (l.t <= 0) continue;
-        const a = hubs[l.fromHub];
-        const b = hubs[l.toHub];
+        const a = hubProj[l.fromHub];
+        const b = hubProj[l.toHub];
         if (!a || !b) continue;
         const drawT = ease(l.t);
-        const ex = a.x + (b.x - a.x) * drawT;
-        const ey = a.y + (b.y - a.y) * drawT;
+        const ex = a.sx + (b.sx - a.sx) * drawT;
+        const ey = a.sy + (b.sy - a.sy) * drawT;
 
         let boost = 0;
-        if (mouse.active) {
-          const md = Math.hypot(mouse.x - (a.x + ex) / 2, mouse.y - (a.y + ey) / 2);
+        if (cursor.active) {
+          const md = Math.hypot(cursor.sx - (a.sx + ex) / 2, cursor.sy - (a.sy + ey) / 2);
           if (md < 180) boost = (1 - md / 180) * 0.25;
         }
         ctx.strokeStyle = `rgba(${CHANNEL_COLORS[l.channel]}, ${(l.alpha + boost).toFixed(3)})`;
         ctx.lineWidth = l.width;
         ctx.beginPath();
-        ctx.moveTo(a.x, a.y);
+        ctx.moveTo(a.sx, a.sy);
         ctx.lineTo(ex, ey);
         ctx.stroke();
       }
 
-      // ---- Hub-to-satellite connections (the bulk of the nebula) ----
+      // ---- Hub-to-satellite connections ----
       for (const c of conns) {
         const hub = hubs[c.hubIndex];
         if (!hub) continue;
 
-        // Phase machine
         if (c.phase === "extending") {
           c.t += c.speed * speedMul;
           if (c.t >= 1) {
@@ -445,9 +444,7 @@ export default function NetworkBackground() {
           }
         } else if (c.phase === "stable") {
           c.hold -= 1;
-          if (c.hold <= 0) {
-            c.phase = "retracting";
-          }
+          if (c.hold <= 0) c.phase = "retracting";
         } else if (c.phase === "retracting") {
           c.t -= c.speed * speedMul * 1.2;
           if (c.t <= 0) {
@@ -458,53 +455,64 @@ export default function NetworkBackground() {
         } else {
           c.hold -= 1;
           if (c.hold <= 0) {
-            // Re-aim: new endpoint, sometimes new channel
             const ep = pickEndpoint(hub);
             c.ox = ep.ox;
             c.oy = ep.oy;
+            c.oz = ep.oz;
             if (Math.random() < 0.3) c.channel = randChannel();
             c.phase = "extending";
           }
         }
 
         if (c.t <= 0) continue;
+        const hp = hubProj[c.hubIndex];
+        if (!hp) continue;
+        const ep = project(
+          hub.x + c.ox,
+          hub.y + c.oy,
+          hub.z + c.oz,
+          sinX,
+          cosX,
+          sinY,
+          cosY,
+        );
+        if (!ep) continue;
         const drawT = ease(c.t);
-        // Endpoint travels with the hub (offset stays fixed relative to hub)
-        const endX = hub.x + c.ox;
-        const endY = hub.y + c.oy;
-        const ex = hub.x + (endX - hub.x) * drawT;
-        const ey = hub.y + (endY - hub.y) * drawT;
+        const ex = hp.sx + (ep.sx - hp.sx) * drawT;
+        const ey = hp.sy + (ep.sy - hp.sy) * drawT;
 
         let boost = 0;
-        if (mouse.active) {
-          const md = Math.hypot(mouse.x - (hub.x + ex) / 2, mouse.y - (hub.y + ey) / 2);
+        if (cursor.active) {
+          const md = Math.hypot(cursor.sx - (hp.sx + ex) / 2, cursor.sy - (hp.sy + ey) / 2);
           if (md < 130) boost = (1 - md / 130) * 0.4;
         }
 
         ctx.strokeStyle = `rgba(${CHANNEL_COLORS[c.channel]}, ${(c.alpha + boost).toFixed(3)})`;
         ctx.lineWidth = c.width;
         ctx.beginPath();
-        ctx.moveTo(hub.x, hub.y);
+        ctx.moveTo(hp.sx, hp.sy);
         ctx.lineTo(ex, ey);
         ctx.stroke();
 
-        // Endpoint dot once line is at full reach
         if (c.t > 0.95 && c.phase !== "retracting") {
           const dotAlpha = (c.t - 0.95) / 0.05;
           ctx.fillStyle = `rgba(${CHANNEL_COLORS[c.channel]}, ${(0.85 * dotAlpha).toFixed(3)})`;
           ctx.beginPath();
-          ctx.arc(endX, endY, 1.1, 0, Math.PI * 2);
+          ctx.arc(ep.sx, ep.sy, 1.1 * Math.max(0.5, ep.scale), 0, Math.PI * 2);
           ctx.fill();
         }
       }
 
       // ---- Hubs on top ----
-      for (const h of hubs) {
+      for (let i = 0; i < hubs.length; i++) {
+        const h = hubs[i];
+        const hp = hubProj[i];
+        if (!hp) continue;
+        const r = h.radius * hp.scale;
         if (h.tier === "prospect") {
-          // Very faint, distant — no halo, just a tiny dim speck
-          ctx.fillStyle = `rgba(${HUB_COLOR}, 0.22)`;
+          ctx.fillStyle = `rgba(${HUB_COLOR}, ${(0.22 * Math.min(1, hp.scale)).toFixed(3)})`;
           ctx.beginPath();
-          ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
+          ctx.arc(hp.sx, hp.sy, Math.max(0.3, r), 0, Math.PI * 2);
           ctx.fill();
           continue;
         }
@@ -512,11 +520,11 @@ export default function NetworkBackground() {
         const haloAlpha = h.tier === "star" ? 0.22 : 0.18;
         ctx.fillStyle = `rgba(${HUB_COLOR}, ${haloAlpha})`;
         ctx.beginPath();
-        ctx.arc(h.x, h.y, h.radius * haloMul, 0, Math.PI * 2);
+        ctx.arc(hp.sx, hp.sy, r * haloMul, 0, Math.PI * 2);
         ctx.fill();
         ctx.fillStyle = `rgba(${HUB_COLOR}, 0.95)`;
         ctx.beginPath();
-        ctx.arc(h.x, h.y, h.radius, 0, Math.PI * 2);
+        ctx.arc(hp.sx, hp.sy, r, 0, Math.PI * 2);
         ctx.fill();
       }
 
