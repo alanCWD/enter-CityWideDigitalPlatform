@@ -39,12 +39,14 @@ export function ClientSearch() {
     }
     setLoading(true);
     const timer = setTimeout(async () => {
-      const q = `%${query.trim()}%`;
-      const { data } = await supabase
+      // PostgREST .or() filter uses * as wildcard (not %)
+      const q = `*${query.trim()}*`;
+      const { data, error } = await supabase
         .from("gbp_connections")
         .select("id,client_label,business_name,address,category")
         .or(`client_label.ilike.${q},business_name.ilike.${q},address.ilike.${q},category.ilike.${q}`)
         .limit(8);
+      if (error) console.error("Search error:", error);
       setResults((data as ClientResult[]) || []);
       setLoading(false);
     }, 250);
