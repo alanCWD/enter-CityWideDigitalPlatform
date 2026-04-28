@@ -80,7 +80,7 @@ type EcoLink = {
   alpha: number;
 };
 
-const HUB_COUNT = 270;
+const HUB_COUNT = 2700;
 const HUB_COLOR = "255, 255, 255";
 
 export default function NetworkBackground() {
@@ -179,15 +179,16 @@ export default function NetworkBackground() {
 
       // Prospects: scattered randomly through the whole 3D volume
       for (let p = 0; p < prospectCount; p++) {
-        const cx = (Math.random() - 0.5) * width;
-        const cy = (Math.random() - 0.5) * height;
-        const cz = (Math.random() * 2 - 1) * worldD;
+        const cx = (Math.random() - 0.5) * width * 1.4;
+        const cy = (Math.random() - 0.5) * height * 1.4;
+        const cz = (Math.random() * 2 - 1) * worldD * 1.4;
         hubs.push({
           x: cx,
           y: cy,
           z: cz,
-          radius: 0.25 + Math.random() * 0.55,
-          optimization: Math.random() * 0.08,
+          // Very tiny — true nebula dust
+          radius: 0.18 + Math.random() * 0.45,
+          optimization: Math.random() * 0.05,
           tier: "prospect",
         });
       }
@@ -198,7 +199,8 @@ export default function NetworkBackground() {
       hubs.forEach((hub, i) => {
         let count: number;
         if (hub.tier === "prospect") {
-          count = Math.random() < 0.88 ? 0 : 1;
+          // Vast majority truly dormant — only ~2% have a single faint line
+          count = Math.random() < 0.98 ? 0 : 1;
         } else if (hub.tier === "client") {
           count = Math.round(5 + hub.optimization * 12);
         } else {
@@ -510,9 +512,12 @@ export default function NetworkBackground() {
         if (!hp) continue;
         const r = h.radius * hp.scale;
         if (h.tier === "prospect") {
-          ctx.fillStyle = `rgba(${HUB_COLOR}, ${(0.22 * Math.min(1, hp.scale)).toFixed(3)})`;
+          // Depth-shaded faint dust. Closer particles brighter, distant ones near-invisible.
+          const depthFade = Math.min(1, Math.max(0.15, hp.scale));
+          const a = 0.09 * depthFade + Math.random() * 0.02;
+          ctx.fillStyle = `rgba(${HUB_COLOR}, ${a.toFixed(3)})`;
           ctx.beginPath();
-          ctx.arc(hp.sx, hp.sy, Math.max(0.3, r), 0, Math.PI * 2);
+          ctx.arc(hp.sx, hp.sy, Math.max(0.25, r), 0, Math.PI * 2);
           ctx.fill();
           continue;
         }
