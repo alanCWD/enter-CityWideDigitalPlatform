@@ -19,6 +19,7 @@ import PortalGBP from "./pages/portal/PortalGBP";
 import PortalSocial from "./pages/portal/PortalSocial";
 import PortalCoach from "./pages/portal/PortalCoach";
 import PortalAnalytics from "./pages/portal/PortalAnalytics";
+import { AdminUsers } from "./pages/admin/AdminUsers";
 
 export const routers = [
   {
@@ -127,6 +128,12 @@ export const routers = [
     path: "/portal/:clientId/analytics",
     name: "portal-analytics",
     element: <PortalAnalytics />,
+  },
+  // Admin
+  {
+    path: "/admin/users",
+    name: "admin-users",
+    element: <AdminUsers />,
   },
   /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
   {
