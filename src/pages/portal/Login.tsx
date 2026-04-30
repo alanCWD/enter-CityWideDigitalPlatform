@@ -2,9 +2,11 @@ import { useEffect, useState, FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Loader2, LogIn, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 
 export default function Login() {
-  const { signIn, session, loading: authLoading } = useAuth();
+  const { signIn, session, user, loading: authLoading } = useAuth();
+  const { isAdmin, isAgency, loading: roleLoading } = useUserRole(user?.id);
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("");
@@ -13,11 +15,20 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!authLoading && session) {
-      const from = (location.state as { from?: string } | null)?.from;
-      navigate(from && from.startsWith("/portal/") ? from : "/portal", { replace: true });
+    if (authLoading || roleLoading || !session) return;
+    const from = (location.state as { from?: string } | null)?.from;
+    // Honor explicit redirect target first
+    if (from && (from.startsWith("/portal/") || from.startsWith("/admin/") || from.startsWith("/dashboard"))) {
+      navigate(from, { replace: true });
+      return;
     }
-  }, [session, authLoading, navigate, location.state]);
+    // Role-based default landing
+    if (isAdmin || isAgency) {
+      navigate("/dashboard", { replace: true });
+    } else {
+      navigate("/portal", { replace: true });
+    }
+  }, [session, authLoading, roleLoading, isAdmin, isAgency, navigate, location.state]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
