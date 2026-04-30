@@ -12,6 +12,13 @@ import { RestaurantHub } from "./pages/dashboard/RestaurantHub";
 import { Analytics } from "./pages/dashboard/Analytics";
 import { Leads } from "./pages/dashboard/Leads";
 import { Coaching } from "./pages/dashboard/Coaching";
+import PortalLogin from "./pages/portal/Login";
+import PortalSignup from "./pages/portal/Signup";
+import PortalOverview from "./pages/portal/Overview";
+import PortalGBP from "./pages/portal/PortalGBP";
+import PortalSocial from "./pages/portal/PortalSocial";
+import PortalCoach from "./pages/portal/PortalCoach";
+import PortalAnalytics from "./pages/portal/PortalAnalytics";
 
 export const routers = [
   {
@@ -79,6 +86,47 @@ export const routers = [
     path: "/coaching",
     name: "coaching",
     element: <Coaching />,
+  },
+  // Client Portal — what the agency's clients see
+  {
+    path: "/portal/login",
+    name: "portal-login",
+    element: <PortalLogin />,
+  },
+  {
+    path: "/portal/signup",
+    name: "portal-signup",
+    element: <PortalSignup />,
+  },
+  {
+    path: "/portal",
+    name: "portal-root",
+    element: <PortalOverview />,
+  },
+  {
+    path: "/portal/:clientId",
+    name: "portal-overview",
+    element: <PortalOverview />,
+  },
+  {
+    path: "/portal/:clientId/gbp",
+    name: "portal-gbp",
+    element: <PortalGBP />,
+  },
+  {
+    path: "/portal/:clientId/social",
+    name: "portal-social",
+    element: <PortalSocial />,
+  },
+  {
+    path: "/portal/:clientId/coach",
+    name: "portal-coach",
+    element: <PortalCoach />,
+  },
+  {
+    path: "/portal/:clientId/analytics",
+    name: "portal-analytics",
+    element: <PortalAnalytics />,
   },
   /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
   {

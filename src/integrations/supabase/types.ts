@@ -3249,6 +3249,65 @@ export type Database = {
           },
         ]
       }
+      portal_invites: {
+        Row: {
+          accepted_at: string | null
+          connection_id: string
+          created_at: string
+          email: string
+          id: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          connection_id: string
+          created_at?: string
+          email: string
+          id?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          connection_id?: string
+          created_at?: string
+          email?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_invites_connection_id_fkey"
+            columns: ["connection_id"]
+            referencedRelation: "gbp_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      portal_users: {
+        Row: {
+          connection_id: string
+          created_at: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portal_users_connection_id_fkey"
+            columns: ["connection_id"]
+            referencedRelation: "gbp_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

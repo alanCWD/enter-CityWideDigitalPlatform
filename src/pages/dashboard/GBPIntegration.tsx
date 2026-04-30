@@ -21,12 +21,14 @@ import {
   Unlink,
   X,
   Share2,
+  UserPlus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { SocialSyncEmbed } from "@/components/dashboard/SocialSyncEmbed";
+import { InviteClientDialog } from "@/components/dashboard/InviteClientDialog";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -161,6 +163,7 @@ function ConnectionCard({ conn, onSync, onDisconnect }: {
   const [posts, setPosts] = useState<GbpPost[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
 
   const loadDetail = useCallback(async () => {
     if (!expanded) return;
@@ -217,6 +220,13 @@ function ConnectionCard({ conn, onSync, onDisconnect }: {
         </div>
 
         <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => setShowInvite(true)}
+            className="flex items-center gap-1.5 bg-[#22C55E]/15 border border-[#22C55E]/30 text-[#22C55E] text-[10px] font-bold px-2.5 py-1.5 rounded-lg hover:bg-[#22C55E]/25 transition-colors"
+          >
+            <UserPlus className="w-3 h-3" />
+            Invite Client
+          </button>
           <button
             onClick={handleSync}
             disabled={syncing}
@@ -356,6 +366,16 @@ function ConnectionCard({ conn, onSync, onDisconnect }: {
               )}
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showInvite && (
+          <InviteClientDialog
+            connectionId={conn.id}
+            businessName={conn.business_name || conn.client_label}
+            onClose={() => setShowInvite(false)}
+          />
         )}
       </AnimatePresence>
     </motion.div>

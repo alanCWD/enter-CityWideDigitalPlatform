@@ -1,0 +1,91 @@
+-- 1. portal_users: links auth users to gbp_connections
+create table if not exists portal_users (
+  user_id uuid references auth.users(id) on delete cascade,
+  connection_id uuid references gbp_connections(id) on delete cascade,
+  role text not null default 'owner',
+  created_at timestamptz not null default now(),
+  primary key (user_id, connection_id)
+);
+alter table portal_users enable row level security;
+
+drop policy if exists "users see own links" on portal_users;
+create policy "users see own links" on portal_users for select
+using (user_id = auth.uid());
+
+drop policy if exists "service role manages portal_users" on portal_users;
+create policy "service role manages portal_users" on portal_users for all
+using (auth.role() = 'service_role')
+with check (auth.role() = 'service_role');
+
+-- 2. portal_invites
+create table if not exists portal_invites (
+  id uuid primary key default gen_random_uuid(),
+  email text not null,
+  connection_id uuid not null references gbp_connections(id) on delete cascade,
+  accepted_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists portal_invites_email_idx on portal_invites (lower(email));
+alter table portal_invites enable row level security;
+
+drop policy if exists "service role manages portal_invites" on portal_invites;
+create policy "service role manages portal_invites" on portal_invites for all
+using (auth.role() = 'service_role')
+with check (auth.role() = 'service_role');
+
+-- 3. Auto-link user on signup via auth trigger
+create or replace function link_portal_user_from_invite()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into portal_users (user_id, connection_id)
+  select new.id, connection_id
+  from portal_invites
+  where lower(email) = lower(new.email) and accepted_at is null
+  on conflict (user_id, connection_id) do nothing;
+
+  update portal_invites
+  set accepted_at = now()
+  where lower(email) = lower(new.email) and accepted_at is null;
+
+  return new;
+end $$;
+
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users
+for each row execute procedure link_portal_user_from_invite();
+
+-- 4. Tighten RLS: portal users only see their own; anon/agency keeps broad access
+--    via existing "Allow all for now" policies (kept for backwards compat with the
+--    agency dashboard, which uses the publishable anon key).
+--    We only ADD additive SELECT policies for authenticated portal users.
+
+drop policy if exists "portal users see linked connections" on gbp_connections;
+create policy "portal users see linked connections" on gbp_connections for select
+to authenticated
+using (
+  exists (
+    select 1 from portal_users pu
+    where pu.user_id = auth.uid() and pu.connection_id = id
+  )
+);
+
+drop policy if exists "portal users see linked reviews" on gbp_reviews;
+create policy "portal users see linked reviews" on gbp_reviews for select
+to authenticated
+using (
+  exists (
+    select 1 from portal_users pu
+    where pu.user_id = auth.uid() and pu.connection_id = gbp_reviews.connection_id
+  )
+);
+
+drop policy if exists "portal users see linked posts" on gbp_posts;
+create policy "portal users see linked posts" on gbp_posts for select
+to authenticated
+using (
+  exists (
+    select 1 from portal_users pu
+    where pu.user_id = auth.uid() and pu.connection_id = gbp_posts.connection_id
+  )
+);
