@@ -20,11 +20,13 @@ import {
   Calendar,
   Unlink,
   X,
+  Share2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
+import { SocialSyncEmbed } from "@/components/dashboard/SocialSyncEmbed";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -154,7 +156,7 @@ function ConnectionCard({ conn, onSync, onDisconnect }: {
   onDisconnect: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [activeTab, setActiveTab] = useState<"reviews" | "posts" | "nap">("reviews");
+  const [activeTab, setActiveTab] = useState<"reviews" | "posts" | "nap" | "social">("reviews");
   const [reviews, setReviews] = useState<GbpReview[]>([]);
   const [posts, setPosts] = useState<GbpPost[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
@@ -249,24 +251,30 @@ function ConnectionCard({ conn, onSync, onDisconnect }: {
           >
             {/* Tab Bar */}
             <div className="flex items-center gap-1 p-3 border-b border-white/8 bg-white/2">
-              {(["reviews", "posts", "nap"] as const).map((tab) => (
+              {(["reviews", "posts", "nap", "social"] as const).map((tab) => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={cn(
-                    "px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all",
+                    "px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all flex items-center gap-1.5",
                     activeTab === tab
                       ? "bg-[#0078D7] text-white"
                       : "text-[rgba(238,241,250,0.5)] hover:text-[#EEF1FA] hover:bg-white/5"
                   )}
                 >
-                  {tab === "nap" ? "NAP Details" : tab}
+                  {tab === "social" && <Share2 className="w-3 h-3" />}
+                  {tab === "nap" ? "NAP Details" : tab === "social" ? "Social Sync" : tab}
                 </button>
               ))}
             </div>
 
             <div className="p-4">
-              {loadingDetail ? (
+              {activeTab === "social" ? (
+                <SocialSyncEmbed
+                  clientId={conn.id}
+                  clientName={conn.business_name || conn.client_label}
+                />
+              ) : loadingDetail ? (
                 <div className="flex items-center gap-2 text-xs text-[rgba(238,241,250,0.4)] py-4">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading data...
                 </div>
