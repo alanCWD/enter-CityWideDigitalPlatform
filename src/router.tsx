@@ -19,6 +19,7 @@ import PortalGBP from "./pages/portal/PortalGBP";
 import PortalSocial from "./pages/portal/PortalSocial";
 import PortalCoach from "./pages/portal/PortalCoach";
 import PortalAnalytics from "./pages/portal/PortalAnalytics";
+import PortalConnect from "./pages/portal/PortalConnect";
 import { AdminUsers } from "./pages/admin/AdminUsers";
 
 export const routers = [
@@ -98,6 +99,11 @@ export const routers = [
     path: "/portal/signup",
     name: "portal-signup",
     element: <PortalSignup />,
+  },
+  {
+    path: "/portal/connect",
+    name: "portal-connect",
+    element: <PortalConnect />,
   },
   {
     path: "/portal",

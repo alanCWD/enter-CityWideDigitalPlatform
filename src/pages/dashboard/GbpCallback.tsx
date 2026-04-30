@@ -34,11 +34,13 @@ export function GbpCallback() {
 
     // Parse client label + redirectUri from state
     let clientLabel = "New Client";
+    let linkUserId: string | null = null;
     // The redirectUri must exactly match what was sent to Google in the auth URL
     const redirectUri = window.location.href.split("?")[0]; // current URL without query params
     try {
       const parsed = JSON.parse(atob(state || ""));
       clientLabel = parsed.clientLabel || clientLabel;
+      linkUserId = parsed.linkUserId || null;
     } catch { /* use default */ }
 
     // Exchange code via edge function (with proper auth headers)
@@ -54,7 +56,8 @@ export function GbpCallback() {
           body: JSON.stringify({
             code,
             clientLabel,
-            redirectUri, // exact URI registered with Google
+            redirectUri,
+            linkUserId,
           }),
         });
 
@@ -71,7 +74,12 @@ export function GbpCallback() {
             ? `${data.businessName} connected with ${data.reviewCount || 0} reviews`
             : `${data.businessName} connected (no GBP location found on this account)`
           );
-          setTimeout(() => navigate(`/gbp?status=connected&business=${encodeURIComponent(data.businessName || clientLabel)}&noLocation=${hasLocation ? "0" : "1"}`), 2000);
+          // Portal self-connect → bounce back to the new business in the portal
+          if (linkUserId && data.connectionId) {
+            setTimeout(() => navigate(`/portal/${data.connectionId}?status=connected`), 1500);
+          } else {
+            setTimeout(() => navigate(`/gbp?status=connected&business=${encodeURIComponent(data.businessName || clientLabel)}&noLocation=${hasLocation ? "0" : "1"}`), 2000);
+          }
         } else {
           setStatus("error");
           setMessage(data.error || "Connection failed.");

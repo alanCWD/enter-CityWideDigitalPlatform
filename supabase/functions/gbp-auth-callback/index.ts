@@ -1,3 +1,5 @@
+// Updated callback: also auto-links the newly connected GBP to a portal user
+// when `linkUserId` is provided (used by the client self-connect flow).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -16,7 +18,7 @@ Deno.serve(async (req) => {
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
 
-    const { code, clientLabel, redirectUri } = await req.json();
+    const { code, clientLabel, redirectUri, linkUserId } = await req.json();
 
     if (!code || !redirectUri) {
       return new Response(JSON.stringify({ error: "code and redirectUri required" }), {
@@ -24,7 +26,6 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Exchange code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -45,7 +46,6 @@ Deno.serve(async (req) => {
     const refreshToken = tokens.refresh_token;
     const expiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString();
 
-    // ─── Fetch all GBP accounts (including managed/group accounts) ───
     const accountsRes = await fetch(
       "https://mybusinessaccountmanagement.googleapis.com/v1/accounts?pageSize=20",
       { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -67,12 +67,10 @@ Deno.serve(async (req) => {
     let category = null;
 
     if (accounts.length > 0) {
-      // Pick first account (could be PERSONAL, LOCATION_GROUP, or USER_GROUP)
       const account = accounts[0];
-      const accountName = account.name; // e.g. "accounts/123"
+      const accountName = account.name;
       googleAccountId = accountName.split("/")[1];
 
-      // Fetch locations for this account
       const locRes = await fetch(
         `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri,categories&pageSize=20`,
         { headers: { Authorization: `Bearer ${accessToken}` } }
@@ -97,7 +95,6 @@ Deno.serve(async (req) => {
         website = loc.websiteUri || null;
         category = loc.categories?.primaryCategory?.displayName || null;
       } else {
-        // No locations on first account — try other accounts
         for (const acc of accounts.slice(1)) {
           const r = await fetch(
             `https://mybusinessbusinessinformation.googleapis.com/v1/${acc.name}/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri,categories&pageSize=20`,
@@ -127,12 +124,11 @@ Deno.serve(async (req) => {
     diagnostics.resolvedLocationId = locationId;
     diagnostics.resolvedAccountId = googleAccountId;
 
-    // Save connection
     const supabase = createClient(supabaseUrl, supabaseKey);
     const { data: connection, error: dbError } = await supabase
       .from("gbp_connections")
       .insert({
-        client_label: clientLabel || "New Client",
+        client_label: clientLabel || businessName || "New Client",
         google_account_id: googleAccountId,
         location_id: locationId,
         business_name: businessName,
@@ -150,7 +146,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Sync reviews + posts (best effort, only if locationId found)
+    // Link to portal user if requested (client self-connect flow)
+    if (linkUserId) {
+      const { error: linkErr } = await supabase
+        .from("portal_users")
+        .insert({ user_id: linkUserId, connection_id: connection.id, role: "owner" });
+      diagnostics.portalLinkError = linkErr?.message || null;
+      diagnostics.linkedToUser = linkUserId;
+    }
+
+    // Sync reviews + posts
     let reviewCount = 0;
     let postCount = 0;
     if (locationId) {
@@ -206,7 +211,7 @@ Deno.serve(async (req) => {
       businessName,
       reviewCount,
       postCount,
-      diagnostics, // included so we can debug from the frontend
+      diagnostics,
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
