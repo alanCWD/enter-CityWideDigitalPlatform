@@ -1,6 +1,7 @@
 import { Bell, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ClientSearch } from "./ClientSearch";
+import { ProfileMenu } from "@/components/layout/ProfileMenu";
 
 interface TopBarProps {
   title: string;
@@ -46,10 +47,8 @@ export function TopBar({ title, subtitle, action }: TopBarProps) {
           )
         )}
 
-        {/* User Avatar */}
-        <div className="w-8 h-8 rounded-full bg-[linear-gradient(135deg,#0078D7,#00447A)] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-          AG
-        </div>
+        {/* Profile menu (avatar + dropdown) */}
+        <ProfileMenu />
       </div>
     </header>
   );
