@@ -3,6 +3,7 @@ import { LogOut, Store, Share2, BarChart3, GraduationCap, Home } from "lucide-re
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import type { PortalConnection } from "@/hooks/usePortalConnections";
+import { LogoOnDark } from "@/components/branding/Logo";
 
 const TABS = [
   { name: "Overview", path: "", icon: Home, end: true },
@@ -37,9 +38,8 @@ export function PortalTopBar({ connection, otherConnections }: PortalTopBarProps
       <div className="px-6 py-3.5 flex items-center justify-between gap-4">
         {/* Brand + business name */}
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-lg bg-[linear-gradient(135deg,#0078D7,#00447A)] flex items-center justify-center shadow-[0_2px_8px_rgba(0,120,215,0.4)] flex-shrink-0">
-            <Store className="w-4 h-4 text-white" strokeWidth={2.5} />
-          </div>
+          <LogoOnDark size="sm" className="flex-shrink-0" />
+          <div className="hidden sm:block w-px h-6 bg-white/10 flex-shrink-0" />
           <div className="min-w-0">
             <div className="text-[10px] font-bold text-[#0078D7] uppercase tracking-wider">Client Portal</div>
             <div className="text-[#EEF1FA] font-bold text-sm truncate">

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { Zap, MapPin, Mail, Phone, Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
+import { MapPin, Mail, Phone, Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
+import { LogoOnDark } from "@/components/branding/Logo";
 
 const footerLinks = {
   Products: [
@@ -31,13 +32,8 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-12">
           {/* Brand Column */}
           <div className="lg:col-span-2">
-            <Link to="/" className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-[linear-gradient(135deg,#0078D7,#00447A)] flex items-center justify-center">
-                <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
-              </div>
-              <span className="text-[#EEF1FA] font-bold text-lg tracking-tight">
-                CityWide<span className="text-[#0078D7]"> Digital</span>
-              </span>
+            <Link to="/" className="flex items-center mb-4" aria-label="CityWide Digital — home">
+              <LogoOnDark size="md" />
             </Link>
             <p className="text-[rgba(238,241,250,0.6)] text-sm leading-relaxed mb-6 max-w-xs">
               Managed digital presence for local businesses. Connect your Google Business Profile 

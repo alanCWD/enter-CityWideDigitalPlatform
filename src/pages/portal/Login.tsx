@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Loader2, LogIn, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { LogoOnDark } from "@/components/branding/Logo";
 
 export default function Login() {
   const { signIn, session, user, loading: authLoading } = useAuth();
@@ -47,6 +48,9 @@ export default function Login() {
     <div className="min-h-screen bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_55%,#00447A_100%)] flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
+          <Link to="/" className="inline-flex items-center justify-center mb-5" aria-label="CityWide Digital — home">
+            <LogoOnDark size="lg" />
+          </Link>
           <h1 className="text-2xl font-bold text-[#EEF1FA]">Client Portal</h1>
           <p className="text-sm text-[rgba(238,241,250,0.55)] mt-1">Sign in to your business workspace</p>
         </div>

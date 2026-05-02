@@ -7,7 +7,6 @@ import {
   Bell,
   GraduationCap,
   Utensils,
-  Zap,
   X,
   Menu,
   TrendingUp,
@@ -17,6 +16,7 @@ import {
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
+import { LogoOnDark } from "@/components/branding/Logo";
 
 const NAV_ITEMS = [
   { name: "Dashboard", path: "/dashboard", icon: Building2 },
@@ -77,13 +77,10 @@ function SidebarContent({ onNav }: { onNav: () => void }) {
   return (
     <div className="flex flex-col h-full overflow-y-auto">
       {/* Logo */}
-      <div className="px-4 py-5 border-b border-white/10 flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-lg bg-[linear-gradient(135deg,#0078D7,#00447A)] flex items-center justify-center shadow-[0_2px_8px_rgba(0,120,215,0.4)]">
-          <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
-        </div>
-        <div>
-          <div className="text-[#EEF1FA] font-bold text-sm leading-tight">CityWide</div>
-          <div className="text-[#0078D7] text-[10px] font-semibold uppercase tracking-wider">Command Center</div>
+      <div className="px-4 py-5 border-b border-white/10 flex items-center justify-between gap-2">
+        <LogoOnDark size="sm" />
+        <div className="text-[#0078D7] text-[9px] font-bold uppercase tracking-wider whitespace-nowrap">
+          Command Center
         </div>
       </div>
 

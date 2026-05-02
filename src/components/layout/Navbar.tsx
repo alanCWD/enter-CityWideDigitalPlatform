@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, Zap } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ProfileMenu } from "@/components/layout/ProfileMenu";
+import { LogoOnDark } from "@/components/branding/Logo";
 
 const navLinks = [
   { label: "Services", href: "/services" },
@@ -38,13 +39,8 @@ export default function Navbar() {
       >
         <div className="max-w-[1200px] w-full mx-auto px-6 flex items-center justify-between">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-lg bg-[linear-gradient(135deg,#0078D7,#00447A)] flex items-center justify-center shadow-[0_2px_8px_rgba(0,120,215,0.4)]">
-              <Zap className="w-4 h-4 text-white" strokeWidth={2.5} />
-            </div>
-            <span className="text-[#EEF1FA] font-bold text-lg tracking-tight">
-              CityWide<span className="text-[#0078D7]"> Digital</span>
-            </span>
+          <Link to="/" className="flex items-center group" aria-label="CityWide Digital — home">
+            <LogoOnDark size="sm" className="transition-opacity group-hover:opacity-90" />
           </Link>
 
           {/* Desktop Nav */}
