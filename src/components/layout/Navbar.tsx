@@ -32,15 +32,21 @@ export default function Navbar() {
     <>
       <nav
         className={cn(
-          "fixed top-0 left-0 right-0 z-50 h-[72px] flex items-center transition-all duration-200",
+          "fixed top-0 left-0 right-0 z-50 flex items-center transition-all duration-300 ease-out",
           "bg-[#0A1120] border-b border-white/10",
+          scrolled ? "h-[72px]" : "h-[88px]",
           scrolled && "shadow-[0_2px_20px_rgba(0,0,0,0.4)]"
         )}
       >
         <div className="max-w-[1200px] w-full mx-auto px-6 flex items-center justify-between">
-          {/* Logo */}
+          {/* Logo — 2x at the top of the page, smoothly shrinks to 1.5x on scroll */}
           <Link to="/" className="flex items-center group" aria-label="CityWide Digital — home">
-            <LogoOnDark size="sm" className="transition-opacity group-hover:opacity-90" />
+            <LogoOnDark
+              className={cn(
+                "w-auto transition-all duration-300 ease-out group-hover:opacity-90",
+                scrolled ? "h-9" : "h-12",
+              )}
+            />
           </Link>
 
           {/* Desktop Nav */}
