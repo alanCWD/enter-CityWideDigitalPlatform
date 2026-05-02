@@ -1,0 +1,86 @@
+/**
+ * Light-mode overrides for the agency dashboard.
+ *
+ * The dashboard uses hard-coded Tailwind arbitrary values (e.g. bg-[#0D1526])
+ * because it shipped before we set up a real design-token system. To support a
+ * light theme without rewriting every component, this stylesheet pattern-
+ * matches those exact arbitrary classes and remaps them to a clean, accessible
+ * light palette when wrapped in `.theme-light`.
+ *
+ * Inspired by the Discourse-style toggle on https://forum.citywidedigital.ca/.
+ *
+ * Light palette
+ *   bg-app:       #F4F6FB (page)
+ *   bg-surface:   #FFFFFF (cards)
+ *   bg-elevated:  #F8FAFD (sidebar)
+ *   border:       #E2E8F0
+ *   text-strong:  #0D1526
+ *   text-muted:   rgba(13,21,38,0.62)
+ *   text-faint:   rgba(13,21,38,0.42)
+ *   accent:       #0078D7  (kept identical so brand stays consistent)
+ */
+
+/* ───────────────  Page + sidebar surfaces  ─────────────── */
+.theme-light .bg-\[\#0D1526\] { background-color: #F4F6FB !important; }
+.theme-light .bg-\[\#0D1526\]\/95 { background-color: rgba(255, 255, 255, 0.95) !important; }
+.theme-light .bg-\[\#0D1526\]\/90 { background-color: rgba(255, 255, 255, 0.9) !important; }
+.theme-light .bg-\[\#0A1120\] { background-color: #FFFFFF !important; }
+.theme-light .bg-\[\#111E33\] { background-color: #FFFFFF !important; }
+.theme-light .bg-\[\#15243F\] { background-color: #F4F6FB !important; }
+
+/* Linear gradients used as page backgrounds (e.g. portal hero) — keep dark
+   variant; they're outside the dashboard. */
+
+/* ───────────────  Borders  ─────────────── */
+.theme-light .border-white\/10 { border-color: #E2E8F0 !important; }
+.theme-light .border-white\/8 { border-color: #E8ECF4 !important; }
+.theme-light .border-white\/5 { border-color: #EEF1F6 !important; }
+
+/* ───────────────  Text  ─────────────── */
+.theme-light .text-\[\#EEF1FA\] { color: #0D1526 !important; }
+
+.theme-light .text-\[rgba\(238\,241\,250\,0\.85\)\] { color: rgba(13, 21, 38, 0.86) !important; }
+.theme-light .text-\[rgba\(238\,241\,250\,0\.7\)\]  { color: rgba(13, 21, 38, 0.76) !important; }
+.theme-light .text-\[rgba\(238\,241\,250\,0\.65\)\] { color: rgba(13, 21, 38, 0.72) !important; }
+.theme-light .text-\[rgba\(238\,241\,250\,0\.6\)\]  { color: rgba(13, 21, 38, 0.66) !important; }
+.theme-light .text-\[rgba\(238\,241\,250\,0\.55\)\] { color: rgba(13, 21, 38, 0.6)  !important; }
+.theme-light .text-\[rgba\(238\,241\,250\,0\.5\)\]  { color: rgba(13, 21, 38, 0.55) !important; }
+.theme-light .text-\[rgba\(238\,241\,250\,0\.45\)\] { color: rgba(13, 21, 38, 0.5)  !important; }
+.theme-light .text-\[rgba\(238\,241\,250\,0\.4\)\]  { color: rgba(13, 21, 38, 0.45) !important; }
+.theme-light .text-\[rgba\(238\,241\,250\,0\.35\)\] { color: rgba(13, 21, 38, 0.4)  !important; }
+.theme-light .text-\[rgba\(238\,241\,250\,0\.3\)\]  { color: rgba(13, 21, 38, 0.35) !important; }
+.theme-light .text-\[rgba\(238\,241\,250\,0\.2\)\]  { color: rgba(13, 21, 38, 0.25) !important; }
+
+/* Hover variants */
+.theme-light .hover\:text-\[\#EEF1FA\]:hover { color: #0D1526 !important; }
+
+/* ───────────────  Glass / overlay backgrounds (white/5 etc.)  ─────────────── */
+.theme-light .bg-white\/5 { background-color: rgba(13, 21, 38, 0.04) !important; }
+.theme-light .bg-white\/3 { background-color: rgba(13, 21, 38, 0.03) !important; }
+.theme-light .bg-white\/8 { background-color: rgba(13, 21, 38, 0.06) !important; }
+.theme-light .bg-white\/10 { background-color: rgba(13, 21, 38, 0.07) !important; }
+.theme-light .hover\:bg-white\/5:hover { background-color: rgba(13, 21, 38, 0.05) !important; }
+.theme-light .hover\:bg-white\/10:hover { background-color: rgba(13, 21, 38, 0.08) !important; }
+.theme-light .hover\:bg-white\/2:hover { background-color: rgba(13, 21, 38, 0.025) !important; }
+
+/* ───────────────  Logo legibility on light backgrounds  ───────────────
+   The LogoOnDark variant artificially brightens its strokes for dark surfaces;
+   in light mode we revert to the original colour. */
+.theme-light img[alt="CityWide Digital"] {
+  filter: none !important;
+}
+
+/* ───────────────  Shadows — make subtle drop-shadows visible on white  ─────────────── */
+.theme-light .shadow-\[0_2px_20px_rgba\(0\,0\,0\,0\.4\)\] {
+  box-shadow: 0 2px 12px rgba(13, 21, 38, 0.06) !important;
+}
+
+/* ───────────────  Form inputs (textarea / input on dark surfaces)  ─────────────── */
+.theme-light input::placeholder,
+.theme-light textarea::placeholder {
+  color: rgba(13, 21, 38, 0.35);
+}
+
+/* ───────────────  Scrollbar tint (webkit) for light mode  ─────────────── */
+.theme-light ::-webkit-scrollbar-thumb { background-color: rgba(13, 21, 38, 0.18); }
+.theme-light ::-webkit-scrollbar-track { background-color: transparent; }

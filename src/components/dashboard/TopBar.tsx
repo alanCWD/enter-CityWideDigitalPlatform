@@ -1,6 +1,7 @@
 import { Bell, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ClientSearch } from "./ClientSearch";
+import { ThemeToggle } from "./ThemeToggle";
 import { ProfileMenu } from "@/components/layout/ProfileMenu";
 
 interface TopBarProps {
@@ -26,6 +27,9 @@ export function TopBar({ title, subtitle, action }: TopBarProps) {
           <Bell className="w-4 h-4" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-[#0078D7] rounded-full" />
         </button>
+
+        {/* Light / dark theme toggle */}
+        <ThemeToggle />
 
         {/* Action CTA */}
         {action && (
