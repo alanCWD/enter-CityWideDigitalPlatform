@@ -11,6 +11,8 @@ import {
   X,
   Menu,
   TrendingUp,
+  MessagesSquare,
+  ExternalLink,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -110,6 +112,19 @@ function SidebarContent({ onNav }: { onNav: () => void }) {
             )}
           </NavLink>
         ))}
+
+        {/* External link: Community Forum */}
+        <a
+          href="https://forum.citywidedigital.ca/"
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onNav}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 w-full text-[rgba(238,241,250,0.65)] hover:bg-white/5 hover:text-[#EEF1FA] font-medium group"
+        >
+          <MessagesSquare className="w-4 h-4 flex-shrink-0 text-[rgba(238,241,250,0.5)] group-hover:text-[#0078D7]" />
+          <span className="flex-1">Forum</span>
+          <ExternalLink className="w-3 h-3 text-[rgba(238,241,250,0.3)] group-hover:text-[rgba(238,241,250,0.55)]" />
+        </a>
       </nav>
 
       {/* Lead Velocity Widget */}
