@@ -33,9 +33,12 @@ export default function Navbar() {
       <nav
         className={cn(
           "fixed top-0 left-0 right-0 z-50 flex items-center transition-all duration-300 ease-out",
-          "bg-[#0A1120] border-b border-white/10",
+          // At the top of the page: darker translucent tint over the hero animation
+          // so the network nodes glow through. On scroll: solid black.
+          scrolled
+            ? "bg-black border-b border-white/10 shadow-[0_2px_20px_rgba(0,0,0,0.5)]"
+            : "bg-[#05090F]/55 backdrop-blur-md border-b border-white/5",
           scrolled ? "h-[72px]" : "h-[88px]",
-          scrolled && "shadow-[0_2px_20px_rgba(0,0,0,0.4)]"
         )}
       >
         <div className="max-w-[1200px] w-full mx-auto px-6 flex items-center justify-between">
