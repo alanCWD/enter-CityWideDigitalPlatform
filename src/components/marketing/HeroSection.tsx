@@ -12,7 +12,7 @@ const trustPoints = [
 
 export default function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_55%,#00447A_100%)] -mt-[88px] pt-[108px] pb-24 md:pt-[136px] md:pb-32">
+    <section className="relative overflow-hidden bg-[linear-gradient(135deg,#0F1A33_0%,#1B2A4A_55%,#00447A_100%)] -mt-[88px] pt-[108px] pb-24 md:pt-[136px] md:pb-32">
       {/* Scroll-driven network animation — extends up under the translucent navbar */}
       <NetworkBackground />
 

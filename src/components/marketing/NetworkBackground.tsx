@@ -562,7 +562,7 @@ export default function NetworkBackground() {
       className="absolute inset-0 overflow-hidden pointer-events-none"
       aria-hidden="true"
     >
-      <canvas ref={canvasRef} className="block w-full h-full opacity-70" />
+      <canvas ref={canvasRef} className="block w-full h-full opacity-90" />
     </div>
   );
 }
