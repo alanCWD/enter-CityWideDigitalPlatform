@@ -33,38 +33,53 @@ interface ExecRequest { sql: string; args?: SqlValue[] }
 
 interface BunnyRow { [k: string]: SqlValue }
 
+function bunnyHttpBase(): string {
+  // Bunny gives users a libsql:// URL. The HTTP/Hrana API lives at https://<host>
+  let u = (BUNNY_URL ?? "").trim().replace(/\/$/, "");
+  u = u.replace(/^libsql:\/\//i, "https://");
+  if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+  return u;
+}
+
 /** Execute one SQL statement on Bunny libSQL via the v2/pipeline endpoint. */
 async function exec(req: ExecRequest): Promise<{ rows: BunnyRow[]; affected: number }> {
   return (await execMany([req]))[0];
 }
 
 async function execMany(stmts: ExecRequest[]): Promise<{ rows: BunnyRow[]; affected: number }[]> {
-  const res = await fetch(`${BUNNY_URL.replace(/\/$/, "")}/v2/pipeline`, {
+  const res = await fetch(`${bunnyHttpBase()}/v2/pipeline`, {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${BUNNY_TOKEN}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      requests: stmts.map((s) => ({
-        type: "execute",
-        stmt: {
-          sql: s.sql,
-          args: (s.args ?? []).map((v) => {
-            if (v === null || v === undefined) return { type: "null" };
-            if (typeof v === "number") return { type: "integer", value: String(v) };
-            return { type: "text", value: String(v) };
-          }),
-        },
-      })),
+      requests: [
+        ...stmts.map((s) => ({
+          type: "execute",
+          stmt: {
+            sql: s.sql,
+            args: (s.args ?? []).map((v) => {
+              if (v === null || v === undefined) return { type: "null" };
+              if (typeof v === "number") return { type: "integer", value: String(v) };
+              return { type: "text", value: String(v) };
+            }),
+          },
+        })),
+        { type: "close" },
+      ],
     }),
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Bunny error ${res.status}: ${text}`);
+    throw new Error(`Bunny HTTP ${res.status}: ${text.slice(0, 500)}`);
   }
   const data = await res.json() as { results: Array<{ type: string; response?: { result?: { cols: { name: string }[]; rows: Array<Array<{ type: string; value?: string }>>; affected_row_count?: number } }; error?: { message: string } }> };
-  return data.results.map((r) => {
+  const out: { rows: BunnyRow[]; affected: number }[] = [];
+  // Skip the trailing close response when mapping back to caller's statements
+  for (let i = 0; i < stmts.length; i++) {
+    const r = data.results[i];
+    if (!r) throw new Error("missing bunny response");
     if (r.type === "error" || r.error) throw new Error(r.error?.message ?? "unknown bunny error");
     const cols = r.response?.result?.cols ?? [];
     const rows = (r.response?.result?.rows ?? []).map((rowArr) => {
@@ -77,8 +92,9 @@ async function execMany(stmts: ExecRequest[]): Promise<{ rows: BunnyRow[]; affec
       });
       return obj;
     });
-    return { rows, affected: r.response?.result?.affected_row_count ?? 0 };
-  });
+    out.push({ rows, affected: r.response?.result?.affected_row_count ?? 0 });
+  }
+  return out;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -632,9 +648,11 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const result = await handle(body.action as string, (body.payload as Record<string, unknown>) ?? {});
+    // Always return 200 so the client gets the structured error body instead of a generic non-2xx
     return json(result);
   } catch (err) {
     console.error("bunny-rpc error", err);
-    return json({ error: (err as Error).message }, 500);
+    // Return 200 with error payload so the supabase-js client surfaces our message instead of "non-2xx"
+    return json({ error: (err as Error).message ?? "internal error" }, 200);
   }
 });
