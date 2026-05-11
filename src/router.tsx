@@ -21,6 +21,10 @@ import PortalCoach from "./pages/portal/PortalCoach";
 import PortalAnalytics from "./pages/portal/PortalAnalytics";
 import PortalConnect from "./pages/portal/PortalConnect";
 import { AdminUsers } from "./pages/admin/AdminUsers";
+import { CrmIndex } from "./pages/dashboard/crm/CrmIndex";
+import { ClientsList } from "./pages/dashboard/crm/ClientsList";
+import { ClientDetail } from "./pages/dashboard/crm/ClientDetail";
+import { Catalog } from "./pages/dashboard/crm/Catalog";
 
 export const routers = [
   {
@@ -140,6 +144,27 @@ export const routers = [
     path: "/admin/users",
     name: "admin-users",
     element: <AdminUsers />,
+  },
+  // CRM & Billing
+  {
+    path: "/dashboard/crm",
+    name: "crm-index",
+    element: <CrmIndex />,
+  },
+  {
+    path: "/dashboard/crm/clients",
+    name: "crm-clients",
+    element: <ClientsList />,
+  },
+  {
+    path: "/dashboard/crm/clients/:id",
+    name: "crm-client-detail",
+    element: <ClientDetail />,
+  },
+  {
+    path: "/dashboard/crm/catalog",
+    name: "crm-catalog",
+    element: <Catalog />,
   },
   /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
   {

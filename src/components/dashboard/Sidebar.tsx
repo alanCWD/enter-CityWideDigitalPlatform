@@ -12,6 +12,7 @@ import {
   TrendingUp,
   MessagesSquare,
   ExternalLink,
+  Receipt,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { name: "Analytics", path: "/analytics", icon: BarChart3 },
   { name: "Leads & Alerts", path: "/leads", icon: Bell },
   { name: "GSO Coach", path: "/coaching", icon: GraduationCap },
+  { name: "CRM & Billing", path: "/dashboard/crm", icon: Receipt },
 ];
 
 export function Sidebar() {
