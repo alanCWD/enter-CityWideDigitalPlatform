@@ -622,8 +622,9 @@ Deno.serve(async (req) => {
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData?.user) return json({ error: "Invalid token" }, 401);
 
+    const userId = userData.user.id;
     const { data: isAdmin } = await userClient.rpc("is_admin");
-    const { data: isAgency } = await userClient.rpc("has_role", { _role: "agency" });
+    const { data: isAgency } = await userClient.rpc("has_role", { _user_id: userId, _role: "agency" });
     if (!isAdmin && !isAgency) return json({ error: "Forbidden: agency only" }, 403);
 
     if (!BUNNY_URL || !BUNNY_TOKEN) return json({ error: "Bunny database not configured" }, 500);
