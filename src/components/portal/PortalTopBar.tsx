@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useParams } from "react-router-dom";
-import { LogOut, Store, Share2, BarChart3, GraduationCap, Home } from "lucide-react";
+import { LogOut, Store, Share2, BarChart3, GraduationCap, Home, Shield } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import type { PortalConnection } from "@/hooks/usePortalConnections";
@@ -11,6 +11,7 @@ const TABS = [
   { name: "Social", path: "social", icon: Share2, end: false },
   { name: "Coach", path: "coach", icon: GraduationCap, end: false },
   { name: "Analytics", path: "analytics", icon: BarChart3, end: false },
+  { name: "Vault", path: "vault", icon: Shield, end: false },
 ];
 
 interface PortalTopBarProps {

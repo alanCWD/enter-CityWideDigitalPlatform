@@ -1,0 +1,13 @@
+-- Private bucket for client vault files (logos, contracts, assets)
+insert into storage.buckets (id, name, public)
+values ('client-files', 'client-files', false)
+on conflict (id) do nothing;
+
+-- Lock down: only the service role (used by our edge function) can read/write.
+-- The edge function mints time-limited signed URLs for clients & agency users.
+drop policy if exists "service role manages client-files" on storage.objects;
+create policy "service role manages client-files"
+on storage.objects for all
+to service_role
+using (bucket_id = 'client-files')
+with check (bucket_id = 'client-files');

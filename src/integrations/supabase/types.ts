@@ -3308,15 +3308,46 @@ export type Database = {
           },
         ]
       }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "agency" | "client"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3357,7 +3388,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_24: {
+      messages_2026_05_06: {
         Row: {
           event: string | null
           extension: string
@@ -3390,7 +3421,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_25: {
+      messages_2026_05_07: {
         Row: {
           event: string | null
           extension: string
@@ -3423,7 +3454,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_26: {
+      messages_2026_05_08: {
         Row: {
           event: string | null
           extension: string
@@ -3456,7 +3487,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_27: {
+      messages_2026_05_09: {
         Row: {
           event: string | null
           extension: string
@@ -3489,7 +3520,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_04_28: {
+      messages_2026_05_10: {
         Row: {
           event: string | null
           extension: string
@@ -4529,7 +4560,9 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "agency", "client"],
+    },
   },
   realtime: {
     Enums: {

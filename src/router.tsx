@@ -20,6 +20,7 @@ import PortalSocial from "./pages/portal/PortalSocial";
 import PortalCoach from "./pages/portal/PortalCoach";
 import PortalAnalytics from "./pages/portal/PortalAnalytics";
 import PortalConnect from "./pages/portal/PortalConnect";
+import PortalVault from "./pages/portal/PortalVault";
 import { AdminUsers } from "./pages/admin/AdminUsers";
 import { CrmIndex } from "./pages/dashboard/crm/CrmIndex";
 import { ClientsList } from "./pages/dashboard/crm/ClientsList";
@@ -138,6 +139,11 @@ export const routers = [
     path: "/portal/:clientId/analytics",
     name: "portal-analytics",
     element: <PortalAnalytics />,
+  },
+  {
+    path: "/portal/:clientId/vault",
+    name: "portal-vault",
+    element: <PortalVault />,
   },
   // Admin
   {

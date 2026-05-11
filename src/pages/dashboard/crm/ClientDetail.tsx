@@ -6,12 +6,13 @@ import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
 import { crm, fmtMoney } from "@/lib/crm";
 import { StatusPill } from "@/components/crm/StatusPill";
+import { VaultPanel } from "@/components/crm/vault/VaultPanel";
 import { cn } from "@/lib/utils";
 
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const { detail, loading, reload } = useCrmClient(id);
-  const [tab, setTab] = useState<"overview" | "subscriptions" | "invoices" | "payments" | "notes">("overview");
+  const [tab, setTab] = useState<"overview" | "vault" | "subscriptions" | "invoices" | "payments">("overview");
 
   if (loading) {
     return <DashboardLayout><TopBar title="Loading…" /></DashboardLayout>;
@@ -64,6 +65,7 @@ export function ClientDetail() {
         <div className="flex flex-wrap gap-1 border-b border-white/10">
           {([
             ["overview", "Overview"],
+            ["vault", "Vault"],
             ["subscriptions", "Subscriptions"],
             ["invoices", "Invoices"],
             ["payments", "Payments"],
@@ -85,6 +87,9 @@ export function ClientDetail() {
 
         {tab === "overview" && (
           <ContactsPanel detail={detail} reload={reload} />
+        )}
+        {tab === "vault" && (
+          <VaultPanel clientId={detail.client.id} />
         )}
         {tab === "subscriptions" && (
           <SubscriptionsPanel detail={detail} reload={reload} />
