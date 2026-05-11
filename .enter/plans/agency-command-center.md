@@ -299,13 +299,230 @@ the same arbitrary classes already covered by `dashboard-theme.css`).
    call returning zeros.
 2. **Catalog sync** — Create a "Local SEO Pro – $299/mo" subscription product. Confirm a
    Stripe product + price are created (visible in Stripe dashboard).
-3. **Client lifecycle** — Create a client, attach a contact, link a GBP connection from
-   the picker; the GBP card renders.
-4. **Subscription** — Add the SEO Pro plan to the client; Stripe creates a subscription;
-   the dashboard shows status `active` and projected MRR updates.
-5. **Invoicing** — Compose a one-off invoice (e.g. "Logo refresh – $400"), click **Send**;
-   the client receives the Stripe-hosted invoice email.
-6. **Payment** — Pay the invoice in Stripe test mode (card `4242 4242 4242 4242`); within
-   seconds the webhook flips the row to `paid`, MRR / outstanding tiles update, and the
    `payments` tab shows the new row.
 7. **Theme** — Toggle the light/dark switch on any CRM screen; surfaces flip cleanly.
+
+---
+
+# Phase 2 — Client Vault: Notes, Credentials & Files (multi-agency)
+
+## Context
+
+Each client now needs a per-client knowledge base ("Vault") that holds:
+
+1. **Notes** — internal write-ups (project briefs, meeting summaries, instructions).
+2. **Credentials** — login URLs, usernames, passwords, API keys, MFA recovery codes,
+   etc. used by CityWide Digital staff to do future work on the client's accounts.
+3. **Files** — logos, brand assets, signed contracts, PDFs.
+
+Two visibility tiers are required:
+
+- **agency_only** — internal CityWide Digital / white-label partner agency only.
+- **client_visible** — also surfaced in the client's own portal (`/portal/:id`).
+
+A third concept — *white-label tenancy* — must be introduced **at the same time** so a
+partner agency reselling our platform can see only its own clients/vault items, while
+CityWide admins still see everything.
+
+## Decisions (locked in)
+
+| Question | Choice |
+|---|---|
+| Multi-agency model | Add `agencies` table; `clients.agency_id` FK; super-admin role bypasses the filter |
+| Credential encryption | None — plain text in Bunny. The Bunny DB is auth-token protected and only the edge function (server side) can read it |
+| File storage | Enter Cloud Storage private bucket `client-files`; metadata rows in Bunny; signed URLs for downloads |
+| v1 scope | Notes + Credentials + Files, single **Vault** tab on each client detail page |
+
+## Architecture
+
+```
+React (Vault tab)──▶ bunny-rpc (notes/creds/files actions)──▶ Bunny DB
+                                  │
+                                  └──▶ Enter Cloud Storage (signed URLs only)
+React (client portal)─▶ portal-vault edge function (RLS-style filter)─▶ Bunny DB
+```
+
+Two edge functions:
+
+- **`bunny-rpc`** (existing) — gains note/credential/file CRUD actions. Filters every
+  query by `agency_id` unless caller is a CityWide super-admin (`is_admin()`).
+- **`portal-vault`** (new) — read-only endpoint used by `/portal/:id`; returns only items
+  with `visibility = 'client_visible'` for the connection_id the user is linked to via
+  `portal_users`.
+
+## Data model (Bunny)
+
+```sql
+-- Tenancy
+CREATE TABLE agencies (
+  id           TEXT PRIMARY KEY,
+  name         TEXT NOT NULL,
+  slug         TEXT NOT NULL UNIQUE,
+  is_primary   INTEGER NOT NULL DEFAULT 0,   -- 1 = CityWide Digital
+  created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+-- Maps Supabase auth user → agency + role (member|admin)
+CREATE TABLE agency_members (
+  user_id      TEXT NOT NULL,                -- auth.users.id (uuid stringified)
+  agency_id    TEXT NOT NULL REFERENCES agencies(id) ON DELETE CASCADE,
+  role         TEXT NOT NULL DEFAULT 'member',
+  created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (user_id, agency_id)
+);
+ALTER TABLE clients ADD COLUMN agency_id TEXT;             -- backfill to citywide on migration
+CREATE INDEX clients_agency_idx ON clients(agency_id);
+
+-- Vault items
+CREATE TABLE vault_notes (
+  id           TEXT PRIMARY KEY,
+  client_id    TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  agency_id    TEXT NOT NULL,                -- mirrored from client for fast filter
+  title        TEXT NOT NULL,
+  body         TEXT,                         -- markdown
+  visibility   TEXT NOT NULL DEFAULT 'agency_only',  -- 'agency_only' | 'client_visible'
+  pinned       INTEGER NOT NULL DEFAULT 0,
+  created_by   TEXT,                         -- auth user id
+  created_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX vault_notes_client_idx ON vault_notes(client_id);
+
+CREATE TABLE vault_credentials (
+  id              TEXT PRIMARY KEY,
+  client_id       TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  agency_id       TEXT NOT NULL,
+  label           TEXT NOT NULL,             -- "Facebook Business", "WP admin"
+  category        TEXT,                      -- "social" | "cms" | "hosting" | "other"
+  url             TEXT,
+  username        TEXT,
+  password        TEXT,                      -- plain text (per decision)
+  mfa_notes       TEXT,                      -- recovery codes, OTP info
+  notes           TEXT,
+  visibility      TEXT NOT NULL DEFAULT 'agency_only',
+  created_by      TEXT,
+  created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX vault_credentials_client_idx ON vault_credentials(client_id);
+
+CREATE TABLE vault_files (
+  id              TEXT PRIMARY KEY,
+  client_id       TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  agency_id       TEXT NOT NULL,
+  storage_path    TEXT NOT NULL,             -- "agency_id/client_id/<uuid>/<safe-name>"
+  filename        TEXT NOT NULL,
+  mime_type       TEXT,
+  size_bytes      INTEGER,
+  kind            TEXT,                      -- "logo" | "contract" | "asset" | "other"
+  visibility      TEXT NOT NULL DEFAULT 'agency_only',
+  uploaded_by     TEXT,
+  created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX vault_files_client_idx ON vault_files(client_id);
+```
+
+Bootstrap inserts a single `agencies` row `(id='citywide', name='CityWide Digital', slug='citywide', is_primary=1)` and backfills `clients.agency_id = 'citywide'` for everything that exists today.
+
+## Auth & visibility rules
+
+In `bunny-rpc`:
+
+```ts
+async function effectiveAgencyId(userClient, userId) {
+  // CityWide super-admin (Supabase 'admin' role) bypasses tenancy.
+  const { data: isAdmin } = await userClient.rpc("is_admin");
+  if (isAdmin) return { agencyId: null, isSuperAdmin: true };
+  // Otherwise look up agency_members for this user (created on first login).
+  const { rows } = await exec({ sql: `SELECT agency_id FROM agency_members WHERE user_id = ? LIMIT 1`, args: [userId] });
+  if (!rows[0]) return { agencyId: 'citywide', isSuperAdmin: false }; // default until invited
+  return { agencyId: rows[0].agency_id, isSuperAdmin: false };
+}
+```
+
+Every client/vault query gets `WHERE agency_id = ?` appended unless `isSuperAdmin`.
+
+## Enter Cloud Storage
+
+- **Bucket**: `client-files` (private — no public access)
+- **Layout**: `<agency_id>/<client_id>/<file_uuid>/<safe-filename>`
+- **Upload flow**:
+  1. Frontend calls `vault.files.uploadUrl` action → edge function returns a signed
+     **upload** URL (1-min TTL) and the storage_path it minted.
+  2. Frontend uploads the file directly to Storage via `PUT` to the signed URL.
+  3. Frontend calls `vault.files.confirm` with `{ storage_path, filename, mime_type, size_bytes, kind, visibility }` → row inserted in `vault_files`.
+- **Download flow**: `vault.files.download` returns a signed download URL (5-min TTL) after re-checking the row's agency_id and visibility.
+
+This avoids streaming bytes through the edge function (faster, no payload-size cap).
+
+## New backend actions (added to `bunny-rpc`)
+
+| Action | Args | Returns |
+|---|---|---|
+| `vault.list` | `{ client_id }` | `{ notes, credentials, files }` (filtered by tenancy) |
+| `vault.notes.upsert` | `{ id?, client_id, title, body, visibility, pinned }` | `{ id }` |
+| `vault.notes.delete` | `{ id }` | `{ ok: true }` |
+| `vault.creds.upsert` | `{ id?, client_id, label, category, url, username, password, mfa_notes, notes, visibility }` | `{ id }` |
+| `vault.creds.delete` | `{ id }` | `{ ok: true }` |
+| `vault.files.uploadUrl` | `{ client_id, filename, mime_type }` | `{ upload_url, storage_path, expires_at }` |
+| `vault.files.confirm` | `{ client_id, storage_path, filename, mime_type, size_bytes, kind, visibility }` | `{ id }` |
+| `vault.files.download` | `{ id }` | `{ url, expires_at }` |
+| `vault.files.delete` | `{ id }` | `{ ok: true }` (also deletes Storage object) |
+| `agencies.list` | `{}` | `{ agencies }` (super-admin only — for client form picker) |
+| `agencies.create` | `{ name, slug }` | `{ id }` (super-admin only) |
+| `agencies.invite` | `{ agency_id, email, role }` | `{ ok }` (super-admin only — adds an `agency_members` link on first login) |
+
+`clients.create` and `clients.update` get an optional `agency_id`. Default = caller's
+agency.
+
+## New edge function: `portal-vault`
+
+For the client-facing portal (`/portal/:connection_id`).
+
+- Auth: Supabase user token; must have a `portal_users` row for the requested
+  `connection_id`.
+- Looks up the matching CRM client by `clients.gbp_connection_id`.
+- Returns only items where `visibility = 'client_visible'`. Files come back as signed
+  download URLs.
+
+## Frontend changes
+
+**New files**
+- `src/lib/vault.ts` — types (`VaultNote`, `VaultCredential`, `VaultFile`) + thin wrappers around `crm()` for the new actions.
+- `src/hooks/useVault.ts` — `useVault(clientId)` returning `{ notes, credentials, files, reload }`.
+- `src/components/crm/vault/VaultPanel.tsx` — the **Vault** tab body. Three subsections (Pinned notes, Credentials, Files) with inline editors.
+- `src/components/crm/vault/NoteEditor.tsx` — title + markdown body + visibility toggle + pin checkbox.
+- `src/components/crm/vault/CredentialEditor.tsx` — label/category/url/username/password (with show-hide eye + copy button) / MFA / notes / visibility.
+- `src/components/crm/vault/FileUploader.tsx` — drag-and-drop using the upload-URL flow; thumbnail for images.
+- `src/components/crm/vault/AgencyPicker.tsx` — only rendered when `is_admin()` is true; lets super-admins assign a client to a different agency.
+- `src/pages/portal/ClientVaultPanel.tsx` — read-only render of items the client is allowed to see; mounted inside the existing portal page.
+
+**Modified files**
+- `src/pages/dashboard/crm/ClientDetail.tsx` — already has a `notes` tab in `useState`. Replace the placeholder with `<VaultPanel clientId={c.id} />` and rename the tab label to **Vault**.
+- `src/pages/dashboard/crm/ClientsList.tsx` + `NewClientDialog` — show agency picker for super-admins.
+- `src/pages/portal/PortalConnection.tsx` (or equivalent) — add a "Files & Notes" section using `<ClientVaultPanel />`.
+
+## Migrations & infra
+
+1. **Bunny migration** — append the new `CREATE TABLE` statements to the `bootstrap()` call (idempotent `IF NOT EXISTS`). Run once on next cold start.
+2. **Enter Cloud Storage** — create private bucket `client-files` via `supabase_migration` (`insert into storage.buckets ...`) and add policies that:
+   - Block all anon access.
+   - Allow service-role only (the edge function uses the service role to mint signed URLs, so no per-row Storage RLS is needed).
+3. **Backfill** — on first run, the edge function inserts the CityWide agency row and runs `UPDATE clients SET agency_id = 'citywide' WHERE agency_id IS NULL`.
+
+## Reused existing pieces
+
+- `crm()` wrapper in `src/lib/crm.ts` — all new actions go through it.
+- `StatusPill` styling tokens — reused for visibility badges.
+- `is_admin()` / `has_role()` Supabase RPCs — already mounted, reused for super-admin check.
+- `portal_users` table + RLS — reused by `portal-vault` to validate client access.
+- `ImportClientsDialog` styling — reused for credential / file editor look.
+
+## Verification
+
+1. **Bootstrap** — sign in as alan@citywidedigital.ca; visit any client; the Vault tab opens with 0 items and no errors. The Bunny `agencies` table contains one row.
+2. **Note** — create an internal note "Onboarding checklist" with visibility = agency_only; refresh; it appears.
+3. **Credential** — add a credential `WordPress admin` (URL/user/password). Click the eye icon to reveal, copy button copies password to clipboard.
+4. **File upload** — drag a 2 MB PNG logo; it uploads via signed URL; thumbnail renders; click to download (signed URL opens).
+5. **Visibility — client side** — flip the note to `client_visible`; sign in as the linked GBP-portal user (different account); visit `/portal/:connection_id`; the new "Files & Notes" panel shows the note + nothing else (the agency-only credential remains hidden).
+6. **Multi-agency isolation** — create a second agency `whitelabel-acme`; invite a test user; sign in as them; they see only the clients assigned to acme. Super-admin (alan) still sees both.
+7. **Cleanup** — delete a file; the row disappears AND the Storage object is removed (verify via Storage explorer).
