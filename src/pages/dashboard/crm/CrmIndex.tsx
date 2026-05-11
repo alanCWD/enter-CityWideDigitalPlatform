@@ -1,15 +1,33 @@
 import { Link } from "react-router-dom";
-import { Users, DollarSign, AlertCircle, Receipt, Plus, Package } from "lucide-react";
+import { useState } from "react";
+import { Users, DollarSign, AlertCircle, Receipt, Plus, Package, Activity, AlertTriangle } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmMetrics, useCrmClients, useCrmInvoices } from "@/hooks/useCrm";
-import { fmtMoney } from "@/lib/crm";
+import { crm, fmtMoney } from "@/lib/crm";
 import { StatusPill } from "@/components/crm/StatusPill";
 
 export function CrmIndex() {
-  const { data: metrics } = useCrmMetrics();
-  const { clients } = useCrmClients();
+  const { data: metrics, error: metricsErr, reload: reloadMetrics } = useCrmMetrics();
+  const { clients, error: clientsErr } = useCrmClients();
   const { invoices } = useCrmInvoices();
+  const firstError = metricsErr ?? clientsErr ?? null;
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testing, setTesting] = useState(false);
+
+  async function runPing() {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await crm<{ ok: boolean }>("ping");
+      setTestResult(`Connection OK — Bunny responded: ${JSON.stringify(res)}`);
+      reloadMetrics();
+    } catch (e) {
+      setTestResult(`FAILED: ${(e as Error).message}`);
+    } finally {
+      setTesting(false);
+    }
+  }
 
   const recentClients = clients.slice(0, 5);
   const recentInvoices = invoices.slice(0, 6);
@@ -23,6 +41,31 @@ export function CrmIndex() {
       />
 
       <div className="px-6 py-6 space-y-6">
+        {/* Diagnostic banner */}
+        <div className="bg-[#111E33] border border-white/10 rounded-2xl p-4 flex flex-wrap items-center gap-3">
+          <div className="flex-1 min-w-[260px]">
+            <div className="text-xs uppercase tracking-wider text-[rgba(238,241,250,0.5)] mb-1">Backend status</div>
+            {firstError ? (
+              <div className="flex items-start gap-2 text-sm text-[#F97316]">
+                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                <span className="break-all">{firstError}</span>
+              </div>
+            ) : testResult ? (
+              <div className={`text-sm ${testResult.startsWith("FAILED") ? "text-[#F97316]" : "text-[#22C55E]"}`}>{testResult}</div>
+            ) : (
+              <div className="text-sm text-[rgba(238,241,250,0.7)]">Idle. Press <strong>Test connection</strong> to verify Bunny + Stripe wiring.</div>
+            )}
+          </div>
+          <button
+            onClick={runPing}
+            disabled={testing}
+            className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-[#EEF1FA] border border-white/10 text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+          >
+            <Activity className="w-4 h-4" />
+            {testing ? "Pinging…" : "Test connection"}
+          </button>
+        </div>
+
         {/* Metric tiles */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <MetricTile
