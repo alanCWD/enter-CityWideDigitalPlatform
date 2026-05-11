@@ -98,6 +98,9 @@ dependencies:
   '@tanstack/react-query':
     specifier: ^5.86.0
     version: 5.86.0(react@19.1.1)
+  '@types/papaparse':
+    specifier: ^5.5.2
+    version: 5.5.2
   class-variance-authority:
     specifier: ^0.7.1
     version: 0.7.1
@@ -128,6 +131,9 @@ dependencies:
   next-themes:
     specifier: ^0.4.6
     version: 0.4.6(react-dom@19.1.1)(react@19.1.1)
+  papaparse:
+    specifier: ^5.5.3
+    version: 5.5.3
   react:
     specifier: ^19.1.1
     version: 19.1.1
@@ -2646,6 +2652,12 @@ packages:
     dependencies:
       undici-types: 7.10.0
 
+  /@types/papaparse@5.5.2:
+    resolution: {integrity: sha512-gFnFp/JMzLHCwRf7tQHrNnfhN4eYBVYYI897CGX4MY1tzY9l2aLkVyx2IlKZ/SAqDbB3I1AOZW5gTMGGsqWliA==}
+    dependencies:
+      '@types/node': 24.3.0
+    dev: false
+
   /@types/phoenix@1.6.6:
     resolution: {integrity: sha512-PIzZZlEppgrpoT2QgbnDU+MMzuR6BbCjllj0bM70lWoejMeNJAxCchxnv7J3XFkI8MpygtRpzXrIlmWUBclP5A==}
     dev: false
@@ -4021,6 +4033,10 @@ packages:
 
   /pako@1.0.11:
     resolution: {integrity: sha512-4hLB8Py4zZce5s4yd9XzopqwVv/yGNhV1Bl8NTmCq1763HeK2+EwVTv+leGeL13Dnh2wfbqowVPXCIO0z4taYw==}
+    dev: false
+
+  /papaparse@5.5.3:
+    resolution: {integrity: sha512-5QvjGxYVjxO59MGU2lHVYpRWBBtKHnlIAcSe1uNFCkkptUh63NFRj0FJQm7nR67puEruUci/ZkjmEFrjCAyP4A==}
     dev: false
 
   /parent-module@1.0.1:

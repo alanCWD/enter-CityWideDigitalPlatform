@@ -1,11 +1,4 @@
 // CRM gateway: routes requests from the dashboard to the Bunny libSQL database
-// and (when needed) to the Stripe API.
-//
-// Auth: caller must present a valid Supabase access token AND be admin or agency
-// (verified via the `is_admin()` and `has_role()` security-definer functions).
-//
-// All actions are POSTed as { action: string, payload?: object }.
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 
@@ -14,12 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { ...corsHeaders, "Content-Type": "application/json" },
-  });
+const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 const BUNNY_URL = Deno.env.get("BUNNY_DB_URL")!;
 const BUNNY_TOKEN = Deno.env.get("BUNNY_DB_AUTH_TOKEN")!;
@@ -35,11 +23,9 @@ function bunnyHttpBase(): string {
   return u;
 }
 
-async function exec(req: ExecRequest): Promise<{ rows: BunnyRow[]; affected: number }> {
-  return (await execMany([req]))[0];
-}
+async function exec(req: ExecRequest) { return (await execMany([req]))[0]; }
 
-async function execMany(stmts: ExecRequest[]): Promise<{ rows: BunnyRow[]; affected: number }[]> {
+async function execMany(stmts: ExecRequest[]) {
   const res = await fetch(`${bunnyHttpBase()}/v2/pipeline`, {
     method: "POST",
     headers: { "Authorization": `Bearer ${BUNNY_TOKEN}`, "Content-Type": "application/json" },
@@ -60,10 +46,7 @@ async function execMany(stmts: ExecRequest[]): Promise<{ rows: BunnyRow[]; affec
       ],
     }),
   });
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Bunny HTTP ${res.status}: ${text.slice(0, 500)}`);
-  }
+  if (!res.ok) { const text = await res.text(); throw new Error(`Bunny HTTP ${res.status}: ${text.slice(0, 500)}`); }
   const data = await res.json() as { results: Array<{ type: string; response?: { result?: { cols: { name: string }[]; rows: Array<Array<{ type: string; value?: string }>>; affected_row_count?: number } }; error?: { message: string } }> };
   const out: { rows: BunnyRow[]; affected: number }[] = [];
   for (let i = 0; i < stmts.length; i++) {
@@ -89,7 +72,7 @@ async function execMany(stmts: ExecRequest[]): Promise<{ rows: BunnyRow[]; affec
 let bootstrapped = false;
 async function bootstrap() {
   if (bootstrapped) return;
-  const stmts: ExecRequest[] = [
+  await execMany([
     { sql: `CREATE TABLE IF NOT EXISTS clients (id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'active', gbp_connection_id TEXT, stripe_customer_id TEXT, billing_email TEXT, phone TEXT, address_line1 TEXT, address_line2 TEXT, city TEXT, region TEXT, postal_code TEXT, country TEXT DEFAULT 'CA', notes TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
     { sql: `CREATE INDEX IF NOT EXISTS clients_gbp_idx ON clients(gbp_connection_id)` },
     { sql: `CREATE INDEX IF NOT EXISTS clients_status_idx ON clients(status)` },
@@ -104,14 +87,12 @@ async function bootstrap() {
     { sql: `CREATE TABLE IF NOT EXISTS invoice_items (id TEXT PRIMARY KEY, invoice_id TEXT NOT NULL REFERENCES invoices(id) ON DELETE CASCADE, product_id TEXT REFERENCES products(id), description TEXT NOT NULL, quantity INTEGER NOT NULL DEFAULT 1, unit_amount_cents INTEGER NOT NULL, amount_cents INTEGER NOT NULL)` },
     { sql: `CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, invoice_id TEXT REFERENCES invoices(id) ON DELETE SET NULL, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, amount_cents INTEGER NOT NULL, currency TEXT NOT NULL DEFAULT 'CAD', method TEXT, stripe_payment_id TEXT UNIQUE, paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
     { sql: `CREATE INDEX IF NOT EXISTS payments_client_idx ON payments(client_id)` },
-  ];
-  await execMany(stmts);
+  ]);
   bootstrapped = true;
 }
 
 const uuid = () => crypto.randomUUID();
 const now = () => new Date().toISOString();
-
 const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
 const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: "2024-04-10" }) : null;
 
@@ -121,48 +102,26 @@ async function ensureStripeCustomer(clientId: string): Promise<string | null> {
   const c = rows[0];
   if (!c) throw new Error("client not found");
   if (c.stripe_customer_id) return c.stripe_customer_id as string;
-  const customer = await stripe.customers.create({
-    name: c.name as string,
-    email: (c.billing_email as string) ?? undefined,
-    phone: (c.phone as string) ?? undefined,
-    metadata: { cwd_client_id: clientId },
-  });
+  const customer = await stripe.customers.create({ name: c.name as string, email: (c.billing_email as string) ?? undefined, phone: (c.phone as string) ?? undefined, metadata: { cwd_client_id: clientId } });
   await exec({ sql: `UPDATE clients SET stripe_customer_id = ?, updated_at = ? WHERE id = ?`, args: [customer.id, now(), clientId] });
   return customer.id;
 }
-
 async function syncProductToStripe(productId: string) {
   if (!stripe) return;
   const { rows } = await exec({ sql: `SELECT * FROM products WHERE id = ? LIMIT 1`, args: [productId] });
   const p = rows[0];
   if (!p) return;
   let stripeProductId = p.stripe_product_id as string | null;
-  if (!stripeProductId) {
-    const sp = await stripe.products.create({
-      name: p.name as string,
-      description: (p.description as string) ?? undefined,
-      metadata: { cwd_product_id: productId },
-    });
-    stripeProductId = sp.id;
-  }
-  const priceParams: Stripe.PriceCreateParams = {
-    product: stripeProductId,
-    unit_amount: p.unit_amount_cents as number,
-    currency: ((p.currency as string) ?? "cad").toLowerCase(),
-  };
-  if (p.type === "subscription" && p.interval) {
-    priceParams.recurring = { interval: p.interval as Stripe.PriceCreateParams.Recurring.Interval };
-  }
+  if (!stripeProductId) { const sp = await stripe.products.create({ name: p.name as string, description: (p.description as string) ?? undefined, metadata: { cwd_product_id: productId } }); stripeProductId = sp.id; }
+  const priceParams: Stripe.PriceCreateParams = { product: stripeProductId, unit_amount: p.unit_amount_cents as number, currency: ((p.currency as string) ?? "cad").toLowerCase() };
+  if (p.type === "subscription" && p.interval) priceParams.recurring = { interval: p.interval as Stripe.PriceCreateParams.Recurring.Interval };
   const price = await stripe.prices.create(priceParams);
   await exec({ sql: `UPDATE products SET stripe_product_id = ?, stripe_price_id = ? WHERE id = ?`, args: [stripeProductId, price.id, productId] });
 }
 
 async function handle(action: string, payload: Record<string, unknown>) {
   switch (action) {
-    case "ping": {
-      await exec({ sql: `SELECT 1 as ok` });
-      return { ok: true, bunny_host: bunnyHttpBase() };
-    }
+    case "ping": { await exec({ sql: `SELECT 1 as ok` }); return { ok: true, bunny_host: bunnyHttpBase() }; }
     case "metrics.summary": {
       const [active, mrr, outstanding, overdue] = await execMany([
         { sql: `SELECT COUNT(*) AS n FROM clients WHERE status = 'active'` },
@@ -170,22 +129,15 @@ async function handle(action: string, payload: Record<string, unknown>) {
         { sql: `SELECT COALESCE(SUM(total_cents - amount_paid_cents), 0) AS amt FROM invoices WHERE status IN ('open','past_due','uncollectible')` },
         { sql: `SELECT COUNT(*) AS n FROM invoices WHERE status = 'open' AND due_date IS NOT NULL AND due_date < ?`, args: [now()] },
       ]);
-      return {
-        active_clients: active.rows[0]?.n ?? 0,
-        mrr_cents: mrr.rows[0]?.mrr ?? 0,
-        outstanding_cents: outstanding.rows[0]?.amt ?? 0,
-        overdue_count: overdue.rows[0]?.n ?? 0,
-      };
+      return { active_clients: active.rows[0]?.n ?? 0, mrr_cents: mrr.rows[0]?.mrr ?? 0, outstanding_cents: outstanding.rows[0]?.amt ?? 0, overdue_count: overdue.rows[0]?.n ?? 0 };
     }
     case "clients.list": {
       const q = (payload.q as string | undefined)?.trim();
       const status = payload.status as string | undefined;
-      const where: string[] = [];
-      const args: SqlValue[] = [];
+      const where: string[] = []; const args: SqlValue[] = [];
       if (q) { where.push(`(name LIKE ? OR billing_email LIKE ?)`); args.push(`%${q}%`, `%${q}%`); }
       if (status) { where.push(`status = ?`); args.push(status); }
-      const sql = `SELECT * FROM clients ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY created_at DESC LIMIT 200`;
-      const { rows } = await exec({ sql, args });
+      const { rows } = await exec({ sql: `SELECT * FROM clients ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY created_at DESC LIMIT 1500`, args });
       return { clients: rows };
     }
     case "clients.get": {
@@ -203,88 +155,78 @@ async function handle(action: string, payload: Record<string, unknown>) {
     case "clients.create": {
       const id = uuid();
       const fields = ["id","name","status","gbp_connection_id","billing_email","phone","address_line1","address_line2","city","region","postal_code","country","notes","created_at","updated_at"];
-      const args: SqlValue[] = [
-        id,
-        (payload.name as string) ?? "Untitled",
-        (payload.status as string) ?? "active",
-        (payload.gbp_connection_id as string) ?? null,
-        (payload.billing_email as string) ?? null,
-        (payload.phone as string) ?? null,
-        (payload.address_line1 as string) ?? null,
-        (payload.address_line2 as string) ?? null,
-        (payload.city as string) ?? null,
-        (payload.region as string) ?? null,
-        (payload.postal_code as string) ?? null,
-        (payload.country as string) ?? "CA",
-        (payload.notes as string) ?? null,
-        now(),
-        now(),
-      ];
+      const args: SqlValue[] = [id, (payload.name as string) ?? "Untitled", (payload.status as string) ?? "active", (payload.gbp_connection_id as string) ?? null, (payload.billing_email as string) ?? null, (payload.phone as string) ?? null, (payload.address_line1 as string) ?? null, (payload.address_line2 as string) ?? null, (payload.city as string) ?? null, (payload.region as string) ?? null, (payload.postal_code as string) ?? null, (payload.country as string) ?? "CA", (payload.notes as string) ?? null, now(), now()];
       await exec({ sql: `INSERT INTO clients (${fields.join(",")}) VALUES (${fields.map(() => "?").join(",")})`, args });
       return { id };
     }
     case "clients.update": {
       const id = payload.id as string;
       const allowed = ["name","status","gbp_connection_id","billing_email","phone","address_line1","address_line2","city","region","postal_code","country","notes"];
-      const sets: string[] = [];
-      const args: SqlValue[] = [];
-      for (const k of allowed) {
-        if (k in payload) { sets.push(`${k} = ?`); args.push((payload[k] as SqlValue) ?? null); }
-      }
-      sets.push(`updated_at = ?`); args.push(now());
-      args.push(id);
+      const sets: string[] = []; const args: SqlValue[] = [];
+      for (const k of allowed) if (k in payload) { sets.push(`${k} = ?`); args.push((payload[k] as SqlValue) ?? null); }
+      sets.push(`updated_at = ?`); args.push(now()); args.push(id);
       await exec({ sql: `UPDATE clients SET ${sets.join(", ")} WHERE id = ?`, args });
       return { ok: true };
     }
-    case "clients.archive": {
-      await exec({ sql: `UPDATE clients SET status = 'churned', updated_at = ? WHERE id = ?`, args: [now(), payload.id as string] });
-      return { ok: true };
+    case "clients.archive": { await exec({ sql: `UPDATE clients SET status = 'churned', updated_at = ? WHERE id = ?`, args: [now(), payload.id as string] }); return { ok: true }; }
+    case "clients.bulkImport": {
+      const incoming = (payload.rows as Array<Record<string, string | null | undefined>>) ?? [];
+      if (!Array.isArray(incoming) || !incoming.length) return { error: "no rows" };
+      const existing = await exec({ sql: `SELECT gbp_connection_id FROM clients WHERE gbp_connection_id IS NOT NULL` });
+      const seen = new Set<string>(existing.rows.map((r) => (r.gbp_connection_id as string)).filter(Boolean));
+      let inserted = 0; let skipped = 0;
+      const errors: Array<{ index: number; name?: string; message: string }> = [];
+      const fields = ["id","name","status","gbp_connection_id","billing_email","phone","address_line1","address_line2","city","region","postal_code","country","notes","created_at","updated_at"];
+      const insertSql = `INSERT INTO clients (${fields.join(",")}) VALUES (${fields.map(() => "?").join(",")})`;
+      const CHUNK = 50;
+      for (let i = 0; i < incoming.length; i += CHUNK) {
+        const chunk = incoming.slice(i, i + CHUNK);
+        const stmts: ExecRequest[] = []; const meta: Array<{ index: number; name: string }> = [];
+        for (let j = 0; j < chunk.length; j++) {
+          const row = chunk[j];
+          const name = (row.name ?? "").toString().trim();
+          const gbp = (row.gbp_connection_id ?? "").toString().trim() || null;
+          if (!name) { errors.push({ index: i + j, message: "missing name" }); continue; }
+          if (gbp && seen.has(gbp)) { skipped++; continue; }
+          if (gbp) seen.add(gbp);
+          stmts.push({ sql: insertSql, args: [uuid(), name, (row.status as string) || "prospect", gbp, (row.billing_email as string) || null, (row.phone as string) || null, (row.address_line1 as string) || null, (row.address_line2 as string) || null, (row.city as string) || null, (row.region as string) || null, (row.postal_code as string) || null, (row.country as string) || "CA", (row.notes as string) || null, now(), now()] });
+          meta.push({ index: i + j, name });
+        }
+        if (!stmts.length) continue;
+        try { await execMany(stmts); inserted += stmts.length; }
+        catch (_e) {
+          for (let k = 0; k < stmts.length; k++) {
+            try { await exec(stmts[k]); inserted++; }
+            catch (e2) { errors.push({ index: meta[k].index, name: meta[k].name, message: (e2 as Error).message }); }
+          }
+        }
+      }
+      return { inserted, skipped, errors: errors.slice(0, 50), error_count: errors.length, total: incoming.length };
     }
     case "contacts.upsert": {
       const id = (payload.id as string) || uuid();
       const exists = payload.id ? (await exec({ sql: `SELECT id FROM contacts WHERE id = ?`, args: [id] })).rows[0] : null;
-      if (exists) {
-        await exec({ sql: `UPDATE contacts SET full_name = ?, email = ?, phone = ?, role = ?, is_primary = ? WHERE id = ?`, args: [payload.full_name as string, (payload.email as string) ?? null, (payload.phone as string) ?? null, (payload.role as string) ?? null, payload.is_primary ? 1 : 0, id] });
-      } else {
-        await exec({ sql: `INSERT INTO contacts (id, client_id, full_name, email, phone, role, is_primary) VALUES (?,?,?,?,?,?,?)`, args: [id, payload.client_id as string, payload.full_name as string, (payload.email as string) ?? null, (payload.phone as string) ?? null, (payload.role as string) ?? null, payload.is_primary ? 1 : 0] });
-      }
+      if (exists) await exec({ sql: `UPDATE contacts SET full_name = ?, email = ?, phone = ?, role = ?, is_primary = ? WHERE id = ?`, args: [payload.full_name as string, (payload.email as string) ?? null, (payload.phone as string) ?? null, (payload.role as string) ?? null, payload.is_primary ? 1 : 0, id] });
+      else await exec({ sql: `INSERT INTO contacts (id, client_id, full_name, email, phone, role, is_primary) VALUES (?,?,?,?,?,?,?)`, args: [id, payload.client_id as string, payload.full_name as string, (payload.email as string) ?? null, (payload.phone as string) ?? null, (payload.role as string) ?? null, payload.is_primary ? 1 : 0] });
       return { id };
     }
-    case "contacts.delete": {
-      await exec({ sql: `DELETE FROM contacts WHERE id = ?`, args: [payload.id as string] });
-      return { ok: true };
-    }
-    case "products.list": {
-      const { rows } = await exec({ sql: `SELECT * FROM products ORDER BY active DESC, name` });
-      return { products: rows };
-    }
+    case "contacts.delete": { await exec({ sql: `DELETE FROM contacts WHERE id = ?`, args: [payload.id as string] }); return { ok: true }; }
+    case "products.list": { const { rows } = await exec({ sql: `SELECT * FROM products ORDER BY active DESC, name` }); return { products: rows }; }
     case "products.upsert": {
       const id = (payload.id as string) || uuid();
       const exists = payload.id ? (await exec({ sql: `SELECT id FROM products WHERE id = ?`, args: [id] })).rows[0] : null;
-      if (exists) {
-        await exec({ sql: `UPDATE products SET name=?, description=?, type=?, unit_amount_cents=?, currency=?, interval=?, active=? WHERE id=?`, args: [payload.name as string, (payload.description as string) ?? null, payload.type as string, payload.unit_amount_cents as number, ((payload.currency as string) ?? "CAD").toUpperCase(), (payload.interval as string) ?? null, payload.active === false ? 0 : 1, id] });
-      } else {
-        await exec({ sql: `INSERT INTO products (id, name, description, type, unit_amount_cents, currency, interval, active) VALUES (?,?,?,?,?,?,?,?)`, args: [id, payload.name as string, (payload.description as string) ?? null, payload.type as string, payload.unit_amount_cents as number, ((payload.currency as string) ?? "CAD").toUpperCase(), (payload.interval as string) ?? null, payload.active === false ? 0 : 1] });
-      }
-      if (stripe) {
-        try { await syncProductToStripe(id); } catch (e) { console.warn("stripe sync", e); }
-      }
+      if (exists) await exec({ sql: `UPDATE products SET name=?, description=?, type=?, unit_amount_cents=?, currency=?, interval=?, active=? WHERE id=?`, args: [payload.name as string, (payload.description as string) ?? null, payload.type as string, payload.unit_amount_cents as number, ((payload.currency as string) ?? "CAD").toUpperCase(), (payload.interval as string) ?? null, payload.active === false ? 0 : 1, id] });
+      else await exec({ sql: `INSERT INTO products (id, name, description, type, unit_amount_cents, currency, interval, active) VALUES (?,?,?,?,?,?,?,?)`, args: [id, payload.name as string, (payload.description as string) ?? null, payload.type as string, payload.unit_amount_cents as number, ((payload.currency as string) ?? "CAD").toUpperCase(), (payload.interval as string) ?? null, payload.active === false ? 0 : 1] });
+      if (stripe) try { await syncProductToStripe(id); } catch (e) { console.warn("stripe sync", e); }
       return { id };
     }
-    case "products.archive": {
-      await exec({ sql: `UPDATE products SET active = 0 WHERE id = ?`, args: [payload.id as string] });
-      return { ok: true };
-    }
+    case "products.archive": { await exec({ sql: `UPDATE products SET active = 0 WHERE id = ?`, args: [payload.id as string] }); return { ok: true }; }
     case "subscriptions.create": {
       if (!stripe) return { error: "Stripe not configured" };
-      const clientId = payload.client_id as string;
-      const productId = payload.product_id as string;
-      const qty = (payload.quantity as number) ?? 1;
-      const customerId = await ensureStripeCustomer(clientId);
-      if (!customerId) return { error: "could not create stripe customer" };
+      const clientId = payload.client_id as string; const productId = payload.product_id as string; const qty = (payload.quantity as number) ?? 1;
+      const customerId = await ensureStripeCustomer(clientId); if (!customerId) return { error: "could not create stripe customer" };
       const { rows: prodRows } = await exec({ sql: `SELECT * FROM products WHERE id = ?`, args: [productId] });
-      const product = prodRows[0];
-      if (!product) return { error: "product not found" };
+      const product = prodRows[0]; if (!product) return { error: "product not found" };
       if (!product.stripe_price_id) await syncProductToStripe(productId);
       const refreshed = (await exec({ sql: `SELECT stripe_price_id FROM products WHERE id = ?`, args: [productId] })).rows[0];
       const priceId = refreshed?.stripe_price_id as string;
@@ -295,35 +237,22 @@ async function handle(action: string, payload: Record<string, unknown>) {
     }
     case "subscriptions.cancel": {
       if (!stripe) return { error: "Stripe not configured" };
-      const id = payload.id as string;
-      const atPeriodEnd = !!payload.at_period_end;
-      const { rows } = await exec({ sql: `SELECT * FROM subscriptions WHERE id = ?`, args: [id] });
-      const sub = rows[0];
-      if (!sub) return { error: "not found" };
-      if (atPeriodEnd) {
-        await stripe.subscriptions.update(sub.stripe_subscription_id as string, { cancel_at_period_end: true });
-        await exec({ sql: `UPDATE subscriptions SET cancel_at_period_end = 1 WHERE id = ?`, args: [id] });
-      } else {
-        await stripe.subscriptions.cancel(sub.stripe_subscription_id as string);
-        await exec({ sql: `UPDATE subscriptions SET status = 'canceled' WHERE id = ?`, args: [id] });
-      }
+      const id = payload.id as string; const atPeriodEnd = !!payload.at_period_end;
+      const { rows } = await exec({ sql: `SELECT * FROM subscriptions WHERE id = ?`, args: [id] }); const sub = rows[0]; if (!sub) return { error: "not found" };
+      if (atPeriodEnd) { await stripe.subscriptions.update(sub.stripe_subscription_id as string, { cancel_at_period_end: true }); await exec({ sql: `UPDATE subscriptions SET cancel_at_period_end = 1 WHERE id = ?`, args: [id] }); }
+      else { await stripe.subscriptions.cancel(sub.stripe_subscription_id as string); await exec({ sql: `UPDATE subscriptions SET status = 'canceled' WHERE id = ?`, args: [id] }); }
       return { ok: true };
     }
     case "invoices.list": {
-      const where: string[] = [];
-      const args: SqlValue[] = [];
+      const where: string[] = []; const args: SqlValue[] = [];
       if (payload.client_id) { where.push(`client_id = ?`); args.push(payload.client_id as string); }
       if (payload.status) { where.push(`status = ?`); args.push(payload.status as string); }
-      const sql = `SELECT i.*, c.name AS client_name FROM invoices i LEFT JOIN clients c ON c.id = i.client_id ${where.length ? `WHERE ${where.map((w) => "i." + w).join(" AND ")}` : ""} ORDER BY i.created_at DESC LIMIT 200`;
-      const { rows } = await exec({ sql, args });
+      const { rows } = await exec({ sql: `SELECT i.*, c.name AS client_name FROM invoices i LEFT JOIN clients c ON c.id = i.client_id ${where.length ? `WHERE ${where.map((w) => "i." + w).join(" AND ")}` : ""} ORDER BY i.created_at DESC LIMIT 200`, args });
       return { invoices: rows };
     }
     case "invoices.get": {
       const id = payload.id as string;
-      const [inv, items] = await execMany([
-        { sql: `SELECT * FROM invoices WHERE id = ?`, args: [id] },
-        { sql: `SELECT * FROM invoice_items WHERE invoice_id = ?`, args: [id] },
-      ]);
+      const [inv, items] = await execMany([{ sql: `SELECT * FROM invoices WHERE id = ?`, args: [id] }, { sql: `SELECT * FROM invoice_items WHERE invoice_id = ?`, args: [id] }]);
       return { invoice: inv.rows[0] ?? null, items: items.rows };
     }
     case "invoices.create": {
@@ -332,47 +261,20 @@ async function handle(action: string, payload: Record<string, unknown>) {
       const items = (payload.items as Array<{ description: string; quantity: number; unit_amount_cents: number; product_id?: string }>) ?? [];
       const dueDays = (payload.due_days as number) ?? 14;
       if (!items.length) return { error: "at least one line item required" };
-      const customerId = await ensureStripeCustomer(clientId);
-      if (!customerId) return { error: "could not create stripe customer" };
-      for (const item of items) {
-        await stripe.invoiceItems.create({ customer: customerId, amount: item.unit_amount_cents * (item.quantity ?? 1), currency: "cad", description: item.description, quantity: item.quantity ?? 1 });
-      }
+      const customerId = await ensureStripeCustomer(clientId); if (!customerId) return { error: "could not create stripe customer" };
+      for (const item of items) await stripe.invoiceItems.create({ customer: customerId, amount: item.unit_amount_cents * (item.quantity ?? 1), currency: "cad", description: item.description, quantity: item.quantity ?? 1 });
       const stripeInvoice = await stripe.invoices.create({ customer: customerId, collection_method: "send_invoice", days_until_due: dueDays, metadata: { cwd_client_id: clientId } });
       const finalized = await stripe.invoices.finalizeInvoice(stripeInvoice.id);
       const id = uuid();
       const subtotal = items.reduce((s, i) => s + i.unit_amount_cents * (i.quantity ?? 1), 0);
       await exec({ sql: `INSERT INTO invoices (id, client_id, number, status, subtotal_cents, total_cents, currency, stripe_invoice_id, hosted_invoice_url, pdf_url, due_date, issued_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, clientId, finalized.number ?? null, finalized.status ?? "open", subtotal, finalized.total ?? subtotal, (finalized.currency ?? "cad").toUpperCase(), finalized.id, finalized.hosted_invoice_url ?? null, finalized.invoice_pdf ?? null, finalized.due_date ? new Date(finalized.due_date * 1000).toISOString() : null, new Date().toISOString()] });
-      for (const item of items) {
-        await exec({ sql: `INSERT INTO invoice_items (id, invoice_id, product_id, description, quantity, unit_amount_cents, amount_cents) VALUES (?,?,?,?,?,?,?)`, args: [uuid(), id, item.product_id ?? null, item.description, item.quantity ?? 1, item.unit_amount_cents, item.unit_amount_cents * (item.quantity ?? 1)] });
-      }
+      for (const item of items) await exec({ sql: `INSERT INTO invoice_items (id, invoice_id, product_id, description, quantity, unit_amount_cents, amount_cents) VALUES (?,?,?,?,?,?,?)`, args: [uuid(), id, item.product_id ?? null, item.description, item.quantity ?? 1, item.unit_amount_cents, item.unit_amount_cents * (item.quantity ?? 1)] });
       return { id, hosted_invoice_url: finalized.hosted_invoice_url, stripe_invoice_id: finalized.id };
     }
-    case "invoices.send": {
-      if (!stripe) return { error: "Stripe not configured" };
-      const { rows } = await exec({ sql: `SELECT stripe_invoice_id FROM invoices WHERE id = ?`, args: [payload.id as string] });
-      const sid = rows[0]?.stripe_invoice_id as string | null;
-      if (!sid) return { error: "invoice has no stripe id" };
-      await stripe.invoices.sendInvoice(sid);
-      return { ok: true };
-    }
-    case "invoices.void": {
-      if (!stripe) return { error: "Stripe not configured" };
-      const { rows } = await exec({ sql: `SELECT stripe_invoice_id FROM invoices WHERE id = ?`, args: [payload.id as string] });
-      const sid = rows[0]?.stripe_invoice_id as string | null;
-      if (sid) await stripe.invoices.voidInvoice(sid);
-      await exec({ sql: `UPDATE invoices SET status = 'void' WHERE id = ?`, args: [payload.id as string] });
-      return { ok: true };
-    }
-    case "payments.list": {
-      const args: SqlValue[] = [];
-      const where: string[] = [];
-      if (payload.client_id) { where.push(`client_id = ?`); args.push(payload.client_id as string); }
-      const sql = `SELECT * FROM payments ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY paid_at DESC LIMIT 200`;
-      const { rows } = await exec({ sql, args });
-      return { payments: rows };
-    }
-    default:
-      return { error: `unknown action: ${action}` };
+    case "invoices.send": { if (!stripe) return { error: "Stripe not configured" }; const { rows } = await exec({ sql: `SELECT stripe_invoice_id FROM invoices WHERE id = ?`, args: [payload.id as string] }); const sid = rows[0]?.stripe_invoice_id as string | null; if (!sid) return { error: "invoice has no stripe id" }; await stripe.invoices.sendInvoice(sid); return { ok: true }; }
+    case "invoices.void": { if (!stripe) return { error: "Stripe not configured" }; const { rows } = await exec({ sql: `SELECT stripe_invoice_id FROM invoices WHERE id = ?`, args: [payload.id as string] }); const sid = rows[0]?.stripe_invoice_id as string | null; if (sid) await stripe.invoices.voidInvoice(sid); await exec({ sql: `UPDATE invoices SET status = 'void' WHERE id = ?`, args: [payload.id as string] }); return { ok: true }; }
+    case "payments.list": { const args: SqlValue[] = []; const where: string[] = []; if (payload.client_id) { where.push(`client_id = ?`); args.push(payload.client_id as string); } const { rows } = await exec({ sql: `SELECT * FROM payments ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY paid_at DESC LIMIT 200`, args }); return { payments: rows }; }
+    default: return { error: `unknown action: ${action}` };
   }
 }
 
@@ -384,20 +286,16 @@ Deno.serve(async (req) => {
     const authHeader = req.headers.get("Authorization") || "";
     const token = authHeader.replace(/^Bearer\s+/i, "");
     if (!token) return json({ error: "Missing bearer token" });
-
     const userClient = createClient(SUPABASE_URL, ANON_KEY, { global: { headers: { Authorization: `Bearer ${token}` } } });
     const { data: userData, error: userErr } = await userClient.auth.getUser();
     if (userErr || !userData?.user) return json({ error: `Invalid token: ${userErr?.message ?? "no user"}` });
-
     const userId = userData.user.id;
     const { data: isAdmin, error: adminErr } = await userClient.rpc("is_admin");
     const { data: isAgency, error: agencyErr } = await userClient.rpc("has_role", { _user_id: userId, _role: "agency" });
     if (adminErr || agencyErr) return json({ error: `Role check failed: ${adminErr?.message ?? agencyErr?.message}` });
     if (!isAdmin && !isAgency) return json({ error: `Forbidden: agency only (uid=${userId}, isAdmin=${isAdmin}, isAgency=${isAgency})` });
-
-    if (!BUNNY_URL || !BUNNY_TOKEN) return json({ error: "Bunny database not configured (missing BUNNY_DB_URL or BUNNY_DB_AUTH_TOKEN)" });
+    if (!BUNNY_URL || !BUNNY_TOKEN) return json({ error: "Bunny database not configured" });
     await bootstrap();
-
     const body = await req.json().catch(() => ({}));
     const result = await handle(body.action as string, (body.payload as Record<string, unknown>) ?? {});
     return json(result);

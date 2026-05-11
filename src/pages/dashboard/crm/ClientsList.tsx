@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, Plus, X } from "lucide-react";
+import { Search, Plus, X, Upload } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClients } from "@/hooks/useCrm";
 import { crm } from "@/lib/crm";
 import { StatusPill } from "@/components/crm/StatusPill";
+import { ImportClientsDialog } from "@/components/crm/ImportClientsDialog";
 
 export function ClientsList() {
   const [params, setParams] = useSearchParams();
@@ -13,6 +14,7 @@ export function ClientsList() {
   const [status, setStatus] = useState<string>("");
   const { clients, loading, reload } = useCrmClients({ q: q || undefined, status: status || undefined });
   const showNew = params.get("new") === "1";
+  const showImport = params.get("import") === "1";
 
   return (
     <DashboardLayout>
@@ -21,6 +23,15 @@ export function ClientsList() {
         subtitle={`${clients.length} client${clients.length === 1 ? "" : "s"}`}
         action={{ label: "+ New Client", onClick: () => setParams({ new: "1" }) }}
       />
+
+      <div className="px-6 pt-4 flex justify-end">
+        <button
+          onClick={() => setParams({ import: "1" })}
+          className="inline-flex items-center gap-1.5 bg-[#111E33] hover:bg-white/10 border border-white/10 text-[#EEF1FA] text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+        >
+          <Upload className="w-3.5 h-3.5" /> Import CSV
+        </button>
+      </div>
 
       <div className="px-6 py-6 space-y-4">
         {/* Filters */}
@@ -42,6 +53,7 @@ export function ClientsList() {
           >
             <option value="">All statuses</option>
             <option value="active">Active</option>
+            <option value="prospect">Prospect</option>
             <option value="lead">Lead</option>
             <option value="paused">Paused</option>
             <option value="churned">Churned</option>
@@ -89,6 +101,13 @@ export function ClientsList() {
         <NewClientDialog
           onClose={() => setParams({})}
           onCreated={() => { setParams({}); reload(); }}
+        />
+      )}
+
+      {showImport && (
+        <ImportClientsDialog
+          onClose={() => setParams({})}
+          onImported={() => reload()}
         />
       )}
     </DashboardLayout>

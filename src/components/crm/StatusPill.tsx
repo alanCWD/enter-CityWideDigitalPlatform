@@ -8,6 +8,7 @@ const STYLES: Record<string, string> = {
   canceled:      "bg-white/10 text-[rgba(238,241,250,0.55)] border-white/15",
   churned:       "bg-white/10 text-[rgba(238,241,250,0.55)] border-white/15",
   lead:          "bg-[#A855F7]/15 text-[#A855F7] border-[#A855F7]/30",
+  prospect:      "bg-[#F97316]/15 text-[#F97316] border-[#F97316]/30",
   draft:         "bg-white/10 text-[rgba(238,241,250,0.55)] border-white/15",
   open:          "bg-[#5BB8FF]/15 text-[#5BB8FF] border-[#5BB8FF]/30",
   paid:          "bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/30",
