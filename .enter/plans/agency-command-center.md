@@ -526,3 +526,270 @@ For the client-facing portal (`/portal/:connection_id`).
 5. **Visibility — client side** — flip the note to `client_visible`; sign in as the linked GBP-portal user (different account); visit `/portal/:connection_id`; the new "Files & Notes" panel shows the note + nothing else (the agency-only credential remains hidden).
 6. **Multi-agency isolation** — create a second agency `whitelabel-acme`; invite a test user; sign in as them; they see only the clients assigned to acme. Super-admin (alan) still sees both.
 7. **Cleanup** — delete a file; the row disappears AND the Storage object is removed (verify via Storage explorer).
+
+---
+
+# Phase 3 — Per-Client Digital Health Dashboard
+
+## Context
+Agency teams (and their clients) need a single, glanceable scorecard per client that surfaces what's broken, what's missing, and what needs attention across the client's entire online footprint. Today the data lives scattered across Google Business Profile, Lighthouse audits, manual citation lookups, and tribal knowledge in spreadsheets.
+
+This phase delivers a **Health** tab on every CRM client and a read-only mirror in the client portal. It combines:
+- **Auto-derived signals** — pulled live from GBP (already synced) + Google PageSpeed Insights API (free, anonymous) + a built-in citation heuristic.
+- **Manual checklist items** — agency-curated boxes the team ticks off (business email, contracts signed, brand assets uploaded, etc.).
+- **Roll-up health score** — weighted 0–100 across categories so non-technical clients understand "you're at 64/100, here's how to get to 90."
+
+## Decisions (confirmed by user)
+| Topic | Choice |
+|---|---|
+| Where it lives | **Both** an agency-side `Health` tab AND a read-only mirror in the client portal |
+| Performance score source | **Google PageSpeed Insights API** (free, no key, one-click "Run audit") |
+| Search Console / GA4 | **Skip live for v1** — render placeholder "Connect" buttons (wired up Phase 4) |
+| Listing accuracy | **Built-in heuristic** — curated list of ~15 directories, simple HTTPS lookups, NAP fuzzy match (no third-party API cost) |
+
+## Architecture overview
+```
+┌──────────────────────────────┐         ┌────────────────────────────────┐
+│ Agency CRM /clients/:id      │         │ Client Portal /portal/:id      │
+│   └ Health tab (read+write)  │         │   └ Health tab (read-only)     │
+└──────────────┬───────────────┘         └──────────────┬─────────────────┘
+               │                                        │
+               ▼                                        ▼
+       supabase.functions.invoke('bunny-rpc')   supabase.functions.invoke('portal-health')
+               │                                        │
+               ▼                                        ▼
+       ┌───────────────────────────────────────────────────────┐
+       │ Bunny libSQL: health_checks, health_audits,           │
+       │ health_citations, health_overrides                    │
+       └───────────────┬───────────────────────────────────────┘
+                       │
+                       ▼ (on-demand jobs)
+       ┌───────────────────────────────┬──────────────────────────────┐
+       │ PageSpeed Insights API        │ Citation directory probes    │
+       │ (anonymous, edge-fn fetch)    │ (HEAD/GET to ~15 sites)      │
+       └───────────────────────────────┴──────────────────────────────┘
+```
+
+## Health categories & checks (v1 scope)
+
+Each check has: `key`, `category`, `label`, `weight` (1–5), `status` (`pass` | `warn` | `fail` | `unknown` | `skipped`), `evidence` (text + optional `url` + optional metric value), `auto` (bool — set by jobs vs. manually toggled), `client_visible` (bool — agency can hide internal-only checks).
+
+### Foundation (auto, derived from `gbp_connections` + `clients` rows)
+| key | label | source |
+|---|---|---|
+| `has_website` | Has a website | `gbp_connections.website` non-null |
+| `has_https` | Website uses HTTPS | URL starts with `https://` + reachability probe |
+| `has_business_email` | Uses domain-level email (not gmail/yahoo/hotmail) | `clients.billing_email` regex against free-mail providers |
+| `has_phone` | Phone number on file | `gbp_connections.phone` |
+| `has_address` | Physical address on file | `gbp_connections.address` |
+| `has_category` | Primary GBP category set | `gbp_connections.category` |
+
+### Google Business Profile (auto)
+| key | label | source |
+|---|---|---|
+| `gbp_connected` | GBP linked | row exists in `portal_users` for this client |
+| `gbp_recently_synced` | Last sync < 7 days ago | `gbp_connections.last_synced_at` |
+| `review_count_floor` | At least 25 Google reviews | `review_count` |
+| `review_rating_floor` | Average rating ≥ 4.0 | `rating` |
+| `review_response_rate` | Responses to recent reviews | placeholder (Phase 4 — add `responded` column to `gbp_reviews` table) |
+| `posts_recency` | A GBP post within 30 days | placeholder (Phase 4 — pull from Posts API) |
+
+### Website performance (auto, on-demand via PSI API)
+| key | label | source |
+|---|---|---|
+| `lighthouse_performance` | Performance ≥ 80 | PSI `lighthouseResult.categories.performance.score` |
+| `lighthouse_seo` | SEO ≥ 90 | PSI `categories.seo.score` |
+| `lighthouse_accessibility` | Accessibility ≥ 90 | PSI `categories.accessibility.score` |
+| `lighthouse_best_practices` | Best Practices ≥ 90 | PSI `categories.best-practices.score` |
+| `core_web_vitals` | CWV pass (LCP/CLS/INP) | PSI `loadingExperience.overall_category === 'FAST'` |
+| `mobile_friendly` | Mobile audit ran successfully | PSI mobile strategy completed |
+
+### Search & Analytics (placeholders for v1, real for Phase 4)
+| key | label | v1 behaviour |
+|---|---|---|
+| `search_console_connected` | Search Console connected | Placeholder card with **Connect Search Console** button (no-op, shows "Coming soon") |
+| `ga4_connected` | Google Analytics 4 connected | Same — **Connect GA4** placeholder |
+| `indexed_pages` | Pages indexed in Google | manual entry only |
+| `monthly_organic_clicks` | Monthly organic clicks | manual entry only |
+
+### Listing accuracy / citations (auto via built-in checker)
+Curated directory list (15 sites): Yelp, Bing Places, Apple Maps, Facebook, Yellow Pages CA, 411.ca, Cylex, Foursquare, Better Business Bureau, MapQuest, TripAdvisor, Hotfrog, Brownbook, Manta, FindUsLocal.
+
+For each directory we synthesise a *search URL* (`https://www.yelp.com/search?find_desc={biz_name}&find_loc={city}`), fetch it server-side, and grade it:
+- `found_match` — name + city appear in HTML response → `pass`
+- `found_mismatch` — name appears but phone/address differs → `warn` (NAP inconsistency)
+- `not_found` → `fail`
+- `unreachable` (timeout / 4xx / 5xx) → `unknown`
+
+This is heuristic-only (we tell users so), but it gives a real, auditable starting list.
+
+| key | label | source |
+|---|---|---|
+| `citation_yelp`, `citation_bing`, `citation_facebook`, … (15 total) | Listed on {Directory} | Per-directory probe result |
+| `citations_overall` | Citation coverage ≥ 70% | Aggregate of the 15 |
+| `nap_consistency` | NAP matches across directories | All `pass` rows have matching phone + address |
+
+### Operations checklist (manual, agency-toggled)
+| key | label | default |
+|---|---|---|
+| `contract_signed` | Service agreement signed | unchecked |
+| `payment_method_on_file` | Stripe customer + payment method | auto from `clients.stripe_customer_id` |
+| `brand_assets_uploaded` | Logo + brand kit in Vault | auto: any `vault_files` with `kind='logo'` or `'brand'` |
+| `gbp_credentials_in_vault` | GBP login saved to Vault | auto: any `vault_credentials` with `category='Google Business Profile'` |
+| `monthly_report_scheduled` | Monthly report cadence agreed | unchecked |
+| `local_seo_active` | Active Local SEO subscription | auto from active `subscriptions` row |
+| `social_active` | Active Social Marketing subscription | auto |
+| `reputation_active` | Active Reputation Management subscription | auto |
+
+## Health score
+Compute server-side on each `health.summary` call:
+- Each check contributes `weight` (1–5; default 2; foundation+performance+citations weighted higher).
+- `pass` = full weight, `warn` = 50%, `fail` = 0, `unknown`/`skipped` = excluded from denominator.
+- `score = round(100 * sum(awarded) / sum(possible))`.
+- Bucket: `0-49` red ("Critical"), `50-74` orange ("Needs work"), `75-89` blue ("Healthy"), `90-100` green ("Excellent").
+
+## Bunny data model (new tables)
+```sql
+-- Generic per-client check state. Both auto-pulled and manual checks stored uniformly.
+CREATE TABLE IF NOT EXISTS health_checks (
+  client_id     TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  agency_id     TEXT NOT NULL DEFAULT 'citywide',
+  key           TEXT NOT NULL,                      -- e.g. 'has_business_email'
+  category      TEXT NOT NULL,                      -- foundation|gbp|performance|search|citations|ops
+  status        TEXT NOT NULL DEFAULT 'unknown',    -- pass|warn|fail|unknown|skipped
+  weight        INTEGER NOT NULL DEFAULT 2,
+  auto          INTEGER NOT NULL DEFAULT 1,
+  client_visible INTEGER NOT NULL DEFAULT 1,
+  evidence      TEXT,                               -- short human-readable explanation
+  evidence_url  TEXT,                               -- click-through (e.g. PSI report URL)
+  metric_value  REAL,                               -- 0..1 score or numeric (reviews count)
+  updated_by    TEXT,                               -- user_id when manual
+  updated_at    TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (client_id, key)
+);
+CREATE INDEX IF NOT EXISTS health_checks_agency_idx ON health_checks(agency_id);
+
+-- One row per PageSpeed run so we can show history / trend.
+CREATE TABLE IF NOT EXISTS health_audits (
+  id              TEXT PRIMARY KEY,
+  client_id       TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  url             TEXT NOT NULL,
+  strategy        TEXT NOT NULL,                    -- mobile|desktop
+  performance     REAL,
+  seo             REAL,
+  accessibility   REAL,
+  best_practices  REAL,
+  lcp_ms          INTEGER,
+  cls             REAL,
+  inp_ms          INTEGER,
+  cwv_pass        INTEGER,                          -- 1|0
+  raw_report_url  TEXT,                             -- link to PSI hosted report
+  created_at      TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS health_audits_client_idx ON health_audits(client_id);
+
+-- One row per directory probe run (history + last result).
+CREATE TABLE IF NOT EXISTS health_citations (
+  client_id    TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE,
+  directory    TEXT NOT NULL,                      -- 'yelp', 'bing', ...
+  status       TEXT NOT NULL,                      -- pass|warn|fail|unknown
+  listing_url  TEXT,
+  evidence     TEXT,
+  checked_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (client_id, directory)
+);
+
+-- Optional per-check overrides so agency can mark `skipped` with a reason.
+-- (Stored inline on health_checks via status='skipped' + evidence; no separate table needed.)
+```
+
+## New backend actions (add to `bunny-rpc`)
+- `health.summary` (read) → returns `{ score, bucket, categories: [{ category, checks: HealthCheck[] }], last_audit, last_citation_run }`. Lazy-creates default rows from check definitions on first call.
+- `health.refreshAuto` (write) → re-derives all `auto=1` checks from current GBP + client data (cheap, sync, < 200 ms).
+- `health.runLighthouse` (write) → calls PSI API (mobile + desktop), inserts into `health_audits`, updates the 6 lighthouse `health_checks` rows. Returns the new audit row.
+- `health.runCitations` (write) → fans out to the 15 directory probes (sequential with 500ms gap, ~10 s total), updates `health_citations` + the citation `health_checks`. Returns summary.
+- `health.toggleCheck` (write) → manual override: set `status` (pass/warn/fail/skipped), `evidence`, `client_visible`. Throws if `auto=1`.
+- `health.setMetric` (write) → for manual numeric checks (`indexed_pages`, `monthly_organic_clicks`).
+
+Plus a new edge function:
+- `portal-health` — read-only, mirrors `health.summary` but filters to `client_visible=1` rows only. Mirrors auth pattern of `portal-vault`.
+
+## Check-definitions catalogue
+Single source of truth in a new file `supabase/functions/_shared/health-catalog.ts` (Deno module) so both `bunny-rpc` and `portal-health` share it:
+```ts
+export interface HealthCheckDef {
+  key: string;
+  category: "foundation" | "gbp" | "performance" | "search" | "citations" | "ops";
+  label: string;
+  weight: number;
+  auto: boolean;
+  client_visible_default: boolean;
+  evaluator?: "derived" | "lighthouse" | "citation" | "manual";
+}
+export const HEALTH_CATALOG: HealthCheckDef[] = [ … 30+ entries … ];
+```
+Frontend gets the same list (mirrored as `src/lib/healthCatalog.ts`) for labels/icons.
+
+## PageSpeed Insights integration
+- Endpoint: `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={url}&strategy=mobile&category=performance&category=seo&category=accessibility&category=best-practices`
+- No API key needed at low volume (≤ 25k/day per source IP).
+- Edge function fetches mobile + desktop in parallel, both Promise.allSettled (one failure doesn't kill the whole audit).
+- Store the raw report by linking to PSI's hosted UI: `https://pagespeed.web.dev/analysis?url=<encoded>`.
+- Errors (timeout, invalid URL, target unreachable) → status `unknown` + evidence text.
+
+## Citation probe heuristic
+For each directory entry `{ key, name, search_url_template }`:
+1. Build `searchUrl = template.replace('{q}', encodeURIComponent(business_name)).replace('{city}', encodeURIComponent(city))`.
+2. `fetch(searchUrl, { headers: { 'User-Agent': 'Mozilla/5.0 …', 'Accept-Language': 'en-CA' }, signal: AbortSignal.timeout(8000) })`.
+3. Lower-case body; check for `business_name` substring **and** at least one of `[city, postal_code, phone digits]`.
+4. If both present → `pass`; if only name → `warn` (mismatch); if name absent → `fail`; non-2xx or timeout → `unknown`.
+
+We **tell the user this is a heuristic** (small footnote on the citations card with a "Re-check" button) — it's not a substitute for BrightLocal but gives directional accuracy at $0/mo.
+
+## Frontend
+**New files**
+- `src/lib/health.ts` — TS types + `crm("health.…")` wrappers.
+- `src/lib/healthCatalog.ts` — mirror of the Deno catalogue (labels, icons via lucide map, weights).
+- `src/hooks/useClientHealth.ts` — `useClientHealth(clientId)` returns `{ score, categories, audits, loading, error, refreshAuto, runLighthouse, runCitations }` with optimistic UI on mutations.
+- `src/components/crm/health/HealthPanel.tsx` — top-level layout with score hero, category cards, action buttons.
+- `src/components/crm/health/ScoreHero.tsx` — radial-progress 0–100, bucket label & color, "last refreshed" timestamp + **Refresh** button (calls `refreshAuto`).
+- `src/components/crm/health/CategoryCard.tsx` — one card per category with collapsible check list.
+- `src/components/crm/health/CheckRow.tsx` — single row: status icon (Check/Alert/X/—), label, evidence, click-through, manual override menu (agency-only kebab).
+- `src/components/crm/health/LighthouseCard.tsx` — performance numbers + last 5 audits sparkline + "Run Lighthouse" button.
+- `src/components/crm/health/CitationsCard.tsx` — grid of 15 directories with traffic-light dots + "Re-check now" button.
+- `src/pages/portal/PortalHealth.tsx` — read-only mirror; uses `portal-health` edge function; reuses `ScoreHero`, `CategoryCard`, `CheckRow` via prop `readOnly`.
+
+**Modified files**
+- `src/pages/dashboard/crm/ClientDetail.tsx` — add `"health"` to the tab union, insert tab between `"overview"` and `"vault"`, render `<HealthPanel clientId={detail.client.id} />`.
+- `src/components/portal/PortalTopBar.tsx` — add `{ name: "Health", path: "health", icon: Activity }` between `"Overview"` and `"GBP"`.
+- `src/router.tsx` — add `/portal/:clientId/health` route.
+- `supabase/functions/bunny-rpc/index.ts` — add the 6 new actions + bootstrap migrations (3 new tables) + import shared catalogue.
+- `supabase/functions/portal-vault/index.ts` — no change (separate function).
+
+**New backend file**
+- `supabase/functions/portal-health/index.ts` — read-only summary + signed link-throughs.
+- `supabase/functions/_shared/health-catalog.ts` — shared check definitions + directory list.
+
+## Reused existing pieces
+- `crm()` RPC wrapper in `src/lib/crm.ts` — no changes needed.
+- `assertClientAccess` + `tenantScope` + agency_id mirroring pattern from Phase 2's vault — used identically here.
+- `gbp_connections` (Supabase) joined to Bunny `clients` via `gbp_connection_id` — already used in `portal-vault`; reuse the same join helper.
+- `portal_users` access check pattern from `portal-vault`.
+- `useVault` hook structure (loading/error/reload) is the template for `useClientHealth`.
+- Vault visibility design language (`Internal` / `Shared` badges) is reused so admins toggle individual checks the same way.
+
+## Migrations & infra
+- **Bunny migration** — append the 3 new `CREATE TABLE` statements to the `bootstrap()` function (idempotent `IF NOT EXISTS`), no Supabase migration needed.
+- **No new secrets** — PSI is anonymous, citation probes are anonymous fetches.
+- **No new buckets** — health audits are pure data, no files.
+- **No new Supabase tables** — all health data lives in Bunny.
+
+## Verification
+1. **Foundation auto-checks** — Open a client; click `Health` tab; confirm score appears (lazy-creates rows on first load); `has_website` is green if URL exists, red if not; `has_business_email` is red if billing_email is `@gmail.com`.
+2. **Refresh** — Click `Refresh` in ScoreHero; auto checks re-derive (timestamp updates); manual checks unchanged.
+3. **Lighthouse** — Enter a website URL on a real client (e.g. citywidedigital.ca); click `Run Lighthouse`; spinner ~12 s; performance/SEO/CWV cards populate; click "View full report" → opens PSI hosted page.
+4. **Citations** — Click `Re-check listings`; ~10 s probe; ≥ 10 of 15 directories return a status (some `unknown` is OK); aggregate `citations_overall` updates.
+5. **Manual override** — Open a check's kebab menu; mark "Skip — N/A"; row goes grey; score recalculates excluding it.
+6. **Visibility — agency only** — Toggle `gbp_credentials_in_vault` to `internal`; load the portal as a portal-user — that row is absent; the score in the portal differs (it's recomputed only over `client_visible` items so clients see a clean view).
+7. **Multi-agency isolation** — Same as Phase 2: a `whitelabel-acme` user can only run health audits on their own clients; `assertClientAccess` blocks cross-agency requests.
+8. **Score bucket** — Manually fail enough checks on a test client that score < 50; hero turns red and reads "Critical".
