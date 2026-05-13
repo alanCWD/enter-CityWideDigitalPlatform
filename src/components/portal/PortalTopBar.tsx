@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useParams } from "react-router-dom";
-import { LogOut, Store, Share2, BarChart3, GraduationCap, Home, Shield } from "lucide-react";
+import { LogOut, Store, Share2, BarChart3, GraduationCap, Home, Shield, Activity } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import type { PortalConnection } from "@/hooks/usePortalConnections";
@@ -7,6 +7,7 @@ import { LogoOnDark } from "@/components/branding/Logo";
 
 const TABS = [
   { name: "Overview", path: "", icon: Home, end: true },
+  { name: "Health", path: "health", icon: Activity, end: false },
   { name: "GBP", path: "gbp", icon: Store, end: false },
   { name: "Social", path: "social", icon: Share2, end: false },
   { name: "Coach", path: "coach", icon: GraduationCap, end: false },

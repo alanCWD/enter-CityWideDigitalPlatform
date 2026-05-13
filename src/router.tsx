@@ -21,6 +21,7 @@ import PortalCoach from "./pages/portal/PortalCoach";
 import PortalAnalytics from "./pages/portal/PortalAnalytics";
 import PortalConnect from "./pages/portal/PortalConnect";
 import PortalVault from "./pages/portal/PortalVault";
+import PortalHealth from "./pages/portal/PortalHealth";
 import { AdminUsers } from "./pages/admin/AdminUsers";
 import { CrmIndex } from "./pages/dashboard/crm/CrmIndex";
 import { ClientsList } from "./pages/dashboard/crm/ClientsList";
@@ -124,6 +125,11 @@ export const routers = [
     path: "/portal/:clientId/gbp",
     name: "portal-gbp",
     element: <PortalGBP />,
+  },
+  {
+    path: "/portal/:clientId/health",
+    name: "portal-health",
+    element: <PortalHealth />,
   },
   {
     path: "/portal/:clientId/social",

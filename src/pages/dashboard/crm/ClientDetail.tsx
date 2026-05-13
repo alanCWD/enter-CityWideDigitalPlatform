@@ -7,12 +7,13 @@ import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
 import { crm, fmtMoney } from "@/lib/crm";
 import { StatusPill } from "@/components/crm/StatusPill";
 import { VaultPanel } from "@/components/crm/vault/VaultPanel";
+import { HealthPanel } from "@/components/crm/health/HealthPanel";
 import { cn } from "@/lib/utils";
 
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const { detail, loading, reload } = useCrmClient(id);
-  const [tab, setTab] = useState<"overview" | "vault" | "subscriptions" | "invoices" | "payments">("overview");
+  const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments">("overview");
 
   if (loading) {
     return <DashboardLayout><TopBar title="Loading…" /></DashboardLayout>;
@@ -65,6 +66,7 @@ export function ClientDetail() {
         <div className="flex flex-wrap gap-1 border-b border-white/10">
           {([
             ["overview", "Overview"],
+            ["health", "Health"],
             ["vault", "Vault"],
             ["subscriptions", "Subscriptions"],
             ["invoices", "Invoices"],
@@ -87,6 +89,9 @@ export function ClientDetail() {
 
         {tab === "overview" && (
           <ContactsPanel detail={detail} reload={reload} />
+        )}
+        {tab === "health" && (
+          <HealthPanel clientId={detail.client.id} />
         )}
         {tab === "vault" && (
           <VaultPanel clientId={detail.client.id} />
