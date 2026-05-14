@@ -77,32 +77,45 @@ function uuid() { return crypto.randomUUID(); }
 function now() { return new Date().toISOString(); }
 
 let bootstrapped = false;
+// Run each statement individually so a single ALTER-on-existing-column error
+// (or any other recoverable error) cannot abort the rest of the bootstrap.
+async function execSafe(sql: string) {
+  try { await exec({ sql }); } catch (_e) { /* swallow re-run / not-applicable errors */ }
+}
 async function bootstrap() {
   if (bootstrapped) return;
-  await execMany([
-    { sql: `CREATE TABLE IF NOT EXISTS agencies (id TEXT PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
-    { sql: `INSERT OR IGNORE INTO agencies (id, name, slug) VALUES ('citywide', 'Citywide Digital', 'citywide')` },
-    { sql: `CREATE TABLE IF NOT EXISTS agency_members (user_id TEXT NOT NULL, agency_id TEXT NOT NULL REFERENCES agencies(id), role TEXT NOT NULL DEFAULT 'member', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, agency_id))` },
-    { sql: `CREATE TABLE IF NOT EXISTS clients (id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'lead', source TEXT, owner_id TEXT, billing_email TEXT, phone TEXT, address_line1 TEXT, city TEXT, region TEXT, postal_code TEXT, country TEXT, gbp_connection_id TEXT, stripe_customer_id TEXT, notes TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
-    { sql: `ALTER TABLE clients ADD COLUMN agency_id TEXT NOT NULL DEFAULT 'citywide'` },
-    { sql: `CREATE INDEX IF NOT EXISTS clients_agency_idx ON clients(agency_id)` },
-    { sql: `CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, name TEXT NOT NULL, email TEXT, phone TEXT, role TEXT, is_primary INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
-    { sql: `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', interval TEXT NOT NULL DEFAULT 'month', stripe_price_id TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
-    { sql: `CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, product_id TEXT NOT NULL REFERENCES products(id), quantity INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'pending', start_date TEXT, current_period_end TEXT, cancel_at_period_end INTEGER NOT NULL DEFAULT 0, stripe_subscription_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
-    { sql: `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, subscription_id TEXT, number TEXT, amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', status TEXT NOT NULL DEFAULT 'draft', issued_at TEXT, due_at TEXT, paid_at TEXT, hosted_invoice_url TEXT, stripe_invoice_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
-    { sql: `CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, invoice_id TEXT REFERENCES invoices(id) ON DELETE SET NULL, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, amount_cents INTEGER NOT NULL, currency TEXT NOT NULL DEFAULT 'CAD', method TEXT, status TEXT NOT NULL DEFAULT 'succeeded', stripe_payment_intent_id TEXT, paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
-    { sql: `CREATE TABLE IF NOT EXISTS vault_notes (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, agency_id TEXT NOT NULL DEFAULT 'citywide', title TEXT NOT NULL, body TEXT NOT NULL, visibility TEXT NOT NULL DEFAULT 'agency_only', pinned INTEGER NOT NULL DEFAULT 0, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
-    { sql: `CREATE INDEX IF NOT EXISTS vault_notes_client_idx ON vault_notes(client_id)` },
-    { sql: `CREATE TABLE IF NOT EXISTS vault_credentials (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, agency_id TEXT NOT NULL DEFAULT 'citywide', label TEXT NOT NULL, category TEXT, username TEXT, password TEXT, url TEXT, mfa_method TEXT, mfa_codes TEXT, notes TEXT, visibility TEXT NOT NULL DEFAULT 'agency_only', created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
-    { sql: `CREATE INDEX IF NOT EXISTS vault_credentials_client_idx ON vault_credentials(client_id)` },
-    { sql: `CREATE TABLE IF NOT EXISTS vault_files (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, agency_id TEXT NOT NULL DEFAULT 'citywide', storage_path TEXT NOT NULL, filename TEXT NOT NULL, mime_type TEXT, size_bytes INTEGER, kind TEXT, visibility TEXT NOT NULL DEFAULT 'agency_only', uploaded_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
-    { sql: `CREATE INDEX IF NOT EXISTS vault_files_client_idx ON vault_files(client_id)` },
-    { sql: `CREATE TABLE IF NOT EXISTS health_checks (client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, agency_id TEXT NOT NULL DEFAULT 'citywide', key TEXT NOT NULL, category TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'unknown', weight INTEGER NOT NULL DEFAULT 1, auto INTEGER NOT NULL DEFAULT 1, client_visible INTEGER NOT NULL DEFAULT 1, evidence TEXT, evidence_url TEXT, metric_value TEXT, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (client_id, key))` },
-    { sql: `CREATE INDEX IF NOT EXISTS health_checks_client_idx ON health_checks(client_id)` },
-    { sql: `CREATE TABLE IF NOT EXISTS health_audits (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, url TEXT NOT NULL, strategy TEXT NOT NULL, performance INTEGER, seo INTEGER, accessibility INTEGER, best_practices INTEGER, lcp_ms INTEGER, cls REAL, inp_ms INTEGER, cwv_pass INTEGER, error TEXT, raw_report_url TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)` },
-    { sql: `CREATE INDEX IF NOT EXISTS health_audits_client_idx ON health_audits(client_id, created_at)` },
-    { sql: `CREATE TABLE IF NOT EXISTS health_citations (client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, directory TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'unknown', listing_url TEXT, evidence TEXT, checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (client_id, directory))` },
-  ]).catch(() => {/* ignore re-run errors (e.g. ALTER on existing column) */});
+  const stmts: string[] = [
+    `CREATE TABLE IF NOT EXISTS agencies (id TEXT PRIMARY KEY, name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `INSERT OR IGNORE INTO agencies (id, name, slug) VALUES ('citywide', 'Citywide Digital', 'citywide')`,
+    `CREATE TABLE IF NOT EXISTS agency_members (user_id TEXT NOT NULL, agency_id TEXT NOT NULL REFERENCES agencies(id), role TEXT NOT NULL DEFAULT 'member', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, agency_id))`,
+    `CREATE TABLE IF NOT EXISTS clients (id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'lead', source TEXT, owner_id TEXT, billing_email TEXT, phone TEXT, address_line1 TEXT, city TEXT, region TEXT, postal_code TEXT, country TEXT, gbp_connection_id TEXT, stripe_customer_id TEXT, notes TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `ALTER TABLE clients ADD COLUMN agency_id TEXT NOT NULL DEFAULT 'citywide'`,
+    `CREATE INDEX IF NOT EXISTS clients_agency_idx ON clients(agency_id)`,
+    `CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, name TEXT NOT NULL, email TEXT, phone TEXT, role TEXT, is_primary INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', interval TEXT NOT NULL DEFAULT 'month', stripe_price_id TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    // Safety ALTERs in case the products table was created earlier under an older schema.
+    `ALTER TABLE products ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE products ADD COLUMN description TEXT`,
+    `ALTER TABLE products ADD COLUMN currency TEXT NOT NULL DEFAULT 'CAD'`,
+    `ALTER TABLE products ADD COLUMN interval TEXT NOT NULL DEFAULT 'month'`,
+    `ALTER TABLE products ADD COLUMN stripe_price_id TEXT`,
+    `ALTER TABLE products ADD COLUMN active INTEGER NOT NULL DEFAULT 1`,
+    `CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, product_id TEXT NOT NULL REFERENCES products(id), quantity INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'pending', start_date TEXT, current_period_end TEXT, cancel_at_period_end INTEGER NOT NULL DEFAULT 0, stripe_subscription_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, subscription_id TEXT, number TEXT, amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', status TEXT NOT NULL DEFAULT 'draft', issued_at TEXT, due_at TEXT, paid_at TEXT, hosted_invoice_url TEXT, stripe_invoice_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, invoice_id TEXT REFERENCES invoices(id) ON DELETE SET NULL, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, amount_cents INTEGER NOT NULL, currency TEXT NOT NULL DEFAULT 'CAD', method TEXT, status TEXT NOT NULL DEFAULT 'succeeded', stripe_payment_intent_id TEXT, paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS vault_notes (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, agency_id TEXT NOT NULL DEFAULT 'citywide', title TEXT NOT NULL, body TEXT NOT NULL, visibility TEXT NOT NULL DEFAULT 'agency_only', pinned INTEGER NOT NULL DEFAULT 0, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE INDEX IF NOT EXISTS vault_notes_client_idx ON vault_notes(client_id)`,
+    `CREATE TABLE IF NOT EXISTS vault_credentials (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, agency_id TEXT NOT NULL DEFAULT 'citywide', label TEXT NOT NULL, category TEXT, username TEXT, password TEXT, url TEXT, mfa_method TEXT, mfa_codes TEXT, notes TEXT, visibility TEXT NOT NULL DEFAULT 'agency_only', created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE INDEX IF NOT EXISTS vault_credentials_client_idx ON vault_credentials(client_id)`,
+    `CREATE TABLE IF NOT EXISTS vault_files (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, agency_id TEXT NOT NULL DEFAULT 'citywide', storage_path TEXT NOT NULL, filename TEXT NOT NULL, mime_type TEXT, size_bytes INTEGER, kind TEXT, visibility TEXT NOT NULL DEFAULT 'agency_only', uploaded_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE INDEX IF NOT EXISTS vault_files_client_idx ON vault_files(client_id)`,
+    `CREATE TABLE IF NOT EXISTS health_checks (client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, agency_id TEXT NOT NULL DEFAULT 'citywide', key TEXT NOT NULL, category TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'unknown', weight INTEGER NOT NULL DEFAULT 1, auto INTEGER NOT NULL DEFAULT 1, client_visible INTEGER NOT NULL DEFAULT 1, evidence TEXT, evidence_url TEXT, metric_value TEXT, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (client_id, key))`,
+    `CREATE INDEX IF NOT EXISTS health_checks_client_idx ON health_checks(client_id)`,
+    `CREATE TABLE IF NOT EXISTS health_audits (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, url TEXT NOT NULL, strategy TEXT NOT NULL, performance INTEGER, seo INTEGER, accessibility INTEGER, best_practices INTEGER, lcp_ms INTEGER, cls REAL, inp_ms INTEGER, cwv_pass INTEGER, error TEXT, raw_report_url TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE INDEX IF NOT EXISTS health_audits_client_idx ON health_audits(client_id, created_at)`,
+    `CREATE TABLE IF NOT EXISTS health_citations (client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, directory TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'unknown', listing_url TEXT, evidence TEXT, checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (client_id, directory))`,
+  ];
+  for (const sql of stmts) await execSafe(sql);
   bootstrapped = true;
 }
 
