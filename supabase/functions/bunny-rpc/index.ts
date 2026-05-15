@@ -77,10 +77,27 @@ function uuid() { return crypto.randomUUID(); }
 function now() { return new Date().toISOString(); }
 
 let bootstrapped = false;
-// Run each statement individually so a single ALTER-on-existing-column error
-// (or any other recoverable error) cannot abort the rest of the bootstrap.
-async function execSafe(sql: string) {
-  try { await exec({ sql }); } catch (_e) { /* swallow re-run / not-applicable errors */ }
+// Send all bootstrap statements in a SINGLE pipeline request and tolerate
+// per-statement errors (e.g. ALTER on existing column). This keeps cold-start
+// fast (one HTTP round-trip) and survives partial-schema databases.
+async function bootstrapBatch(stmts: string[]) {
+  const res = await fetch(`${bunnyHttpBase()}/v2/pipeline`, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${BUNNY_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      requests: [
+        ...stmts.map((sql) => ({ type: "execute", stmt: { sql, args: [] } })),
+        { type: "close" },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Bunny bootstrap HTTP ${res.status}: ${text.slice(0, 300)}`);
+  }
+  // Drain body. Per-statement errors are intentionally ignored: ALTER on an
+  // existing column or duplicate INSERT IGNORE are safe to skip.
+  await res.json().catch(() => null);
 }
 async function bootstrap() {
   if (bootstrapped) return;
@@ -115,7 +132,11 @@ async function bootstrap() {
     `CREATE INDEX IF NOT EXISTS health_audits_client_idx ON health_audits(client_id, created_at)`,
     `CREATE TABLE IF NOT EXISTS health_citations (client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, directory TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'unknown', listing_url TEXT, evidence TEXT, checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (client_id, directory))`,
   ];
-  for (const sql of stmts) await execSafe(sql);
+  try {
+    await bootstrapBatch(stmts);
+  } catch (e) {
+    console.error("bootstrap batch failed", e);
+  }
   bootstrapped = true;
 }
 
