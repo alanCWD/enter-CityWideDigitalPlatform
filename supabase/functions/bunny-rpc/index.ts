@@ -106,9 +106,32 @@ async function bootstrap() {
     `INSERT OR IGNORE INTO agencies (id, name, slug) VALUES ('citywide', 'Citywide Digital', 'citywide')`,
     `CREATE TABLE IF NOT EXISTS agency_members (user_id TEXT NOT NULL, agency_id TEXT NOT NULL REFERENCES agencies(id), role TEXT NOT NULL DEFAULT 'member', created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, agency_id))`,
     `CREATE TABLE IF NOT EXISTS clients (id TEXT PRIMARY KEY, name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'lead', source TEXT, owner_id TEXT, billing_email TEXT, phone TEXT, address_line1 TEXT, city TEXT, region TEXT, postal_code TEXT, country TEXT, gbp_connection_id TEXT, stripe_customer_id TEXT, notes TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    // Safety ALTERs in case the clients table was created earlier under an older schema.
+    `ALTER TABLE clients ADD COLUMN status TEXT NOT NULL DEFAULT 'lead'`,
+    `ALTER TABLE clients ADD COLUMN source TEXT`,
+    `ALTER TABLE clients ADD COLUMN owner_id TEXT`,
+    `ALTER TABLE clients ADD COLUMN billing_email TEXT`,
+    `ALTER TABLE clients ADD COLUMN phone TEXT`,
+    `ALTER TABLE clients ADD COLUMN address_line1 TEXT`,
+    `ALTER TABLE clients ADD COLUMN city TEXT`,
+    `ALTER TABLE clients ADD COLUMN region TEXT`,
+    `ALTER TABLE clients ADD COLUMN postal_code TEXT`,
+    `ALTER TABLE clients ADD COLUMN country TEXT`,
+    `ALTER TABLE clients ADD COLUMN gbp_connection_id TEXT`,
+    `ALTER TABLE clients ADD COLUMN stripe_customer_id TEXT`,
+    `ALTER TABLE clients ADD COLUMN notes TEXT`,
+    `ALTER TABLE clients ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+    `ALTER TABLE clients ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`,
     `ALTER TABLE clients ADD COLUMN agency_id TEXT NOT NULL DEFAULT 'citywide'`,
+    // Backfill NULL / empty agency_id on legacy rows so they're visible to the default tenant.
+    `UPDATE clients SET agency_id = 'citywide' WHERE agency_id IS NULL OR agency_id = ''`,
     `CREATE INDEX IF NOT EXISTS clients_agency_idx ON clients(agency_id)`,
     `CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, name TEXT NOT NULL, email TEXT, phone TEXT, role TEXT, is_primary INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `ALTER TABLE contacts ADD COLUMN email TEXT`,
+    `ALTER TABLE contacts ADD COLUMN phone TEXT`,
+    `ALTER TABLE contacts ADD COLUMN role TEXT`,
+    `ALTER TABLE contacts ADD COLUMN is_primary INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE contacts ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`,
     `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', interval TEXT NOT NULL DEFAULT 'month', stripe_price_id TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     // Safety ALTERs in case the products table was created earlier under an older schema.
     `ALTER TABLE products ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 0`,
@@ -117,9 +140,38 @@ async function bootstrap() {
     `ALTER TABLE products ADD COLUMN interval TEXT NOT NULL DEFAULT 'month'`,
     `ALTER TABLE products ADD COLUMN stripe_price_id TEXT`,
     `ALTER TABLE products ADD COLUMN active INTEGER NOT NULL DEFAULT 1`,
+    `ALTER TABLE products ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`,
     `CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, product_id TEXT NOT NULL REFERENCES products(id), quantity INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'pending', start_date TEXT, current_period_end TEXT, cancel_at_period_end INTEGER NOT NULL DEFAULT 0, stripe_subscription_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `ALTER TABLE subscriptions ADD COLUMN quantity INTEGER NOT NULL DEFAULT 1`,
+    `ALTER TABLE subscriptions ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'`,
+    `ALTER TABLE subscriptions ADD COLUMN start_date TEXT`,
+    `ALTER TABLE subscriptions ADD COLUMN current_period_end TEXT`,
+    `ALTER TABLE subscriptions ADD COLUMN cancel_at_period_end INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE subscriptions ADD COLUMN stripe_subscription_id TEXT`,
+    `ALTER TABLE subscriptions ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`,
+    `ALTER TABLE subscriptions ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`,
     `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, subscription_id TEXT, number TEXT, amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', status TEXT NOT NULL DEFAULT 'draft', issued_at TEXT, due_at TEXT, paid_at TEXT, hosted_invoice_url TEXT, stripe_invoice_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    // Safety ALTERs in case the invoices table was created earlier under an older schema.
+    `ALTER TABLE invoices ADD COLUMN subscription_id TEXT`,
+    `ALTER TABLE invoices ADD COLUMN number TEXT`,
+    `ALTER TABLE invoices ADD COLUMN amount_cents INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE invoices ADD COLUMN currency TEXT NOT NULL DEFAULT 'CAD'`,
+    `ALTER TABLE invoices ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'`,
+    `ALTER TABLE invoices ADD COLUMN issued_at TEXT`,
+    `ALTER TABLE invoices ADD COLUMN due_at TEXT`,
+    `ALTER TABLE invoices ADD COLUMN paid_at TEXT`,
+    `ALTER TABLE invoices ADD COLUMN hosted_invoice_url TEXT`,
+    `ALTER TABLE invoices ADD COLUMN stripe_invoice_id TEXT`,
+    `ALTER TABLE invoices ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`,
     `CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, invoice_id TEXT REFERENCES invoices(id) ON DELETE SET NULL, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, amount_cents INTEGER NOT NULL, currency TEXT NOT NULL DEFAULT 'CAD', method TEXT, status TEXT NOT NULL DEFAULT 'succeeded', stripe_payment_intent_id TEXT, paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    // Safety ALTERs in case the payments table was created earlier under an older schema.
+    `ALTER TABLE payments ADD COLUMN invoice_id TEXT`,
+    `ALTER TABLE payments ADD COLUMN amount_cents INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE payments ADD COLUMN currency TEXT NOT NULL DEFAULT 'CAD'`,
+    `ALTER TABLE payments ADD COLUMN method TEXT`,
+    `ALTER TABLE payments ADD COLUMN status TEXT NOT NULL DEFAULT 'succeeded'`,
+    `ALTER TABLE payments ADD COLUMN stripe_payment_intent_id TEXT`,
+    `ALTER TABLE payments ADD COLUMN paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`,
     `CREATE TABLE IF NOT EXISTS vault_notes (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, agency_id TEXT NOT NULL DEFAULT 'citywide', title TEXT NOT NULL, body TEXT NOT NULL, visibility TEXT NOT NULL DEFAULT 'agency_only', pinned INTEGER NOT NULL DEFAULT 0, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE INDEX IF NOT EXISTS vault_notes_client_idx ON vault_notes(client_id)`,
     `CREATE TABLE IF NOT EXISTS vault_credentials (id TEXT PRIMARY KEY, client_id TEXT NOT NULL REFERENCES clients(id) ON DELETE CASCADE, agency_id TEXT NOT NULL DEFAULT 'citywide', label TEXT NOT NULL, category TEXT, username TEXT, password TEXT, url TEXT, mfa_method TEXT, mfa_codes TEXT, notes TEXT, visibility TEXT NOT NULL DEFAULT 'agency_only', created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -173,9 +225,7 @@ async function assertClientAccess(ctx: AuthCtx, clientId: string): Promise<void>
 const adminStorage = createClient(SUPABASE_URL, SERVICE_KEY).storage;
 function safeName(name: string) { return name.replace(/[^\w.-]+/g, "_").slice(0, 200); }
 
-// ──────────────────────────────────────────────────────────────────
 // Health-check catalogue (kept in sync with src/lib/healthCatalog.ts)
-// ──────────────────────────────────────────────────────────────────
 type HealthStatus = "pass" | "warn" | "fail" | "unknown" | "skipped";
 type HealthCategory = "foundation" | "gbp" | "performance" | "search" | "citations" | "ops";
 type Evaluator = "derived" | "lighthouse" | "citation" | "manual";
@@ -548,7 +598,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       return { url: session.url };
     }
 
-    // ── Vault ────────────────────────────────────────────────
+    // Vault
     case "vault.list": {
       const clientId = payload.client_id as string; await assertClientAccess(ctx, clientId);
       const [notes, creds, files] = await execMany([
@@ -625,7 +675,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       return { ok: true };
     }
 
-    // ── Agencies ────────────────────────────────────────────
+    // Agencies
     case "agencies.list": {
       if (!ctx.isSuperAdmin) return { error: "Forbidden: super-admin only" };
       const { rows } = await exec({ sql: `SELECT * FROM agencies ORDER BY name ASC` });
