@@ -1,19 +1,24 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { Users, DollarSign, AlertCircle, Receipt, Plus, Package, Activity, AlertTriangle } from "lucide-react";
+import { Users, DollarSign, AlertCircle, Receipt, Plus, Package, Activity, AlertTriangle, Database } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmMetrics, useCrmClients, useCrmInvoices } from "@/hooks/useCrm";
 import { crm, fmtMoney } from "@/lib/crm";
 import { StatusPill } from "@/components/crm/StatusPill";
 
+interface DebugTable { table: string; count: number; columns: string[]; sample: Record<string, unknown> | null; error?: string }
+
 export function CrmIndex() {
   const { data: metrics, error: metricsErr, reload: reloadMetrics } = useCrmMetrics();
-  const { clients, error: clientsErr } = useCrmClients();
+  const { clients, error: clientsErr, reload: reloadClients } = useCrmClients();
   const { invoices } = useCrmInvoices();
   const firstError = metricsErr ?? clientsErr ?? null;
   const [testResult, setTestResult] = useState<string | null>(null);
   const [testing, setTesting] = useState(false);
+  const [tables, setTables] = useState<DebugTable[] | null>(null);
+  const [diagnosing, setDiagnosing] = useState(false);
+  const [adopting, setAdopting] = useState<string | null>(null);
 
   async function runPing() {
     setTesting(true);
@@ -26,6 +31,37 @@ export function CrmIndex() {
       setTestResult(`FAILED: ${(e as Error).message}`);
     } finally {
       setTesting(false);
+    }
+  }
+
+  async function runDiagnose() {
+    setDiagnosing(true);
+    setTables(null);
+    try {
+      const res = await crm<{ tables: DebugTable[] }>("debug.tables");
+      setTables(res.tables);
+    } catch (e) {
+      setTestResult(`Diagnose FAILED: ${(e as Error).message}`);
+    } finally {
+      setDiagnosing(false);
+    }
+  }
+
+  async function adopt(source: string) {
+    setAdopting(source);
+    try {
+      const res = await crm<{ ok: boolean; total_clients: number; mapping_used: Record<string, string | null> }>(
+        "debug.adoptClients",
+        { source },
+      );
+      setTestResult(`Adopted from "${source}" → clients now has ${res.total_clients} rows. Mapping used: ${JSON.stringify(res.mapping_used)}`);
+      reloadClients();
+      reloadMetrics();
+      runDiagnose();
+    } catch (e) {
+      setTestResult(`Adopt FAILED: ${(e as Error).message}`);
+    } finally {
+      setAdopting(null);
     }
   }
 
@@ -64,7 +100,59 @@ export function CrmIndex() {
             <Activity className="w-4 h-4" />
             {testing ? "Pinging…" : "Test connection"}
           </button>
+          <button
+            onClick={runDiagnose}
+            disabled={diagnosing}
+            className="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 disabled:opacity-50 text-[#EEF1FA] border border-white/10 text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+          >
+            <Database className="w-4 h-4" />
+            {diagnosing ? "Scanning…" : "Diagnose data"}
+          </button>
         </div>
+
+        {tables && (
+          <div className="bg-[#111E33] border border-white/10 rounded-2xl p-5">
+            <div className="text-xs uppercase tracking-wider text-[rgba(238,241,250,0.5)] mb-3">Bunny tables</div>
+            <div className="space-y-2">
+              {tables.length === 0 ? (
+                <div className="text-sm text-[rgba(238,241,250,0.55)]">No tables in Bunny DB.</div>
+              ) : tables.map((t) => {
+                const isClients = t.table === "clients";
+                const candidate = !isClients && t.count > 0 && (
+                  t.columns.includes("name") ||
+                  t.columns.includes("business_name") ||
+                  t.columns.includes("company_name") ||
+                  t.columns.includes("title")
+                );
+                return (
+                  <div key={t.table} className="border border-white/5 rounded-lg p-3">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="font-mono text-sm text-[#EEF1FA]">
+                        {t.table}
+                        <span className="ml-2 text-xs text-[rgba(238,241,250,0.5)]">({t.count.toLocaleString()} rows)</span>
+                      </div>
+                      {candidate && (
+                        <button
+                          onClick={() => adopt(t.table)}
+                          disabled={adopting === t.table}
+                          className="text-xs font-bold bg-[#0078D7] hover:bg-[#00447A] disabled:opacity-50 text-white px-3 py-1.5 rounded transition-colors"
+                        >
+                          {adopting === t.table ? "Adopting…" : `Adopt → clients`}
+                        </button>
+                      )}
+                    </div>
+                    {t.columns.length > 0 && (
+                      <div className="mt-2 text-[11px] font-mono text-[rgba(238,241,250,0.45)] break-all">
+                        cols: {t.columns.join(", ")}
+                      </div>
+                    )}
+                    {t.error && <div className="mt-2 text-xs text-[#F97316]">{t.error}</div>}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Metric tiles */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
