@@ -30,6 +30,7 @@ import { Catalog } from "./pages/dashboard/crm/Catalog";
 import SocialProfiles from "./pages/dashboard/social/profiles";
 import ContentCalendar from "./pages/dashboard/social/calendar";
 import SocialInbox from "./pages/dashboard/social/inbox";
+import { SmartCampaigns } from "./pages/dashboard/social/campaigns";
 import BillingAffiliates from "./pages/dashboard/billing/affiliates";
 
 export const routers = [
