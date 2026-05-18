@@ -27,7 +27,6 @@ Deno.serve(async (req) => {
         // Mandatory Google Business check
         const { platform, client_id } = payload;
         if (platform !== "google_business") {
-          // Check if Google Business is already connected for this client
           const { data: existing } = await supabase
             .from("social_accounts")
             .select("id")
@@ -40,8 +39,11 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Logic for OAuth flow initiation
-        return json({ ok: true, message: "OAuth flow initiated for " + platform });
+        // OAuth flow initiation
+        // In a real implementation, this would redirect to the platform's auth URL
+        // For now, we simulate the initiation by returning a mock auth URL
+        const authUrl = `https://auth.social-platform.com/oauth?platform=${platform}&client_id=${client_id}`;
+        return json({ ok: true, authUrl });
       case "social.post":
         // Logic for unified posting
         return json({ ok: true, message: "Post scheduled" });

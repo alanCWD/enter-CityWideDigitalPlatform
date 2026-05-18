@@ -30,7 +30,11 @@ export default function SocialProfiles() {
       if (error) throw new Error(error.message);
       if (data.error) throw new Error(data.error);
 
-      toast({ title: "Success", description: data.message });
+      if (data.authUrl) {
+        window.location.href = data.authUrl;
+      } else {
+        toast({ title: "Success", description: data.message });
+      }
     } catch (e) {
       toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
     } finally {
