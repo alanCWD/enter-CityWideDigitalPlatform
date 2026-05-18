@@ -23,8 +23,9 @@ export default function SocialProfiles() {
   async function handleConnect(platform: string) {
     setConnecting(platform);
     try {
+      // Use 'citywide' as the client_id for agency-level connections
       const { data, error } = await supabase.functions.invoke("social-rpc", {
-        body: { action: "social.connect", payload: { platform, client_id: "current-client-id" } },
+        body: { action: "social.connect", payload: { platform, client_id: "citywide" } },
       });
 
       if (error) throw new Error(error.message);
