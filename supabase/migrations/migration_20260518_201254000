@@ -1,0 +1,6 @@
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS gbp_cta_type text;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS gbp_cta_url text;
+
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('post-media', 'post-media', true)
+ON CONFLICT (id) DO NOTHING;

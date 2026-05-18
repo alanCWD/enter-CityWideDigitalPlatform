@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,9 +6,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Globe, Instagram, Linkedin, Twitter, Facebook, Youtube, Loader2 } from "lucide-react";
+import {
+  Globe, Instagram, Linkedin, Twitter, Facebook, Youtube,
+  Loader2, ImagePlus, X, Link,
+} from "lucide-react";
 
 const PLATFORM_META: Record<string, { label: string; Icon: React.ElementType }> = {
   google_business: { label: "Google Business", Icon: Globe },
@@ -19,6 +23,18 @@ const PLATFORM_META: Record<string, { label: string; Icon: React.ElementType }> 
   youtube: { label: "YouTube", Icon: Youtube },
 };
 
+const GBP_CTA_OPTIONS = [
+  { value: "NONE", label: "No button" },
+  { value: "BOOK", label: "Book" },
+  { value: "ORDER", label: "Order online" },
+  { value: "SHOP", label: "Buy" },
+  { value: "LEARN_MORE", label: "Learn more" },
+  { value: "SIGN_UP", label: "Sign up" },
+  { value: "GET_OFFER", label: "Get offer" },
+  { value: "CALL", label: "Call" },
+  { value: "CUSTOM", label: "Custom link" },
+];
+
 export interface PostDraft {
   id?: string;
   title: string;
@@ -26,18 +42,23 @@ export interface PostDraft {
   platforms: string[];
   scheduled_at: string;
   status: string;
+  media_urls?: string[];
+  gbp_cta_type?: string;
+  gbp_cta_url?: string;
 }
 
 interface Props {
   open: boolean;
   onClose: () => void;
-  defaultDate?: string; // ISO date string YYYY-MM-DD
+  defaultDate?: string;
   initialPost?: PostDraft;
   onSaved: () => void;
 }
 
 export function PostComposerDialog({ open, onClose, defaultDate, initialPost, onSaved }: Props) {
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([]);
@@ -45,6 +66,14 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
   const [scheduledTime, setScheduledTime] = useState("09:00");
   const [connectedPlatforms, setConnectedPlatforms] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+
+  // Media state
+  const [imageUrls, setImageUrls] = useState<string[]>([]);
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // GBP CTA state
+  const [gbpCtaType, setGbpCtaType] = useState("NONE");
+  const [gbpCtaUrl, setGbpCtaUrl] = useState("");
 
   // Load connected platforms
   useEffect(() => {
@@ -65,6 +94,9 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
       setTitle(initialPost.title ?? "");
       setContent(initialPost.content ?? "");
       setSelectedPlatforms(initialPost.platforms ?? []);
+      setImageUrls(initialPost.media_urls ?? []);
+      setGbpCtaType(initialPost.gbp_cta_type ?? "NONE");
+      setGbpCtaUrl(initialPost.gbp_cta_url ?? "");
       if (initialPost.scheduled_at) {
         const d = new Date(initialPost.scheduled_at);
         setScheduledDate(d.toISOString().slice(0, 10));
@@ -74,6 +106,9 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
       setTitle("");
       setContent("");
       setSelectedPlatforms([]);
+      setImageUrls([]);
+      setGbpCtaType("NONE");
+      setGbpCtaUrl("");
       setScheduledDate(defaultDate ?? "");
       setScheduledTime("09:00");
     }
@@ -84,6 +119,46 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
       prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]
     );
   }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({ title: "Invalid file", description: "Please select an image file.", variant: "destructive" });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Image must be under 10MB.", variant: "destructive" });
+      return;
+    }
+
+    setUploadingImage(true);
+    try {
+      const fileName = `posts/${Date.now()}-${file.name.replace(/\s+/g, "-")}`;
+      const { error } = await supabase.storage.from("post-media").upload(fileName, file, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+      if (error) throw error;
+
+      const { data: urlData } = supabase.storage.from("post-media").getPublicUrl(fileName);
+      setImageUrls((prev) => [...prev, urlData.publicUrl]);
+      toast({ title: "Image uploaded" });
+    } catch (err) {
+      toast({ title: "Upload failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setUploadingImage(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function removeImage(url: string) {
+    setImageUrls((prev) => prev.filter((u) => u !== url));
+  }
+
+  const showGbpCta = selectedPlatforms.includes("google_business");
 
   async function handleSave(action: "draft" | "schedule" | "publish") {
     if (!content.trim()) {
@@ -98,14 +173,20 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
       toast({ title: "Date required", description: "Please pick a scheduled date.", variant: "destructive" });
       return;
     }
+    if (showGbpCta && gbpCtaType !== "NONE" && gbpCtaType !== "CALL" && !gbpCtaUrl) {
+      toast({ title: "CTA URL required", description: "Please enter a URL for the CTA button.", variant: "destructive" });
+      return;
+    }
 
     setSaving(true);
     try {
-      const scheduledAt = action !== "draft" && scheduledDate
-        ? new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString()
-        : null;
+      const scheduledAt =
+        action !== "draft" && scheduledDate
+          ? new Date(`${scheduledDate}T${scheduledTime}:00`).toISOString()
+          : null;
 
-      const status = action === "publish" ? "published" : action === "schedule" ? "scheduled" : "draft";
+      const status =
+        action === "publish" ? "published" : action === "schedule" ? "scheduled" : "draft";
       const publishedAt = action === "publish" ? new Date().toISOString() : null;
 
       const payload: Record<string, unknown> = {
@@ -117,8 +198,10 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
         status,
         scheduled_at: scheduledAt,
         published_at: publishedAt,
-        // posts table requires social_account_id — use first platform as reference
         social_account_id: selectedPlatforms[0],
+        media_urls: imageUrls,
+        gbp_cta_type: showGbpCta && gbpCtaType !== "NONE" ? gbpCtaType : null,
+        gbp_cta_url: showGbpCta && gbpCtaType !== "NONE" ? gbpCtaUrl : null,
       };
 
       if (initialPost?.id) {
@@ -128,21 +211,30 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
         await supabase.from("posts").insert({ id, ...payload });
       }
 
-      // If publishing now, call Zernio via edge function
       if (action === "publish") {
         const { data } = await supabase.functions.invoke("social-rpc", {
           body: {
             action: "social.post",
-            payload: { content, platforms: selectedPlatforms, client_id: "citywide" },
+            payload: {
+              content,
+              platforms: selectedPlatforms,
+              client_id: "citywide",
+              media_urls: imageUrls,
+              gbp_cta_type: gbpCtaType !== "NONE" ? gbpCtaType : undefined,
+              gbp_cta_url: gbpCtaUrl || undefined,
+            },
           },
         });
         if (data?.error) {
-          toast({ title: "Zernio warning", description: data.error, variant: "destructive" });
+          toast({ title: "Publish warning", description: data.error, variant: "destructive" });
         }
       }
 
       toast({
-        title: action === "draft" ? "Saved as draft" : action === "schedule" ? "Post scheduled" : "Published",
+        title:
+          action === "draft" ? "Saved as draft"
+          : action === "schedule" ? "Post scheduled"
+          : "Published",
         description:
           action === "schedule"
             ? `Will publish on ${scheduledDate} at ${scheduledTime}`
@@ -160,7 +252,7 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{initialPost?.id ? "Edit Post" : "Compose Post"}</DialogTitle>
         </DialogHeader>
@@ -191,11 +283,66 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
             <p className="text-xs text-muted-foreground text-right">{content.length}/2200</p>
           </div>
 
+          {/* Image Upload */}
+          <div className="space-y-2">
+            <Label>Image</Label>
+
+            {imageUrls.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {imageUrls.map((url) => (
+                  <div key={url} className="relative group">
+                    <img
+                      src={url}
+                      alt=""
+                      className="w-24 h-24 object-cover rounded-md border border-border"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeImage(url)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-destructive text-destructive-foreground rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingImage || imageUrls.length >= 4}
+                className="flex items-center gap-2"
+              >
+                {uploadingImage
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <ImagePlus className="h-4 w-4" />
+                }
+                {uploadingImage ? "Uploading…" : "Upload image"}
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+            </div>
+            {imageUrls.length >= 4 && (
+              <p className="text-xs text-muted-foreground">Maximum 4 images per post.</p>
+            )}
+          </div>
+
           {/* Platforms */}
           <div className="space-y-2">
             <Label>Platforms</Label>
             {connectedPlatforms.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No connected platforms. Connect accounts in Social Profiles first.</p>
+              <p className="text-sm text-muted-foreground">
+                No connected platforms. Connect accounts in Social Profiles first.
+              </p>
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {connectedPlatforms.map((p) => {
@@ -207,7 +354,9 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
                     <label
                       key={p}
                       className={`flex items-center gap-2 rounded-md border p-3 cursor-pointer transition-colors ${
-                        checked ? "border-primary bg-primary/5" : "border-border hover:bg-muted/50"
+                        checked
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:bg-muted/50"
                       }`}
                     >
                       <Checkbox
@@ -222,6 +371,47 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
               </div>
             )}
           </div>
+
+          {/* GBP CTA — only shown when GBP is selected */}
+          {showGbpCta && (
+            <div className="space-y-3 rounded-lg border border-border/60 bg-muted/30 p-3">
+              <div className="flex items-center gap-2">
+                <Link className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-sm font-medium">Google Business CTA Button</Label>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="gbp-cta-type" className="text-xs">Button type</Label>
+                <Select value={gbpCtaType} onValueChange={setGbpCtaType}>
+                  <SelectTrigger id="gbp-cta-type" className="h-9">
+                    <SelectValue placeholder="Select button type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {GBP_CTA_OPTIONS.map((o) => (
+                      <SelectItem key={o.value} value={o.value}>
+                        {o.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {gbpCtaType !== "NONE" && gbpCtaType !== "CALL" && (
+                <div className="space-y-1">
+                  <Label htmlFor="gbp-cta-url" className="text-xs">
+                    {gbpCtaType === "CUSTOM" ? "Custom URL" : "Destination URL"}
+                  </Label>
+                  <Input
+                    id="gbp-cta-url"
+                    placeholder="https://example.com"
+                    value={gbpCtaUrl}
+                    onChange={(e) => setGbpCtaUrl(e.target.value)}
+                    className="h-9"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Schedule */}
           <div className="grid grid-cols-2 gap-3">
@@ -245,7 +435,7 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
             </div>
           </div>
 
-          {/* Selected summary */}
+          {/* Platform summary badges */}
           {selectedPlatforms.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {selectedPlatforms.map((p) => (

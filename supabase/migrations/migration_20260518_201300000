@@ -1,0 +1,12 @@
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'post_media_public_read' AND tablename = 'objects') THEN
+    CREATE POLICY "post_media_public_read" ON storage.objects FOR SELECT USING (bucket_id = 'post-media');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'post_media_insert' AND tablename = 'objects') THEN
+    CREATE POLICY "post_media_insert" ON storage.objects FOR INSERT WITH CHECK (bucket_id = 'post-media');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE policyname = 'post_media_delete' AND tablename = 'objects') THEN
+    CREATE POLICY "post_media_delete" ON storage.objects FOR DELETE USING (bucket_id = 'post-media');
+  END IF;
+END $$;

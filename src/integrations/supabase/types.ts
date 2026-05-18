@@ -3359,6 +3359,8 @@ export type Database = {
           client_id: string
           content: string | null
           created_at: string
+          gbp_cta_type: string | null
+          gbp_cta_url: string | null
           id: string
           media_urls: string[] | null
           platforms: string[]
@@ -3373,6 +3375,8 @@ export type Database = {
           client_id?: string
           content?: string | null
           created_at?: string
+          gbp_cta_type?: string | null
+          gbp_cta_url?: string | null
           id: string
           media_urls?: string[] | null
           platforms?: string[]
@@ -3387,6 +3391,8 @@ export type Database = {
           client_id?: string
           content?: string | null
           created_at?: string
+          gbp_cta_type?: string | null
+          gbp_cta_url?: string | null
           id?: string
           media_urls?: string[] | null
           platforms?: string[]
