@@ -109,7 +109,9 @@ Deno.serve(async (req) => {
         // Note: Zernio expects 'googlebusiness' not 'google_business'
         const zernioPlatform = platform === 'google_business' ? 'googlebusiness' : platform;
         
-        const response = await fetch(`https://zernio.com/api/v1/connect/${zernioPlatform}?profileId=${zernioProfileId}`, {
+        // Pass the redirect_uri to Zernio so it knows where to send the user back
+        const redirectUri = encodeURIComponent(payloadData.redirect_uri);
+        const response = await fetch(`https://zernio.com/api/v1/connect/${zernioPlatform}?profileId=${zernioProfileId}&redirectUri=${redirectUri}`, {
           method: "GET",
           headers: {
             "Authorization": `Bearer ${cleanKey}`

@@ -23,6 +23,41 @@ export default function SocialProfiles() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Check if we just returned from an OAuth flow
+    const urlParams = new URLSearchParams(window.location.search);
+    const success = urlParams.get('success');
+    const platform = urlParams.get('platform');
+    
+    if (success === 'true' && platform) {
+      // In a real app, Zernio would hit a webhook to update our DB.
+      // For now, we'll optimistically update the DB here if we return successfully.
+      const saveConnection = async () => {
+        try {
+          const { error } = await supabase.from('social_accounts').upsert({
+            id: `mock-${platform}-${Date.now()}`,
+            client_id: 'citywide',
+            agency_id: 'citywide',
+            platform: platform === 'googlebusiness' ? 'google_business' : platform,
+            account_id: `zernio-${platform}`,
+            status: 'connected'
+          });
+          
+          if (error) throw error;
+          
+          toast({ title: "Success", description: `${platform} connected successfully!` });
+          
+          // Clean up URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+          
+          // Refresh connections
+          fetchConnections();
+        } catch (e) {
+          console.error("Failed to save connection:", e);
+        }
+      };
+      saveConnection();
+    }
+
     async function fetchConnections() {
       try {
         const { data, error } = await supabase
