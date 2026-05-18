@@ -36,10 +36,10 @@ const activityFeed = [
 
 export function Dashboard() {
   const stats = [
-    { name: "Agency MRR", value: "$68,450", change: "+8%", icon: DollarSign, trend: "up" },
-    { name: "Commission Blocked (YTD)", value: "$1.2M", change: "+42%", icon: TrendingDown, trend: "up", hint: "Money saved for clients" },
-    { name: "Active Restaurant Sites", value: "142", change: "+12", icon: Building2, trend: "up" },
-    { name: "Avg. Local SEO Rank (3-Pack)", value: "1.4", change: "+0.4", icon: Globe, trend: "up" },
+    { name: "Agency MRR", value: "$68,450", change: "+8%", icon: DollarSign },
+    { name: "Commission Blocked (YTD)", value: "$1.2M", change: "+42%", icon: TrendingDown, hint: "Money saved for clients" },
+    { name: "Active Restaurant Sites", value: "142", change: "+12", icon: Building2 },
+    { name: "Avg. Local SEO Rank (3-Pack)", value: "1.4", change: "+0.4", icon: Globe },
   ];
 
   return (
@@ -59,7 +59,7 @@ export function Dashboard() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.08 }}
-              className="bg-[#111E33] rounded-xl p-5 border border-white/8"
+              className="bg-card dark:bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-border dark:border-white/8"
             >
               <div className="flex items-center justify-between mb-3">
                 <div className="w-9 h-9 rounded-lg bg-[#0078D7]/15 flex items-center justify-center">
@@ -70,8 +70,8 @@ export function Dashboard() {
                   {stat.change}
                 </div>
               </div>
-              <div className="text-2xl font-extrabold text-[#EEF1FA]">{stat.value}</div>
-              <div className="text-xs text-[rgba(238,241,250,0.5)] mt-0.5">{stat.name}</div>
+              <div className="text-2xl font-extrabold text-foreground dark:text-foreground dark:text-[#EEF1FA]">{stat.value}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{stat.name}</div>
               {stat.hint && <div className="text-[10px] text-[#0078D7] mt-0.5">{stat.hint}</div>}
             </motion.div>
           ))}
@@ -83,16 +83,16 @@ export function Dashboard() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="lg:col-span-2 bg-[#111E33] rounded-xl p-6 border border-white/8"
+            className="lg:col-span-2 bg-card dark:bg-card dark:bg-[#111E33] rounded-xl p-6 border border-border dark:border-border dark:border-white/8"
           >
             <div className="flex items-center justify-between mb-5">
               <div>
-                <h3 className="text-sm font-bold text-[#EEF1FA]">Network Volume: Native vs. Aggregator</h3>
-                <p className="text-xs text-[rgba(238,241,250,0.5)] mt-0.5">Proof of value: Bleeding volume away from DoorDash into native, zero-commission ordering.</p>
+                <h3 className="text-sm font-bold text-foreground">Network Volume: Native vs. Aggregator</h3>
+                <p className="text-xs text-muted-foreground mt-0.5">Proof of value: Bleeding volume away from DoorDash into native, zero-commission ordering.</p>
               </div>
-              <div className="flex items-center gap-3 text-[10px]">
+              <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
                 <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[#0078D7]" /> Native</div>
-                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-[rgba(238,241,250,0.25)]" /> DoorDash</div>
+                <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-border" /> DoorDash</div>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={200}>
@@ -103,16 +103,16 @@ export function Dashboard() {
                     <stop offset="95%" stopColor="#0078D7" stopOpacity={0} />
                   </linearGradient>
                   <linearGradient id="colorDoor" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#EEF1FA" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#EEF1FA" stopOpacity={0} />
+                    <stop offset="5%" stopColor="#888" stopOpacity={0.15} />
+                    <stop offset="95%" stopColor="#888" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="name" tick={{ fill: "rgba(238,241,250,0.4)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "rgba(238,241,250,0.4)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: "#111E33", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#EEF1FA" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.1)" />
+                <XAxis dataKey="name" tick={{ fill: "currentColor", fontSize: 10, opacity: 0.5 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "currentColor", fontSize: 10, opacity: 0.5 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }} />
                 <Area type="monotone" dataKey="nativeOrders" stroke="#0078D7" strokeWidth={2} fill="url(#colorNative)" />
-                <Area type="monotone" dataKey="doordash" stroke="rgba(238,241,250,0.3)" strokeWidth={2} fill="url(#colorDoor)" />
+                <Area type="monotone" dataKey="doordash" stroke="#888" strokeWidth={2} fill="url(#colorDoor)" />
               </AreaChart>
             </ResponsiveContainer>
           </motion.div>
@@ -122,9 +122,9 @@ export function Dashboard() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.35 }}
-            className="bg-[#111E33] rounded-xl p-5 border border-white/8 flex flex-col"
+            className="bg-card dark:bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-border dark:border-white/8 flex flex-col"
           >
-            <h3 className="text-sm font-bold text-[#EEF1FA] mb-4">Network Activity</h3>
+            <h3 className="text-sm font-bold text-foreground mb-4">Network Activity</h3>
             <div className="flex-1 space-y-3">
               {activityFeed.map((feed, i) => (
                 <div key={i} className="flex gap-2.5">
@@ -133,10 +133,10 @@ export function Dashboard() {
                     feed.type === "error" ? "bg-red-400" : "bg-[#0078D7]"
                   }`} />
                   <div>
-                    <p className="text-xs text-[#EEF1FA] leading-relaxed">
+                    <p className="text-xs text-foreground leading-relaxed">
                       <span className="font-semibold">{feed.client}:</span> {feed.action}
                     </p>
-                    <p className="text-[10px] text-[rgba(238,241,250,0.4)] mt-0.5">{feed.time}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">{feed.time}</p>
                   </div>
                 </div>
               ))}
@@ -149,42 +149,42 @@ export function Dashboard() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-[#111E33] rounded-xl border border-white/8 overflow-hidden"
+          className="bg-card dark:bg-card dark:bg-[#111E33] rounded-xl border border-border dark:border-border dark:border-white/8 overflow-hidden"
         >
-          <div className="px-6 py-4 border-b border-white/8 flex items-center justify-between">
-            <h3 className="text-sm font-bold text-[#EEF1FA]">Client Roster</h3>
-            <button className="flex items-center gap-1.5 text-xs font-semibold text-[#0078D7] hover:text-[#5BB8FF] transition-colors">
+          <div className="px-6 py-4 border-b border-border dark:border-border dark:border-white/8 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-foreground">Client Roster</h3>
+            <button className="flex items-center gap-1.5 text-xs font-semibold text-[#0078D7] hover:text-[#00447A] transition-colors">
               <Plus className="w-3.5 h-3.5" /> Add Client
             </button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-white/8">
+                <tr className="border-b border-border dark:border-border dark:border-white/8">
                   {["Restaurant Name", "Status", "MRR", "Commissions Blocked", "Active Modules", "Action"].map(h => (
-                    <th key={h} className="text-left px-5 py-3 text-[10px] font-bold text-[rgba(238,241,250,0.4)] uppercase tracking-wider">{h}</th>
+                    <th key={h} className="text-left px-5 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {clients.map((c) => (
-                  <tr key={c.id} className="border-b border-white/5 hover:bg-white/3 transition-colors">
+                  <tr key={c.id} className="border-b border-border dark:border-border dark:border-white/5 hover:bg-muted/40 dark:hover:bg-muted/40 dark:bg-white/3 transition-colors">
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2">
                         {c.health === "warning" ? (
-                          <AlertCircle className="w-3.5 h-3.5 text-yellow-400 flex-shrink-0" />
+                          <AlertCircle className="w-3.5 h-3.5 text-yellow-500 flex-shrink-0" />
                         ) : (
                           <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E] flex-shrink-0" />
                         )}
-                        <span className="text-[#EEF1FA] text-xs font-medium">{c.name}</span>
+                        <span className="text-xs font-medium text-foreground">{c.name}</span>
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
                       <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                        c.status === "Live" ? "bg-[#22C55E]/15 text-[#22C55E]" : "bg-yellow-400/15 text-yellow-400"
+                        c.status === "Live" ? "bg-[#22C55E]/15 text-[#22C55E]" : "bg-yellow-400/15 text-yellow-600 dark:text-yellow-400"
                       }`}>{c.status}</span>
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-[#EEF1FA] font-semibold">{c.mrr}</td>
+                    <td className="px-5 py-3.5 text-xs font-semibold text-foreground">{c.mrr}</td>
                     <td className="px-5 py-3.5 text-xs text-[#22C55E] font-semibold">{c.commissionSaved}</td>
                     <td className="px-5 py-3.5">
                       <div className="flex flex-wrap gap-1">
@@ -194,7 +194,7 @@ export function Dashboard() {
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <button className="text-[10px] font-bold text-[#0078D7] hover:text-[#5BB8FF] transition-colors">
+                      <button className="text-[10px] font-bold text-[#0078D7] hover:text-[#00447A] transition-colors">
                         Open Hub →
                       </button>
                     </td>

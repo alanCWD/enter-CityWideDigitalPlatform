@@ -67,11 +67,11 @@ export function ClientSearch() {
         className={cn(
           "flex items-center gap-2 rounded-lg px-3 py-2 w-64 border transition-colors",
           isDark
-            ? "bg-white/5 border-white/10 focus-within:border-[#0078D7]/50"
+            ? "bg-muted/60 dark:bg-white/5 border-border dark:border-white/10 focus-within:border-[#0078D7]/50"
             : "bg-muted border-border focus-within:border-primary/50",
         )}
       >
-        <Search className={cn("w-3.5 h-3.5 flex-shrink-0", isDark ? "text-[rgba(238,241,250,0.4)]" : "text-muted-foreground")} />
+        <Search className={cn("w-3.5 h-3.5 flex-shrink-0", isDark ? "text-muted-foreground" : "text-muted-foreground")} />
         <input
           type="text"
           value={query}
@@ -81,14 +81,14 @@ export function ClientSearch() {
           className={cn(
             "flex-1 bg-transparent border-0 outline-none text-xs",
             isDark
-              ? "text-[#EEF1FA] placeholder:text-[rgba(238,241,250,0.4)]"
+              ? "text-foreground dark:text-[#EEF1FA] placeholder:text-muted-foreground"
               : "text-foreground placeholder:text-muted-foreground",
           )}
         />
         {query && (
           <button
             onClick={() => { setQuery(""); setResults([]); }}
-            className={cn(isDark ? "text-[rgba(238,241,250,0.4)] hover:text-[#EEF1FA]" : "text-muted-foreground hover:text-foreground")}
+            className={cn(isDark ? "text-muted-foreground hover:text-foreground dark:text-[#EEF1FA]" : "text-muted-foreground hover:text-foreground")}
           >
             <X className="w-3 h-3" />
           </button>
@@ -104,12 +104,12 @@ export function ClientSearch() {
             className={cn(
               "absolute top-full mt-1.5 left-0 right-0 rounded-xl shadow-2xl overflow-hidden z-50 border",
               isDark
-                ? "bg-[#111E33] border-white/10"
+                ? "bg-card dark:bg-[#111E33] border-border dark:border-white/10"
                 : "bg-popover border-border",
             )}
           >
             {loading && (
-              <div className={cn("flex items-center gap-2 px-4 py-3 text-xs", isDark ? "text-[rgba(238,241,250,0.5)]" : "text-muted-foreground")}>
+              <div className={cn("flex items-center gap-2 px-4 py-3 text-xs", isDark ? "text-muted-foreground" : "text-muted-foreground")}>
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 Searching connected profiles...
               </div>
@@ -117,7 +117,7 @@ export function ClientSearch() {
 
             {!loading && results.length === 0 && (
               <div className="px-4 py-4 text-center">
-                <p className={cn("text-xs mb-2", isDark ? "text-[rgba(238,241,250,0.5)]" : "text-muted-foreground")}>
+                <p className={cn("text-xs mb-2", isDark ? "text-muted-foreground" : "text-muted-foreground")}>
                   No matching clients found
                 </p>
                 <button
@@ -138,7 +138,7 @@ export function ClientSearch() {
                     className={cn(
                       "w-full flex items-start gap-3 px-3 py-2.5 transition-colors text-left last:border-b-0",
                       isDark
-                        ? "hover:bg-white/5 border-b border-white/5"
+                        ? "hover:bg-muted/60 dark:bg-white/5 border-b border-border dark:border-white/5"
                         : "hover:bg-muted border-b border-border",
                     )}
                   >
@@ -147,7 +147,7 @@ export function ClientSearch() {
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={cn("text-xs font-bold truncate", isDark ? "text-[#EEF1FA]" : "text-foreground")}>
+                        <span className={cn("text-xs font-bold truncate", isDark ? "text-foreground dark:text-[#EEF1FA]" : "text-foreground")}>
                           {r.business_name || r.client_label}
                         </span>
                         {r.category && (
@@ -158,8 +158,8 @@ export function ClientSearch() {
                       </div>
                       {r.address && (
                         <div className="flex items-center gap-1 mt-0.5">
-                          <MapPin className={cn("w-2.5 h-2.5", isDark ? "text-[rgba(238,241,250,0.4)]" : "text-muted-foreground")} />
-                          <span className={cn("text-[10px] truncate", isDark ? "text-[rgba(238,241,250,0.5)]" : "text-muted-foreground")}>
+                          <MapPin className={cn("w-2.5 h-2.5", isDark ? "text-muted-foreground" : "text-muted-foreground")} />
+                          <span className={cn("text-[10px] truncate", isDark ? "text-muted-foreground" : "text-muted-foreground")}>
                             {r.address}
                           </span>
                         </div>
@@ -170,8 +170,8 @@ export function ClientSearch() {
               </div>
             )}
 
-            <div className={cn("px-3 py-2 border-t", isDark ? "border-white/5 bg-white/2" : "border-border bg-muted/50")}>
-              <p className={cn("text-[9px] text-center", isDark ? "text-[rgba(238,241,250,0.35)]" : "text-muted-foreground")}>
+            <div className={cn("px-3 py-2 border-t", isDark ? "border-border dark:border-white/5 bg-muted/20 dark:bg-white/2" : "border-border bg-muted/50")}>
+              <p className={cn("text-[9px] text-center", isDark ? "text-muted-foreground" : "text-muted-foreground")}>
                 Searches connected Google Business Profiles
               </p>
             </div>

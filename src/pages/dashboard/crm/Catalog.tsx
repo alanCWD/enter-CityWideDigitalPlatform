@@ -19,11 +19,11 @@ export function Catalog() {
       />
 
       <div className="px-6 py-6">
-        {loading && <p className="text-xs text-[rgba(238,241,250,0.45)]">Loading…</p>}
+        {loading && <p className="text-xs text-muted-foreground">Loading…</p>}
         {!loading && products.length === 0 && (
-          <div className="bg-[#111E33] border border-white/10 rounded-2xl p-12 text-center">
-            <Package className="w-10 h-10 text-[rgba(238,241,250,0.25)] mx-auto mb-3" />
-            <p className="text-sm text-[rgba(238,241,250,0.6)] mb-4">No products yet. Add the things CityWide Digital sells — one-off services or subscriptions.</p>
+          <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-12 text-center">
+            <Package className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground mb-4">No products yet. Add the things CityWide Digital sells — one-off services or subscriptions.</p>
             <button
               onClick={() => setEditing("new")}
               className="inline-flex items-center gap-1.5 bg-[#0078D7] hover:bg-[#00447A] text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
@@ -38,7 +38,7 @@ export function Catalog() {
               key={p.id}
               onClick={() => setEditing(p)}
               className={cn(
-                "text-left bg-[#111E33] border border-white/10 rounded-2xl p-5 hover:border-[#0078D7]/40 transition-colors",
+                "text-left bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-5 hover:border-[#0078D7]/40 transition-colors",
                 p.active ? "" : "opacity-60",
               )}
             >
@@ -49,13 +49,13 @@ export function Catalog() {
                 )}>
                   {p.type === "subscription" ? <Repeat className="w-3.5 h-3.5" /> : <Tag className="w-3.5 h-3.5" />}
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.55)]">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                   {p.type === "subscription" ? `Per ${p.interval ?? "month"}` : "One-off"}
                 </span>
               </div>
-              <h3 className="text-base font-bold text-[#EEF1FA] mb-1">{p.name}</h3>
-              <p className="text-xs text-[rgba(238,241,250,0.55)] mb-3 line-clamp-2 min-h-[2em]">{p.description ?? ""}</p>
-              <div className="text-xl font-extrabold text-[#EEF1FA]">{fmtMoney(p.unit_amount_cents, p.currency)}</div>
+              <h3 className="text-base font-bold text-foreground dark:text-[#EEF1FA] mb-1">{p.name}</h3>
+              <p className="text-xs text-muted-foreground mb-3 line-clamp-2 min-h-[2em]">{p.description ?? ""}</p>
+              <div className="text-xl font-extrabold text-foreground dark:text-[#EEF1FA]">{fmtMoney(p.unit_amount_cents, p.currency)}</div>
             </button>
           ))}
         </div>
@@ -104,31 +104,31 @@ function ProductEditor({ product, onClose, onSaved }: { product: CrmProduct | nu
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg bg-[#0A1120] border border-white/10 rounded-2xl p-6 m-4 shadow-[0_24px_60px_rgba(0,0,0,0.6)]">
+      <form onSubmit={submit} onClick={(e) => e.stopPropagation()} className="w-full max-w-lg bg-[#0A1120] border border-border dark:border-white/10 rounded-2xl p-6 m-4 shadow-[0_24px_60px_rgba(0,0,0,0.6)]">
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-[#EEF1FA]">{product ? "Edit Product" : "New Product"}</h2>
-          <button type="button" onClick={onClose} className="p-1 rounded-md text-[rgba(238,241,250,0.5)] hover:bg-white/10 hover:text-[#EEF1FA]"><X className="w-4 h-4" /></button>
+          <h2 className="text-lg font-bold text-foreground dark:text-[#EEF1FA]">{product ? "Edit Product" : "New Product"}</h2>
+          <button type="button" onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted dark:bg-white/10 hover:text-foreground dark:text-[#EEF1FA]"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="space-y-3">
           <Field label="Name" value={name} onChange={setName} required autoFocus />
           <label className="block">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.55)]">Description</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Description</span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              className="mt-1 w-full bg-[#111E33] border border-white/10 rounded-lg px-3 py-2 text-sm text-[#EEF1FA] placeholder:text-[rgba(238,241,250,0.35)] focus:outline-none focus:border-[#0078D7]/50"
+              className="mt-1 w-full bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA] placeholder:text-muted-foreground focus:outline-none focus:border-[#0078D7]/50"
             />
           </label>
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.55)]">Type</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Type</span>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value as "one_off" | "subscription")}
-                className="mt-1 w-full bg-[#111E33] border border-white/10 rounded-lg px-3 py-2 text-sm text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]/50"
+                className="mt-1 w-full bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]/50"
               >
                 <option value="subscription">Subscription</option>
                 <option value="one_off">One-off</option>
@@ -136,11 +136,11 @@ function ProductEditor({ product, onClose, onSaved }: { product: CrmProduct | nu
             </label>
             {type === "subscription" && (
               <label className="block">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.55)]">Billing interval</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Billing interval</span>
                 <select
                   value={interval}
                   onChange={(e) => setInterval(e.target.value as "month" | "year")}
-                  className="mt-1 w-full bg-[#111E33] border border-white/10 rounded-lg px-3 py-2 text-sm text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]/50"
+                  className="mt-1 w-full bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]/50"
                 >
                   <option value="month">Monthly</option>
                   <option value="year">Yearly</option>
@@ -153,16 +153,16 @@ function ProductEditor({ product, onClose, onSaved }: { product: CrmProduct | nu
             <Field label={`Price (${currency})`} type="number" step="0.01" value={amount} onChange={setAmount} required />
             <label className="flex items-center gap-2 mt-5">
               <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-              <span className="text-sm text-[rgba(238,241,250,0.7)]">Active</span>
+              <span className="text-sm text-muted-foreground">Active</span>
             </label>
           </div>
         </div>
 
         {err && <p className="mt-3 text-xs text-red-400">{err}</p>}
-        <p className="mt-3 text-[11px] text-[rgba(238,241,250,0.4)]">Saving will create a new Stripe price (Stripe prices are immutable).</p>
+        <p className="mt-3 text-[11px] text-muted-foreground">Saving will create a new Stripe price (Stripe prices are immutable).</p>
 
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-semibold text-[rgba(238,241,250,0.7)] hover:text-[#EEF1FA]">Cancel</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground dark:text-[#EEF1FA]">Cancel</button>
           <button type="submit" disabled={busy} className="bg-[#0078D7] hover:bg-[#00447A] disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors">
             {busy ? "Saving…" : "Save Product"}
           </button>
@@ -175,12 +175,12 @@ function ProductEditor({ product, onClose, onSaved }: { product: CrmProduct | nu
 function Field({ label, value, onChange, ...props }: { label: string; value: string; onChange: (v: string) => void } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.55)]">{label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
       <input
         {...props}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full bg-[#111E33] border border-white/10 rounded-lg px-3 py-2 text-sm text-[#EEF1FA] placeholder:text-[rgba(238,241,250,0.35)] focus:outline-none focus:border-[#0078D7]/50"
+        className="mt-1 w-full bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA] placeholder:text-muted-foreground focus:outline-none focus:border-[#0078D7]/50"
       />
     </label>
   );

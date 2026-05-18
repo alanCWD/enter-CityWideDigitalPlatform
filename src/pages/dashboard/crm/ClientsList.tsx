@@ -27,7 +27,7 @@ export function ClientsList() {
       <div className="px-6 pt-4 flex justify-end">
         <button
           onClick={() => setParams({ import: "1" })}
-          className="inline-flex items-center gap-1.5 bg-[#111E33] hover:bg-white/10 border border-white/10 text-[#EEF1FA] text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+          className="inline-flex items-center gap-1.5 bg-card dark:bg-[#111E33] hover:bg-muted dark:bg-white/10 border border-border dark:border-white/10 text-foreground dark:text-[#EEF1FA] text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
         >
           <Upload className="w-3.5 h-3.5" /> Import CSV
         </button>
@@ -37,19 +37,19 @@ export function ClientsList() {
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative flex-1 min-w-[260px] max-w-md">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[rgba(238,241,250,0.4)] pointer-events-none" />
+            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               type="text"
               placeholder="Search by name or email…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="w-full bg-[#111E33] border border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-[#EEF1FA] placeholder:text-[rgba(238,241,250,0.35)] focus:outline-none focus:border-[#0078D7]/50"
+              className="w-full bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-foreground dark:text-[#EEF1FA] placeholder:text-muted-foreground focus:outline-none focus:border-[#0078D7]/50"
             />
           </div>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="bg-[#111E33] border border-white/10 rounded-lg px-3 py-2 text-sm text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]/50"
+            className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]/50"
           >
             <option value="">All statuses</option>
             <option value="active">Active</option>
@@ -61,10 +61,10 @@ export function ClientsList() {
         </div>
 
         {/* Table */}
-        <div className="bg-[#111E33] border border-white/10 rounded-2xl overflow-hidden">
+        <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-white/10 bg-white/3">
+              <tr className="border-b border-border dark:border-white/10 bg-muted/40 dark:bg-white/3">
                 <Th>Name</Th>
                 <Th>Email</Th>
                 <Th>Phone</Th>
@@ -73,23 +73,23 @@ export function ClientsList() {
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={5} className="py-8 text-center text-xs text-[rgba(238,241,250,0.45)]">Loading…</td></tr>}
+              {loading && <tr><td colSpan={5} className="py-8 text-center text-xs text-muted-foreground">Loading…</td></tr>}
               {!loading && clients.length === 0 && (
-                <tr><td colSpan={5} className="py-12 text-center text-sm text-[rgba(238,241,250,0.45)]">
+                <tr><td colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
                   No clients yet. Click <span className="text-[#0078D7]">+ New Client</span> to add one.
                 </td></tr>
               )}
               {clients.map((c) => (
-                <tr key={c.id} className="border-b border-white/5 hover:bg-white/2 transition-colors">
+                <tr key={c.id} className="border-b border-border dark:border-white/5 hover:bg-muted/20 dark:bg-white/2 transition-colors">
                   <td className="px-4 py-3">
-                    <Link to={`/dashboard/crm/clients/${c.id}`} className="text-sm font-semibold text-[#EEF1FA] hover:text-[#0078D7]">
+                    <Link to={`/dashboard/crm/clients/${c.id}`} className="text-sm font-semibold text-foreground dark:text-[#EEF1FA] hover:text-[#0078D7]">
                       {c.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-sm text-[rgba(238,241,250,0.7)]">{c.billing_email ?? "—"}</td>
-                  <td className="px-4 py-3 text-sm text-[rgba(238,241,250,0.7)]">{c.phone ?? "—"}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{c.billing_email ?? "—"}</td>
+                  <td className="px-4 py-3 text-sm text-muted-foreground">{c.phone ?? "—"}</td>
                   <td className="px-4 py-3"><StatusPill status={c.status} /></td>
-                  <td className="px-4 py-3 text-right text-xs text-[rgba(238,241,250,0.5)]">{new Date(c.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-right text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString()}</td>
                 </tr>
               ))}
             </tbody>
@@ -115,7 +115,7 @@ export function ClientsList() {
 }
 
 function Th({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <th className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.5)] ${className ?? ""}`}>{children}</th>;
+  return <th className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground ${className ?? ""}`}>{children}</th>;
 }
 
 function NewClientDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
@@ -146,11 +146,11 @@ function NewClientDialog({ onClose, onCreated }: { onClose: () => void; onCreate
       <form
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-[#0A1120] border border-white/10 rounded-2xl p-6 m-4 shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
+        className="w-full max-w-md bg-[#0A1120] border border-border dark:border-white/10 rounded-2xl p-6 m-4 shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-[#EEF1FA]">Add Client</h2>
-          <button type="button" onClick={onClose} className="p-1 rounded-md text-[rgba(238,241,250,0.5)] hover:bg-white/10 hover:text-[#EEF1FA]"><X className="w-4 h-4" /></button>
+          <h2 className="text-lg font-bold text-foreground dark:text-[#EEF1FA]">Add Client</h2>
+          <button type="button" onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted dark:bg-white/10 hover:text-foreground dark:text-[#EEF1FA]"><X className="w-4 h-4" /></button>
         </div>
         <div className="space-y-3">
           <Field label="Business name" value={name} onChange={setName} required autoFocus />
@@ -159,7 +159,7 @@ function NewClientDialog({ onClose, onCreated }: { onClose: () => void; onCreate
         </div>
         {err && <p className="mt-3 text-xs text-red-400">{err}</p>}
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-semibold text-[rgba(238,241,250,0.7)] hover:text-[#EEF1FA]">Cancel</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground dark:text-[#EEF1FA]">Cancel</button>
           <button
             type="submit"
             disabled={busy || !name.trim()}
@@ -176,12 +176,12 @@ function NewClientDialog({ onClose, onCreated }: { onClose: () => void; onCreate
 function Field({ label, value, onChange, ...props }: { label: string; value: string; onChange: (v: string) => void } & React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <label className="block">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.55)]">{label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
       <input
         {...props}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full bg-[#111E33] border border-white/10 rounded-lg px-3 py-2 text-sm text-[#EEF1FA] placeholder:text-[rgba(238,241,250,0.35)] focus:outline-none focus:border-[#0078D7]/50"
+        className="mt-1 w-full bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA] placeholder:text-muted-foreground focus:outline-none focus:border-[#0078D7]/50"
       />
     </label>
   );

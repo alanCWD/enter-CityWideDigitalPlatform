@@ -47,16 +47,16 @@ export function HealthPanel({ clientId }: Props) {
         <div>
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-[#0078D7]" />
-            <h1 className="text-lg font-extrabold text-[#EEF1FA] uppercase tracking-wider">Digital Health</h1>
+            <h1 className="text-lg font-extrabold text-foreground dark:text-[#EEF1FA] uppercase tracking-wider">Digital Health</h1>
           </div>
-          <p className="text-xs text-[rgba(238,241,250,0.6)] mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             One score, one dashboard — every fix this client needs to win locally.
           </p>
         </div>
         <button
           onClick={doRefreshAuto}
           disabled={busy === "auto"}
-          className="bg-white/5 hover:bg-white/10 border border-white/10 disabled:opacity-50 text-[#EEF1FA] text-xs font-bold px-3 py-2 rounded-lg inline-flex items-center gap-2 self-start sm:self-auto"
+          className="bg-muted/60 dark:bg-white/5 hover:bg-muted dark:bg-white/10 border border-border dark:border-white/10 disabled:opacity-50 text-foreground dark:text-[#EEF1FA] text-xs font-bold px-3 py-2 rounded-lg inline-flex items-center gap-2 self-start sm:self-auto"
         >
           {busy === "auto" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCcw className="w-3.5 h-3.5" />}
           Refresh auto-checks
@@ -71,15 +71,15 @@ export function HealthPanel({ clientId }: Props) {
       )}
 
       {loading && data.checks.length === 0 ? (
-        <div className="bg-[#111E33] border border-white/10 rounded-2xl p-12 text-center">
+        <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-12 text-center">
           <Loader2 className="w-6 h-6 text-[#0078D7] animate-spin mx-auto mb-3" />
-          <p className="text-sm text-[rgba(238,241,250,0.7)]">Loading health profile…</p>
+          <p className="text-sm text-muted-foreground">Loading health profile…</p>
         </div>
       ) : data.checks.length === 0 ? (
-        <div className="bg-[#111E33] border border-white/10 rounded-2xl p-12 text-center">
+        <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-12 text-center">
           <Activity className="w-12 h-12 text-[#0078D7] mx-auto mb-3" />
-          <h3 className="text-base font-bold text-[#EEF1FA] mb-1">No health data yet</h3>
-          <p className="text-sm text-[rgba(238,241,250,0.6)] mb-4">
+          <h3 className="text-base font-bold text-foreground dark:text-[#EEF1FA] mb-1">No health data yet</h3>
+          <p className="text-sm text-muted-foreground mb-4">
             Click "Refresh auto-checks" to compute the website, GBP, vault, and subscription signals for this client.
           </p>
           <button

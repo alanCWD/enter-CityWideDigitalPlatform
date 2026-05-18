@@ -29,11 +29,11 @@ export function Leads() {
         >
           <div className="flex items-center gap-2">
             <button className="text-xs font-bold bg-[#0078D7] text-white px-3 py-1.5 rounded-lg">All</button>
-            <button className="text-xs font-bold bg-white/5 border border-white/10 text-[rgba(238,241,250,0.6)] px-3 py-1.5 rounded-lg hover:bg-white/10 transition-colors">
+            <button className="text-xs font-bold bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground px-3 py-1.5 rounded-lg hover:bg-muted dark:bg-white/10 transition-colors">
               Unread ({unreadCount})
             </button>
           </div>
-          <button className="text-xs text-[rgba(238,241,250,0.5)] hover:text-[#EEF1FA] transition-colors">
+          <button className="text-xs text-muted-foreground hover:text-foreground dark:text-[#EEF1FA] transition-colors">
             Mark all read
           </button>
         </motion.div>
@@ -43,13 +43,13 @@ export function Leads() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-[#111E33] rounded-xl border border-white/8 overflow-hidden"
+          className="bg-card dark:bg-[#111E33] rounded-xl border border-border dark:border-white/8 overflow-hidden"
         >
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/8">
+              <tr className="border-b border-border dark:border-white/8">
                 {["Contact", "Type", "Message Snapshot", "Time"].map(h => (
-                  <th key={h} className="text-left px-5 py-3 text-[10px] font-bold text-[rgba(238,241,250,0.4)] uppercase tracking-wider">{h}</th>
+                  <th key={h} className="text-left px-5 py-3 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -60,14 +60,14 @@ export function Leads() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.15 + i * 0.05 }}
-                  className={`border-b border-white/5 hover:bg-white/3 transition-colors cursor-pointer ${!lead.read ? "bg-[#0078D7]/5" : ""}`}
+                  className={`border-b border-border dark:border-white/5 hover:bg-muted/40 dark:bg-white/3 transition-colors cursor-pointer ${!lead.read ? "bg-[#0078D7]/5" : ""}`}
                 >
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-2">
                       {!lead.read && <div className="w-1.5 h-1.5 rounded-full bg-[#0078D7] flex-shrink-0" />}
                       <div>
-                        <div className="text-xs font-semibold text-[#EEF1FA]">{lead.name}</div>
-                        <div className="text-[10px] text-[rgba(238,241,250,0.4)]">{lead.source}</div>
+                        <div className="text-xs font-semibold text-foreground dark:text-[#EEF1FA]">{lead.name}</div>
+                        <div className="text-[10px] text-muted-foreground">{lead.source}</div>
                       </div>
                     </div>
                   </td>
@@ -84,10 +84,10 @@ export function Leads() {
                     </div>
                   </td>
                   <td className="px-5 py-3.5 max-w-xs">
-                    <p className="text-xs text-[rgba(238,241,250,0.65)] truncate">{lead.msg}</p>
+                    <p className="text-xs text-muted-foreground truncate">{lead.msg}</p>
                   </td>
                   <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-1 text-[10px] text-[rgba(238,241,250,0.4)]">
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                       <Clock className="w-3 h-3" /> {lead.time}
                     </div>
                   </td>

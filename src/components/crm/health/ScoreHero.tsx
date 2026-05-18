@@ -16,7 +16,7 @@ export function ScoreHero({ score, bucket, label, totalChecks, passCount, failCo
   const dash = (Math.max(0, Math.min(100, score)) / 100) * circumference;
 
   return (
-    <div className="bg-[#0D1526] border border-white/10 rounded-2xl p-6 flex flex-col md:flex-row md:items-center gap-6">
+    <div className="bg-[#0D1526] border border-border dark:border-white/10 rounded-2xl p-6 flex flex-col md:flex-row md:items-center gap-6">
       <div className="relative shrink-0 self-center" style={{ width: 168, height: 168 }}>
         <svg width={168} height={168} viewBox="0 0 168 168" className="-rotate-90">
           <circle cx={84} cy={84} r={radius} fill="none" stroke="rgba(238,241,250,0.08)" strokeWidth={12} />
@@ -33,8 +33,8 @@ export function ScoreHero({ score, bucket, label, totalChecks, passCount, failCo
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <div className="text-4xl font-extrabold text-[#EEF1FA] leading-none">{score}</div>
-          <div className="text-[10px] uppercase tracking-wider text-[rgba(238,241,250,0.5)] font-bold mt-1">/ 100</div>
+          <div className="text-4xl font-extrabold text-foreground dark:text-[#EEF1FA] leading-none">{score}</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mt-1">/ 100</div>
         </div>
       </div>
 
@@ -46,8 +46,8 @@ export function ScoreHero({ score, bucket, label, totalChecks, passCount, failCo
           <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: color.bg }} />
           {label}
         </div>
-        <h2 className="text-lg font-extrabold text-[#EEF1FA] leading-tight">Digital Presence Health</h2>
-        <p className="text-sm text-[rgba(238,241,250,0.65)] mt-1">
+        <h2 className="text-lg font-extrabold text-foreground dark:text-[#EEF1FA] leading-tight">Digital Presence Health</h2>
+        <p className="text-sm text-muted-foreground mt-1">
           Weighted score across {totalChecks} checks — covers website, GBP, citations, performance, and operational readiness.
         </p>
         <div className="mt-3 grid grid-cols-3 gap-3 max-w-md">
@@ -62,9 +62,9 @@ export function ScoreHero({ score, bucket, label, totalChecks, passCount, failCo
 
 function Stat({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="bg-[#111E33] border border-white/10 rounded-xl px-3 py-2.5">
+    <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-xl px-3 py-2.5">
       <div className="text-2xl font-extrabold leading-none" style={{ color }}>{value}</div>
-      <div className="text-[10px] uppercase tracking-wider text-[rgba(238,241,250,0.55)] font-bold mt-1">{label}</div>
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold mt-1">{label}</div>
     </div>
   );
 }

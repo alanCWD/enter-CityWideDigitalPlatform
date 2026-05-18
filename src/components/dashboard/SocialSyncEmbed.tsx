@@ -31,11 +31,11 @@ export function SocialSyncEmbed({ clientId, clientName }: SocialSyncEmbedProps) 
         <AlertCircle className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
         <div>
           <p className="text-xs font-bold text-yellow-400 mb-1">Social Sync URL not configured</p>
-          <p className="text-[11px] text-[rgba(238,241,250,0.6)] leading-relaxed">
-            Deploy the Social Sync project, then edit <code className="bg-white/10 px-1 py-0.5 rounded text-[10px]">SOCIAL_SYNC_URL</code>
-            {" "}in <code className="bg-white/10 px-1 py-0.5 rounded text-[10px]">src/components/dashboard/SocialSyncEmbed.tsx</code> with the real URL.
+          <p className="text-[11px] text-muted-foreground leading-relaxed">
+            Deploy the Social Sync project, then edit <code className="bg-muted dark:bg-white/10 px-1 py-0.5 rounded text-[10px]">SOCIAL_SYNC_URL</code>
+            {" "}in <code className="bg-muted dark:bg-white/10 px-1 py-0.5 rounded text-[10px]">src/components/dashboard/SocialSyncEmbed.tsx</code> with the real URL.
           </p>
-          <p className="text-[10px] text-[rgba(238,241,250,0.4)] mt-2">
+          <p className="text-[10px] text-muted-foreground mt-2">
             Will load: <span className="font-mono">{src}</span>
           </p>
         </div>
@@ -48,9 +48,9 @@ export function SocialSyncEmbed({ clientId, clientName }: SocialSyncEmbedProps) 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Share2 className="w-3.5 h-3.5 text-[#0078D7]" />
-          <span className="text-xs font-bold text-[#EEF1FA]">Social Sync</span>
+          <span className="text-xs font-bold text-foreground dark:text-[#EEF1FA]">Social Sync</span>
           {clientName && (
-            <span className="text-[10px] text-[rgba(238,241,250,0.4)]">· {clientName}</span>
+            <span className="text-[10px] text-muted-foreground">· {clientName}</span>
           )}
         </div>
         <span className="text-[9px] font-bold bg-[#0078D7]/15 text-[#0078D7] px-1.5 py-0.5 rounded-full">
@@ -58,9 +58,9 @@ export function SocialSyncEmbed({ clientId, clientName }: SocialSyncEmbedProps) 
         </span>
       </div>
 
-      <div className="relative rounded-xl overflow-hidden border border-white/8 bg-[#0A1120]" style={{ minHeight: 700 }}>
+      <div className="relative rounded-xl overflow-hidden border border-border dark:border-white/8 bg-[#0A1120]" style={{ minHeight: 700 }}>
         {!loaded && !errored && (
-          <div className="absolute inset-0 flex items-center justify-center gap-2 text-xs text-[rgba(238,241,250,0.5)]">
+          <div className="absolute inset-0 flex items-center justify-center gap-2 text-xs text-muted-foreground">
             <Loader2 className="w-4 h-4 animate-spin" />
             Loading Social Sync workspace...
           </div>
@@ -69,7 +69,7 @@ export function SocialSyncEmbed({ clientId, clientName }: SocialSyncEmbedProps) 
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-4 text-center">
             <AlertCircle className="w-5 h-5 text-red-400" />
             <p className="text-xs font-bold text-red-400">Could not load Social Sync</p>
-            <p className="text-[10px] text-[rgba(238,241,250,0.5)] max-w-sm">
+            <p className="text-[10px] text-muted-foreground max-w-sm">
               The embedded app refused to load. Make sure the Social Sync project allows iframe embedding from this origin (CORS / X-Frame-Options).
             </p>
           </div>

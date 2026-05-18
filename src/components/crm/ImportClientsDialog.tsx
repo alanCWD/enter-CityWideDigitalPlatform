@@ -123,14 +123,14 @@ export function ImportClientsDialog({ onClose, onImported }: { onClose: () => vo
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-3xl bg-[#0A1120] border border-white/10 rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.6)] m-4 max-h-[90vh] flex flex-col"
+        className="w-full max-w-3xl bg-[#0A1120] border border-border dark:border-white/10 rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.6)] m-4 max-h-[90vh] flex flex-col"
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border dark:border-white/10">
           <div>
-            <h2 className="text-lg font-bold text-[#EEF1FA]">Bulk Import Clients</h2>
-            <p className="text-xs text-[rgba(238,241,250,0.55)]">Upload a CSV/TSV exported from your previous CRM. We auto-detect columns.</p>
+            <h2 className="text-lg font-bold text-foreground dark:text-[#EEF1FA]">Bulk Import Clients</h2>
+            <p className="text-xs text-muted-foreground">Upload a CSV/TSV exported from your previous CRM. We auto-detect columns.</p>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-md text-[rgba(238,241,250,0.5)] hover:bg-white/10 hover:text-[#EEF1FA]"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="p-1.5 rounded-md text-muted-foreground hover:bg-muted dark:bg-white/10 hover:text-foreground dark:text-[#EEF1FA]"><X className="w-4 h-4" /></button>
         </div>
 
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
@@ -144,11 +144,11 @@ export function ImportClientsDialog({ onClose, onImported }: { onClose: () => vo
                 const f = e.dataTransfer.files?.[0];
                 if (f) onFileChange(f);
               }}
-              className="cursor-pointer rounded-xl border-2 border-dashed border-white/15 hover:border-[#0078D7]/60 hover:bg-white/3 transition-colors py-12 flex flex-col items-center justify-center text-center"
+              className="cursor-pointer rounded-xl border-2 border-dashed border-border dark:border-white/15 hover:border-[#0078D7]/60 hover:bg-muted/40 dark:bg-white/3 transition-colors py-12 flex flex-col items-center justify-center text-center"
             >
-              <Upload className="w-8 h-8 text-[rgba(238,241,250,0.4)] mb-3" />
-              <p className="text-sm font-semibold text-[#EEF1FA]">Drop your CSV or TSV here</p>
-              <p className="text-xs text-[rgba(238,241,250,0.55)] mt-1">or click to browse</p>
+              <Upload className="w-8 h-8 text-muted-foreground mb-3" />
+              <p className="text-sm font-semibold text-foreground dark:text-[#EEF1FA]">Drop your CSV or TSV here</p>
+              <p className="text-xs text-muted-foreground mt-1">or click to browse</p>
               <input
                 ref={inputRef}
                 type="file"
@@ -174,12 +174,12 @@ export function ImportClientsDialog({ onClose, onImported }: { onClose: () => vo
           {/* Preview */}
           {rows.length > 0 && !result && (
             <>
-              <div className="flex items-center justify-between bg-[#111E33] border border-white/10 rounded-lg px-4 py-3">
+              <div className="flex items-center justify-between bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg px-4 py-3">
                 <div className="flex items-center gap-2 text-sm">
                   <FileText className="w-4 h-4 text-[#0078D7]" />
-                  <span className="font-semibold text-[#EEF1FA]">{fileName}</span>
+                  <span className="font-semibold text-foreground dark:text-[#EEF1FA]">{fileName}</span>
                 </div>
-                <button onClick={() => { setRows([]); setFileName(null); }} className="text-xs text-[rgba(238,241,250,0.55)] hover:text-[#EEF1FA]">Choose another</button>
+                <button onClick={() => { setRows([]); setFileName(null); }} className="text-xs text-muted-foreground hover:text-foreground dark:text-[#EEF1FA]">Choose another</button>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
@@ -188,11 +188,11 @@ export function ImportClientsDialog({ onClose, onImported }: { onClose: () => vo
                 <Stat label="Prospects (no services)" value={prospectCount} accent="warning" />
               </div>
 
-              <div className="rounded-lg border border-white/10 overflow-hidden">
-                <div className="px-4 py-2 bg-white/3 text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.55)]">Preview (first 10)</div>
+              <div className="rounded-lg border border-border dark:border-white/10 overflow-hidden">
+                <div className="px-4 py-2 bg-muted/40 dark:bg-white/3 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Preview (first 10)</div>
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-white/10">
+                    <tr className="border-b border-border dark:border-white/10">
                       <Th>Name</Th>
                       <Th>City</Th>
                       <Th>Phone</Th>
@@ -202,11 +202,11 @@ export function ImportClientsDialog({ onClose, onImported }: { onClose: () => vo
                   </thead>
                   <tbody>
                     {rows.slice(0, 10).map((r, i) => (
-                      <tr key={i} className="border-b border-white/5">
-                        <td className="px-3 py-2 text-xs text-[#EEF1FA] truncate max-w-[200px]">{r.name}</td>
-                        <td className="px-3 py-2 text-xs text-[rgba(238,241,250,0.7)]">{r.city ?? "—"}</td>
-                        <td className="px-3 py-2 text-xs text-[rgba(238,241,250,0.7)]">{r.phone ?? "—"}</td>
-                        <td className="px-3 py-2 text-xs text-[rgba(238,241,250,0.55)] font-mono">{r.gbp_connection_id ?? "—"}</td>
+                      <tr key={i} className="border-b border-border dark:border-white/5">
+                        <td className="px-3 py-2 text-xs text-foreground dark:text-[#EEF1FA] truncate max-w-[200px]">{r.name}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{r.city ?? "—"}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground">{r.phone ?? "—"}</td>
+                        <td className="px-3 py-2 text-xs text-muted-foreground font-mono">{r.gbp_connection_id ?? "—"}</td>
                         <td className="px-3 py-2">
                           <span className={`inline-flex items-center px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full ${r.status === "active" ? "bg-[#22C55E]/15 text-[#22C55E]" : "bg-[#F97316]/15 text-[#F97316]"}`}>
                             {r.status}
@@ -217,8 +217,8 @@ export function ImportClientsDialog({ onClose, onImported }: { onClose: () => vo
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-[rgba(238,241,250,0.55)]">
-                Tip: rows whose <span className="font-mono text-[#EEF1FA]">AccountIdentifier</span> already exists in your database will be skipped.
+              <p className="text-xs text-muted-foreground">
+                Tip: rows whose <span className="font-mono text-foreground dark:text-[#EEF1FA]">AccountIdentifier</span> already exists in your database will be skipped.
               </p>
             </>
           )}
@@ -242,8 +242,8 @@ export function ImportClientsDialog({ onClose, onImported }: { onClose: () => vo
                 </div>
               </div>
               {result.errors.length > 0 && (
-                <div className="rounded-lg border border-white/10 bg-[#111E33] px-4 py-3 max-h-40 overflow-auto">
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.55)] mb-2">First {result.errors.length} errors</div>
+                <div className="rounded-lg border border-border dark:border-white/10 bg-card dark:bg-[#111E33] px-4 py-3 max-h-40 overflow-auto">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">First {result.errors.length} errors</div>
                   <ul className="space-y-1 text-xs text-red-300/80">
                     {result.errors.map((e, i) => (
                       <li key={i}>Row {e.index + 1}{e.name ? ` (${e.name})` : ""}: {e.message}</li>
@@ -255,8 +255,8 @@ export function ImportClientsDialog({ onClose, onImported }: { onClose: () => vo
           )}
         </div>
 
-        <div className="px-6 py-4 border-t border-white/10 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-[rgba(238,241,250,0.7)] hover:text-[#EEF1FA]">
+        <div className="px-6 py-4 border-t border-border dark:border-white/10 flex justify-end gap-2">
+          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground dark:text-[#EEF1FA]">
             {result ? "Close" : "Cancel"}
           </button>
           {!result && (
@@ -275,14 +275,14 @@ export function ImportClientsDialog({ onClose, onImported }: { onClose: () => vo
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.55)]">{children}</th>;
+  return <th className="px-3 py-2 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{children}</th>;
 }
 
 function Stat({ label, value, accent }: { label: string; value: number; accent?: "success" | "warning" }) {
-  const color = accent === "success" ? "text-[#22C55E]" : accent === "warning" ? "text-[#F97316]" : "text-[#EEF1FA]";
+  const color = accent === "success" ? "text-[#22C55E]" : accent === "warning" ? "text-[#F97316]" : "text-foreground dark:text-[#EEF1FA]";
   return (
-    <div className="bg-[#111E33] border border-white/10 rounded-lg px-4 py-3">
-      <div className="text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.55)]">{label}</div>
+    <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg px-4 py-3">
+      <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
       <div className={`text-2xl font-bold mt-1 ${color}`}>{value.toLocaleString()}</div>
     </div>
   );

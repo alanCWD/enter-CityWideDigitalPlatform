@@ -38,15 +38,15 @@ export function ClientDetail() {
       <TopBar title={c.name} subtitle={c.billing_email ?? "No billing email"} />
 
       <div className="px-6 py-6 space-y-4">
-        <Link to="/dashboard/crm/clients" className="text-xs text-[rgba(238,241,250,0.5)] hover:text-[#EEF1FA] inline-flex items-center gap-1">
+        <Link to="/dashboard/crm/clients" className="text-xs text-muted-foreground hover:text-foreground dark:text-[#EEF1FA] inline-flex items-center gap-1">
           <ArrowLeft className="w-3.5 h-3.5" /> All clients
         </Link>
 
         {/* Header summary */}
-        <div className="bg-[#111E33] border border-white/10 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="md:col-span-2 space-y-1">
             <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-xl font-extrabold text-[#EEF1FA]">{c.name}</h2>
+              <h2 className="text-xl font-extrabold text-foreground dark:text-[#EEF1FA]">{c.name}</h2>
               <StatusPill status={c.status} />
             </div>
             <InfoLine icon={Mail} value={c.billing_email} />
@@ -63,7 +63,7 @@ export function ClientDetail() {
         </div>
 
         {/* Tabs */}
-        <div className="flex flex-wrap gap-1 border-b border-white/10">
+        <div className="flex flex-wrap gap-1 border-b border-border dark:border-white/10">
           {([
             ["overview", "Overview"],
             ["health", "Health"],
@@ -79,7 +79,7 @@ export function ClientDetail() {
                 "px-4 py-2 text-sm font-semibold transition-colors -mb-px border-b-2",
                 tab === key
                   ? "text-[#0078D7] border-[#0078D7]"
-                  : "text-[rgba(238,241,250,0.55)] border-transparent hover:text-[#EEF1FA]",
+                  : "text-muted-foreground border-transparent hover:text-foreground dark:text-[#EEF1FA]",
               )}
             >
               {label}
@@ -113,8 +113,8 @@ export function ClientDetail() {
 function InfoLine({ icon: Icon, value }: { icon: React.ElementType; value: string | null }) {
   if (!value) return null;
   return (
-    <div className="flex items-center gap-2 text-xs text-[rgba(238,241,250,0.7)]">
-      <Icon className="w-3 h-3 text-[rgba(238,241,250,0.4)]" />
+    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <Icon className="w-3 h-3 text-muted-foreground" />
       {value}
     </div>
   );
@@ -123,8 +123,8 @@ function InfoLine({ icon: Icon, value }: { icon: React.ElementType; value: strin
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div className="text-xs text-[rgba(238,241,250,0.5)] uppercase tracking-wider font-bold mb-1">{label}</div>
-      <div className="text-xl font-extrabold text-[#EEF1FA]">{value}</div>
+      <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mb-1">{label}</div>
+      <div className="text-xl font-extrabold text-foreground dark:text-[#EEF1FA]">{value}</div>
     </div>
   );
 }
@@ -144,32 +144,32 @@ function ContactsPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
   const remove = async (id: string) => { await crm("contacts.delete", { id }); reload(); };
 
   return (
-    <div className="bg-[#111E33] border border-white/10 rounded-2xl p-5">
+    <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-bold text-[#EEF1FA] uppercase tracking-wider">Contacts</h3>
+        <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA] uppercase tracking-wider">Contacts</h3>
         <button onClick={() => setAdding(!adding)} className="text-xs text-[#0078D7] hover:underline inline-flex items-center gap-1">
           <Plus className="w-3.5 h-3.5" /> Add Contact
         </button>
       </div>
       {adding && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 p-3 bg-white/3 border border-white/10 rounded-lg">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="bg-[#0A1120] border border-white/10 rounded-md px-3 py-2 text-sm text-[#EEF1FA]" />
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="bg-[#0A1120] border border-white/10 rounded-md px-3 py-2 text-sm text-[#EEF1FA]" />
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className="bg-[#0A1120] border border-white/10 rounded-md px-3 py-2 text-sm text-[#EEF1FA]" />
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 p-3 bg-muted/40 dark:bg-white/3 border border-border dark:border-white/10 rounded-lg">
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="bg-[#0A1120] border border-border dark:border-white/10 rounded-md px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="bg-[#0A1120] border border-border dark:border-white/10 rounded-md px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className="bg-[#0A1120] border border-border dark:border-white/10 rounded-md px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
           <button onClick={submit} className="bg-[#0078D7] hover:bg-[#00447A] text-white font-bold text-sm rounded-md">Save</button>
         </div>
       )}
       {detail.contacts.length === 0 ? (
-        <p className="text-xs text-[rgba(238,241,250,0.45)] py-3">No contacts yet.</p>
+        <p className="text-xs text-muted-foreground py-3">No contacts yet.</p>
       ) : (
         <ul className="divide-y divide-white/5">
           {detail.contacts.map((p) => (
             <li key={p.id} className="flex items-center justify-between py-2.5">
               <div>
-                <div className="text-sm font-semibold text-[#EEF1FA]">{p.full_name} {p.role && <span className="text-[rgba(238,241,250,0.5)] font-normal">· {p.role}</span>}</div>
-                <div className="text-xs text-[rgba(238,241,250,0.55)]">{p.email ?? "—"} {p.phone && `· ${p.phone}`}</div>
+                <div className="text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{p.full_name} {p.role && <span className="text-muted-foreground font-normal">· {p.role}</span>}</div>
+                <div className="text-xs text-muted-foreground">{p.email ?? "—"} {p.phone && `· ${p.phone}`}</div>
               </div>
-              <button onClick={() => remove(p.id)} className="p-1 text-[rgba(238,241,250,0.4)] hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+              <button onClick={() => remove(p.id)} className="p-1 text-muted-foreground hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
             </li>
           ))}
         </ul>
@@ -204,11 +204,11 @@ function SubscriptionsPanel({ detail, reload }: { detail: NonNullable<ReturnType
   };
 
   return (
-    <div className="bg-[#111E33] border border-white/10 rounded-2xl p-5">
-      <h3 className="text-sm font-bold text-[#EEF1FA] uppercase tracking-wider mb-4">Subscriptions</h3>
+    <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-5">
+      <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA] uppercase tracking-wider mb-4">Subscriptions</h3>
 
-      <div className="flex flex-wrap gap-2 mb-4 p-3 bg-white/3 border border-white/10 rounded-lg">
-        <select value={pid} onChange={(e) => setPid(e.target.value)} className="flex-1 min-w-[200px] bg-[#0A1120] border border-white/10 rounded-md px-3 py-2 text-sm text-[#EEF1FA]">
+      <div className="flex flex-wrap gap-2 mb-4 p-3 bg-muted/40 dark:bg-white/3 border border-border dark:border-white/10 rounded-lg">
+        <select value={pid} onChange={(e) => setPid(e.target.value)} className="flex-1 min-w-[200px] bg-[#0A1120] border border-border dark:border-white/10 rounded-md px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA]">
           <option value="">Choose a plan…</option>
           {subs.map((p) => <option key={p.id} value={p.id}>{p.name} — {fmtMoney(p.unit_amount_cents, p.currency)} / {p.interval}</option>)}
         </select>
@@ -219,7 +219,7 @@ function SubscriptionsPanel({ detail, reload }: { detail: NonNullable<ReturnType
       {err && <p className="text-xs text-red-400 mb-3">{err}</p>}
 
       {detail.subscriptions.length === 0 ? (
-        <p className="text-xs text-[rgba(238,241,250,0.45)] py-3">No active subscriptions.</p>
+        <p className="text-xs text-muted-foreground py-3">No active subscriptions.</p>
       ) : (
         <ul className="divide-y divide-white/5">
           {detail.subscriptions.map((s) => (
@@ -227,8 +227,8 @@ function SubscriptionsPanel({ detail, reload }: { detail: NonNullable<ReturnType
               <div className="flex items-center gap-3">
                 <span className="w-7 h-7 rounded-lg bg-[#22C55E]/15 text-[#22C55E] flex items-center justify-center"><Repeat className="w-3.5 h-3.5" /></span>
                 <div>
-                  <div className="text-sm font-semibold text-[#EEF1FA]">{s.product_name}</div>
-                  <div className="text-xs text-[rgba(238,241,250,0.55)]">
+                  <div className="text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{s.product_name}</div>
+                  <div className="text-xs text-muted-foreground">
                     {fmtMoney((s.unit_amount_cents ?? 0) * s.quantity, s.currency)} / {s.interval ?? "month"}
                     {s.current_period_end && ` · renews ${new Date(s.current_period_end).toLocaleDateString()}`}
                     {s.cancel_at_period_end ? " · cancels at period end" : ""}
@@ -237,7 +237,7 @@ function SubscriptionsPanel({ detail, reload }: { detail: NonNullable<ReturnType
               </div>
               <div className="flex items-center gap-3">
                 <StatusPill status={s.status} />
-                {s.status !== "canceled" && <button onClick={() => cancel(s.id)} className="text-xs text-[rgba(238,241,250,0.5)] hover:text-red-400">Cancel</button>}
+                {s.status !== "canceled" && <button onClick={() => cancel(s.id)} className="text-xs text-muted-foreground hover:text-red-400">Cancel</button>}
               </div>
             </li>
           ))}
@@ -258,23 +258,23 @@ function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
           <Plus className="w-3.5 h-3.5" /> New Invoice
         </button>
       </div>
-      <div className="bg-[#111E33] border border-white/10 rounded-2xl overflow-hidden">
+      <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-white/10 bg-white/3">
+            <tr className="border-b border-border dark:border-white/10 bg-muted/40 dark:bg-white/3">
               <Th>Number</Th><Th>Status</Th><Th>Issued</Th><Th>Due</Th>
               <Th className="text-right">Total</Th><Th></Th>
             </tr>
           </thead>
           <tbody>
-            {detail.invoices.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-xs text-[rgba(238,241,250,0.45)]">No invoices yet.</td></tr>}
+            {detail.invoices.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-xs text-muted-foreground">No invoices yet.</td></tr>}
             {detail.invoices.map((inv) => (
-              <tr key={inv.id} className="border-b border-white/5">
-                <td className="px-4 py-3 text-sm font-semibold text-[#EEF1FA]">{inv.number ?? inv.id.slice(0, 8)}</td>
+              <tr key={inv.id} className="border-b border-border dark:border-white/5">
+                <td className="px-4 py-3 text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{inv.number ?? inv.id.slice(0, 8)}</td>
                 <td className="px-4 py-3"><StatusPill status={inv.status} /></td>
-                <td className="px-4 py-3 text-xs text-[rgba(238,241,250,0.6)]">{inv.issued_at ? new Date(inv.issued_at).toLocaleDateString() : "—"}</td>
-                <td className="px-4 py-3 text-xs text-[rgba(238,241,250,0.6)]">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}</td>
-                <td className="px-4 py-3 text-right text-sm font-bold text-[#EEF1FA]">{fmtMoney(inv.total_cents, inv.currency)}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">{inv.issued_at ? new Date(inv.issued_at).toLocaleDateString() : "—"}</td>
+                <td className="px-4 py-3 text-xs text-muted-foreground">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}</td>
+                <td className="px-4 py-3 text-right text-sm font-bold text-foreground dark:text-[#EEF1FA]">{fmtMoney(inv.total_cents, inv.currency)}</td>
                 <td className="px-4 py-3 text-right">
                   {inv.hosted_invoice_url && (
                     <a href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#0078D7] hover:underline inline-flex items-center gap-1">
@@ -294,7 +294,7 @@ function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
 }
 
 function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
-  return <th className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.5)] ${className ?? ""}`}>{children}</th>;
+  return <th className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground ${className ?? ""}`}>{children}</th>;
 }
 
 function InvoiceComposer({ clientId, onClose, onSent }: { clientId: string; onClose: () => void; onSent: () => void }) {
@@ -337,20 +337,20 @@ function InvoiceComposer({ clientId, onClose, onSent }: { clientId: string; onCl
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl bg-[#0A1120] border border-white/10 rounded-2xl p-6 m-4 shadow-[0_24px_60px_rgba(0,0,0,0.6)]">
-        <h2 className="text-lg font-bold text-[#EEF1FA] mb-4">New Invoice</h2>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl bg-[#0A1120] border border-border dark:border-white/10 rounded-2xl p-6 m-4 shadow-[0_24px_60px_rgba(0,0,0,0.6)]">
+        <h2 className="text-lg font-bold text-foreground dark:text-[#EEF1FA] mb-4">New Invoice</h2>
 
         <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
           {items.map((it, i) => (
             <div key={i} className="grid grid-cols-12 gap-2 items-center">
-              <select onChange={(e) => applyProduct(i, e.target.value)} value={it.product_id ?? ""} className="col-span-3 bg-[#111E33] border border-white/10 rounded-md px-2 py-2 text-xs text-[#EEF1FA]">
+              <select onChange={(e) => applyProduct(i, e.target.value)} value={it.product_id ?? ""} className="col-span-3 bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-md px-2 py-2 text-xs text-foreground dark:text-[#EEF1FA]">
                 <option value="">Custom…</option>
                 {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              <input value={it.description} onChange={(e) => updateItem(i, { description: e.target.value })} placeholder="Description" className="col-span-5 bg-[#111E33] border border-white/10 rounded-md px-3 py-2 text-sm text-[#EEF1FA]" />
-              <input type="number" min={1} value={it.quantity} onChange={(e) => updateItem(i, { quantity: parseInt(e.target.value || "1") })} className="col-span-1 bg-[#111E33] border border-white/10 rounded-md px-2 py-2 text-sm text-[#EEF1FA]" />
-              <input type="number" step="0.01" placeholder="0.00" value={it.unit_amount_cents ? String(it.unit_amount_cents / 100) : ""} onChange={(e) => updateItem(i, { unit_amount_cents: Math.round(parseFloat(e.target.value || "0") * 100) })} className="col-span-2 bg-[#111E33] border border-white/10 rounded-md px-2 py-2 text-sm text-[#EEF1FA]" />
-              <button onClick={() => removeRow(i)} className="col-span-1 text-[rgba(238,241,250,0.4)] hover:text-red-400 justify-self-center"><Trash2 className="w-4 h-4" /></button>
+              <input value={it.description} onChange={(e) => updateItem(i, { description: e.target.value })} placeholder="Description" className="col-span-5 bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-md px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
+              <input type="number" min={1} value={it.quantity} onChange={(e) => updateItem(i, { quantity: parseInt(e.target.value || "1") })} className="col-span-1 bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-md px-2 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
+              <input type="number" step="0.01" placeholder="0.00" value={it.unit_amount_cents ? String(it.unit_amount_cents / 100) : ""} onChange={(e) => updateItem(i, { unit_amount_cents: Math.round(parseFloat(e.target.value || "0") * 100) })} className="col-span-2 bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-md px-2 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
+              <button onClick={() => removeRow(i)} className="col-span-1 text-muted-foreground hover:text-red-400 justify-self-center"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
           <button onClick={addRow} className="text-xs text-[#0078D7] hover:underline inline-flex items-center gap-1 mt-2">
@@ -358,27 +358,27 @@ function InvoiceComposer({ clientId, onClose, onSent }: { clientId: string; onCl
           </button>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-white/10 flex items-center justify-between">
+        <div className="mt-4 pt-4 border-t border-border dark:border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <label className="text-xs text-[rgba(238,241,250,0.6)] flex items-center gap-2">
+            <label className="text-xs text-muted-foreground flex items-center gap-2">
               Due in
-              <input type="number" min={1} max={90} value={dueDays} onChange={(e) => setDueDays(parseInt(e.target.value || "14"))} className="w-16 bg-[#111E33] border border-white/10 rounded-md px-2 py-1 text-sm text-[#EEF1FA]" />
+              <input type="number" min={1} max={90} value={dueDays} onChange={(e) => setDueDays(parseInt(e.target.value || "14"))} className="w-16 bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-md px-2 py-1 text-sm text-foreground dark:text-[#EEF1FA]" />
               days
             </label>
-            <label className="text-xs text-[rgba(238,241,250,0.7)] flex items-center gap-2">
+            <label className="text-xs text-muted-foreground flex items-center gap-2">
               <input type="checkbox" checked={sendNow} onChange={(e) => setSendNow(e.target.checked)} /> Email now
             </label>
           </div>
           <div className="text-right">
-            <div className="text-[10px] uppercase tracking-wider text-[rgba(238,241,250,0.5)] font-bold">Total</div>
-            <div className="text-xl font-extrabold text-[#EEF1FA]">{fmtMoney(subtotal)}</div>
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Total</div>
+            <div className="text-xl font-extrabold text-foreground dark:text-[#EEF1FA]">{fmtMoney(subtotal)}</div>
           </div>
         </div>
 
         {err && <p className="mt-3 text-xs text-red-400">{err}</p>}
 
         <div className="mt-5 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-[rgba(238,241,250,0.7)] hover:text-[#EEF1FA]">Cancel</button>
+          <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground dark:text-[#EEF1FA]">Cancel</button>
           <button disabled={busy} onClick={submit} className="bg-[#0078D7] hover:bg-[#00447A] disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5">
             <Send className="w-3.5 h-3.5" /> {busy ? "Sending…" : sendNow ? "Create & Send" : "Create Draft"}
           </button>
@@ -391,20 +391,20 @@ function InvoiceComposer({ clientId, onClose, onSent }: { clientId: string; onCl
 // ─── Tab: Payments ───────────────────────────────────────────────────────
 function PaymentsPanel({ detail }: { detail: NonNullable<ReturnType<typeof useCrmClient>["detail"]> }) {
   return (
-    <div className="bg-[#111E33] border border-white/10 rounded-2xl overflow-hidden">
+    <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl overflow-hidden">
       <table className="w-full">
         <thead>
-          <tr className="border-b border-white/10 bg-white/3">
+          <tr className="border-b border-border dark:border-white/10 bg-muted/40 dark:bg-white/3">
             <Th>Date</Th><Th>Method</Th><Th>Reference</Th><Th className="text-right">Amount</Th>
           </tr>
         </thead>
         <tbody>
-          {detail.payments.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-xs text-[rgba(238,241,250,0.45)]">No payments recorded.</td></tr>}
+          {detail.payments.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-xs text-muted-foreground">No payments recorded.</td></tr>}
           {detail.payments.map((p) => (
-            <tr key={p.id} className="border-b border-white/5">
-              <td className="px-4 py-3 text-sm text-[rgba(238,241,250,0.7)]">{new Date(p.paid_at).toLocaleString()}</td>
-              <td className="px-4 py-3 text-sm text-[rgba(238,241,250,0.7)] capitalize">{p.method ?? "—"}</td>
-              <td className="px-4 py-3 text-xs text-[rgba(238,241,250,0.5)]">{p.stripe_payment_id ?? "—"}</td>
+            <tr key={p.id} className="border-b border-border dark:border-white/5">
+              <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(p.paid_at).toLocaleString()}</td>
+              <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{p.method ?? "—"}</td>
+              <td className="px-4 py-3 text-xs text-muted-foreground">{p.stripe_payment_id ?? "—"}</td>
               <td className="px-4 py-3 text-right text-sm font-bold text-[#22C55E]">{fmtMoney(p.amount_cents, p.currency)}</td>
             </tr>
           ))}

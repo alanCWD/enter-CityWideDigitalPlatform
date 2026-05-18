@@ -30,6 +30,7 @@ const NAV_ITEMS = [
   { name: "CRM & Billing", path: "/dashboard/crm", icon: Receipt },
 ];
 
+// Sidebar is always dark-themed regardless of light/dark mode
 export function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
@@ -43,7 +44,7 @@ export function Sidebar() {
         {isMobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
       </button>
 
-      {/* Desktop Sidebar */}
+      {/* Desktop Sidebar — always dark */}
       <aside className="hidden md:flex flex-col w-60 min-h-screen bg-[#0A1120] border-r border-white/10 fixed top-0 left-0 bottom-0 z-40">
         <SidebarContent onNav={() => {}} />
       </aside>

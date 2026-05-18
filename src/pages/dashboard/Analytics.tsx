@@ -35,34 +35,34 @@ export function Analytics() {
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            className="lg:col-span-2 bg-[#111E33] rounded-xl p-5 border border-white/8"
+            className="lg:col-span-2 bg-card dark:bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-border dark:border-white/8"
           >
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h3 className="text-sm font-bold text-[#EEF1FA]">Performance on Search</h3>
+                <h3 className="text-sm font-bold text-foreground">Performance on Search</h3>
               </div>
               <span className="text-[10px] font-bold bg-[#22C55E]/15 text-[#22C55E] px-2 py-0.5 rounded-full">GSC Connected</span>
             </div>
 
             <div className="grid grid-cols-2 gap-4 mb-5">
-              <div className="bg-white/5 rounded-lg p-3">
-                <div className="text-[10px] text-[rgba(238,241,250,0.5)] mb-1">Avg. Position</div>
-                <div className="text-2xl font-extrabold text-[#EEF1FA]">4.2</div>
+              <div className="bg-muted/60 dark:bg-muted/60 dark:bg-white/5 rounded-lg p-3">
+                <div className="text-[10px] text-muted-foreground mb-1">Avg. Position</div>
+                <div className="text-2xl font-extrabold text-foreground">4.2</div>
               </div>
-              <div className="bg-white/5 rounded-lg p-3">
-                <div className="text-[10px] text-[rgba(238,241,250,0.5)] mb-1">Total Clicks</div>
-                <div className="text-2xl font-extrabold text-[#EEF1FA]">12.5k</div>
+              <div className="bg-muted/60 dark:bg-muted/60 dark:bg-white/5 rounded-lg p-3">
+                <div className="text-[10px] text-muted-foreground mb-1">Total Clicks</div>
+                <div className="text-2xl font-extrabold text-foreground">12.5k</div>
               </div>
             </div>
 
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={searchData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" />
-                <XAxis dataKey="date" tick={{ fill: "rgba(238,241,250,0.4)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "rgba(238,241,250,0.4)", fontSize: 10 }} axisLine={false} tickLine={false} />
-                <Tooltip contentStyle={{ background: "#111E33", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, color: "#EEF1FA" }} />
+                <CartesianGrid strokeDasharray="3 3" stroke="rgba(128,128,128,0.1)" />
+                <XAxis dataKey="date" tick={{ fill: "currentColor", fontSize: 10, opacity: 0.5 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fill: "currentColor", fontSize: 10, opacity: 0.5 }} axisLine={false} tickLine={false} />
+                <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, color: "hsl(var(--foreground))" }} />
                 <Line type="monotone" dataKey="clicks" stroke="#0078D7" strokeWidth={2} dot={false} />
-                <Line type="monotone" dataKey="impressions" stroke="rgba(238,241,250,0.3)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="impressions" stroke="#888" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </motion.div>
@@ -72,22 +72,22 @@ export function Analytics() {
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="bg-[#111E33] rounded-xl p-5 border border-white/8"
+            className="bg-card dark:bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-border dark:border-white/8"
           >
             <div className="flex items-center gap-2 mb-4">
               <Search className="w-4 h-4 text-[#0078D7]" />
-              <h3 className="text-sm font-bold text-[#EEF1FA]">Top Queries</h3>
+              <h3 className="text-sm font-bold text-foreground">Top Queries</h3>
             </div>
             <div className="space-y-2.5">
               {topQueries.map((item) => (
                 <div key={item.q} className="flex items-center justify-between">
-                  <span className="text-xs text-[rgba(238,241,250,0.7)] flex-1 truncate pr-2">{item.q}</span>
+                  <span className="text-xs text-muted-foreground flex-1 truncate pr-2">{item.q}</span>
                   <div className="flex items-center gap-2 flex-shrink-0">
-                    <div className={`flex items-center gap-0.5 text-[10px] font-bold ${item.up ? "text-[#22C55E]" : "text-red-400"}`}>
+                    <div className={`flex items-center gap-0.5 text-[10px] font-bold ${item.up ? "text-[#22C55E]" : "text-red-500"}`}>
                       {item.up ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
                       {item.trend}
                     </div>
-                    <span className="text-xs font-semibold text-[#EEF1FA]">{item.c}</span>
+                    <span className="text-xs font-semibold text-foreground">{item.c}</span>
                   </div>
                 </div>
               ))}
@@ -100,16 +100,16 @@ export function Analytics() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="bg-[#111E33] rounded-xl p-5 border border-white/8"
+          className="bg-card dark:bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-border dark:border-white/8"
         >
           <div className="flex items-center gap-3 mb-3">
             <TrendingUp className="w-4 h-4 text-[#22C55E]" />
-            <h3 className="text-sm font-bold text-[#EEF1FA]">SEO Health Score</h3>
+            <h3 className="text-sm font-bold text-foreground">SEO Health Score</h3>
           </div>
           <div className="flex items-center gap-4">
-            <div className="text-4xl font-extrabold text-[#22C55E]">98<span className="text-xl text-[rgba(238,241,250,0.4)]">/100</span></div>
-            <p className="text-xs text-[rgba(238,241,250,0.55)] leading-relaxed max-w-md">
-              Your latest generated <code className="bg-white/10 px-1 rounded text-[10px]">llms.txt</code> is being crawled. Core Web Vitals are passing perfectly.
+            <div className="text-4xl font-extrabold text-[#22C55E]">98<span className="text-xl text-muted-foreground">/100</span></div>
+            <p className="text-xs text-muted-foreground leading-relaxed max-w-md">
+              Your latest generated <code className="bg-muted px-1 rounded text-[10px]">llms.txt</code> is being crawled. Core Web Vitals are passing perfectly.
             </p>
           </div>
         </motion.div>

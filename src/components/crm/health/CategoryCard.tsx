@@ -26,32 +26,32 @@ export function CategoryCard({ category, icon: Icon, rows, defaultOpen = true, r
   const dotColor = failing > total / 2 ? "#EF4444" : passing >= total * 0.75 ? "#22C55E" : "#F97316";
 
   return (
-    <div className="bg-[#111E33] border border-white/10 rounded-2xl overflow-hidden">
+    <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl overflow-hidden">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/3 transition-colors text-left"
+        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-muted/40 dark:bg-white/3 transition-colors text-left"
       >
-        <span className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-[#EEF1FA] shrink-0">
+        <span className="w-10 h-10 rounded-xl bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10 flex items-center justify-center text-foreground dark:text-[#EEF1FA] shrink-0">
           <Icon className="w-5 h-5" />
         </span>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-bold text-[#EEF1FA] uppercase tracking-wider">{meta.label}</h3>
+            <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA] uppercase tracking-wider">{meta.label}</h3>
             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: dotColor }} />
           </div>
-          <p className="text-xs text-[rgba(238,241,250,0.55)] mt-0.5 truncate">{meta.blurb}</p>
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">{meta.blurb}</p>
         </div>
         <div className="text-right shrink-0">
-          <div className="text-sm font-extrabold text-[#EEF1FA]">{passing}/{total}</div>
-          <div className="text-[10px] uppercase tracking-wider text-[rgba(238,241,250,0.5)] font-bold">{pct}% passing</div>
+          <div className="text-sm font-extrabold text-foreground dark:text-[#EEF1FA]">{passing}/{total}</div>
+          <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">{pct}% passing</div>
         </div>
-        <ChevronDown className={`w-4 h-4 text-[rgba(238,241,250,0.5)] shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
-        <div className="px-2 pb-3 border-t border-white/5">
+        <div className="px-2 pb-3 border-t border-border dark:border-white/5">
           {rows.length === 0 ? (
-            <p className="text-xs text-[rgba(238,241,250,0.45)] py-3 px-3">No checks in this category yet — run a refresh to populate.</p>
+            <p className="text-xs text-muted-foreground py-3 px-3">No checks in this category yet — run a refresh to populate.</p>
           ) : (
             rows.map((r) => (
               <CheckRow

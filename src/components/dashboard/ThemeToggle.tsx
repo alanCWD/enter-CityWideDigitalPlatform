@@ -27,7 +27,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0078D7]/50",
         isLight
           ? "bg-muted border-border hover:bg-accent"
-          : "bg-white/5 border-white/10 hover:bg-white/10",
+          : "bg-muted/60 dark:bg-white/5 border-border dark:border-white/10 hover:bg-muted dark:bg-white/10",
         className,
       )}
     >
@@ -36,7 +36,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         <Sun
           className={cn(
             "w-3.5 h-3.5 transition-opacity duration-200",
-            isLight ? "opacity-0" : "opacity-50 text-[rgba(238,241,250,0.6)]",
+            isLight ? "opacity-0" : "opacity-50 text-muted-foreground",
           )}
         />
         <Moon

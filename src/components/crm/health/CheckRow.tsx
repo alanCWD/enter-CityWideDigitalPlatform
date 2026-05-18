@@ -21,7 +21,7 @@ export function CheckRow({ row, readOnly, onToggle, onVisibility }: Props) {
   const color = STATUS_COLOR[row.status];
 
   return (
-    <div className="flex items-start gap-3 py-2.5 px-3 rounded-lg hover:bg-white/3 transition-colors">
+    <div className="flex items-start gap-3 py-2.5 px-3 rounded-lg hover:bg-muted/40 dark:bg-white/3 transition-colors">
       <span
         className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center mt-0.5"
         style={{ backgroundColor: color.bg, color: color.fg }}
@@ -30,15 +30,15 @@ export function CheckRow({ row, readOnly, onToggle, onVisibility }: Props) {
       </span>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <p className="text-sm font-semibold text-[#EEF1FA] leading-snug">{def?.label ?? row.key}</p>
+          <p className="text-sm font-semibold text-foreground dark:text-[#EEF1FA] leading-snug">{def?.label ?? row.key}</p>
           {row.weight >= 4 && (
-            <span className="text-[9px] font-bold uppercase tracking-wider text-[rgba(238,241,250,0.45)] bg-white/5 border border-white/10 rounded px-1.5 py-0.5">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10 rounded px-1.5 py-0.5">
               High impact
             </span>
           )}
         </div>
         {row.evidence && (
-          <p className="text-xs text-[rgba(238,241,250,0.55)] mt-0.5 break-words">
+          <p className="text-xs text-muted-foreground mt-0.5 break-words">
             {row.evidence}
             {row.evidence_url && (
               <a href={row.evidence_url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 ml-2 text-[#0078D7] hover:underline">
@@ -55,7 +55,7 @@ export function CheckRow({ row, readOnly, onToggle, onVisibility }: Props) {
             <button
               onClick={() => onVisibility(!row.client_visible)}
               title={row.client_visible ? "Visible to client — click to hide" : "Hidden from client — click to share"}
-              className="p-1.5 rounded text-[rgba(238,241,250,0.45)] hover:text-[#EEF1FA] hover:bg-white/5"
+              className="p-1.5 rounded text-muted-foreground hover:text-foreground dark:text-[#EEF1FA] hover:bg-muted/60 dark:bg-white/5"
             >
               {row.client_visible ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
             </button>
@@ -64,7 +64,7 @@ export function CheckRow({ row, readOnly, onToggle, onVisibility }: Props) {
             <select
               value={row.status}
               onChange={(e) => onToggle(e.target.value as HealthStatus)}
-              className="bg-[#111E33] border border-white/10 rounded text-[10px] uppercase tracking-wider font-bold px-1.5 py-1 text-[rgba(238,241,250,0.7)]"
+              className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded text-[10px] uppercase tracking-wider font-bold px-1.5 py-1 text-muted-foreground"
               title="Override status"
             >
               <option value="pass">Pass</option>

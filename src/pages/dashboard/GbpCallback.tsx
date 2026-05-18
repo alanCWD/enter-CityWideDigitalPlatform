@@ -97,15 +97,15 @@ export function GbpCallback() {
 
   return (
     <div className="min-h-screen bg-[#0D1526] flex items-center justify-center">
-      <div className="bg-[#111E33] rounded-2xl border border-white/10 p-10 flex flex-col items-center text-center gap-4 w-full max-w-sm">
+      <div className="bg-card dark:bg-[#111E33] rounded-2xl border border-border dark:border-white/10 p-10 flex flex-col items-center text-center gap-4 w-full max-w-sm">
         {status === "loading" && (
           <>
             <div className="w-14 h-14 rounded-xl bg-[#0078D7]/15 flex items-center justify-center">
               <Loader2 className="w-7 h-7 text-[#0078D7] animate-spin" />
             </div>
             <div>
-              <p className="text-sm font-bold text-[#EEF1FA] mb-1">Connecting Profile</p>
-              <p className="text-xs text-[rgba(238,241,250,0.5)]">{message}</p>
+              <p className="text-sm font-bold text-foreground dark:text-[#EEF1FA] mb-1">Connecting Profile</p>
+              <p className="text-xs text-muted-foreground">{message}</p>
             </div>
           </>
         )}
@@ -115,8 +115,8 @@ export function GbpCallback() {
               <CheckCircle2 className="w-7 h-7 text-[#22C55E]" />
             </div>
             <div>
-              <p className="text-sm font-bold text-[#EEF1FA] mb-1">Connected!</p>
-              <p className="text-xs text-[rgba(238,241,250,0.5)]">{message}</p>
+              <p className="text-sm font-bold text-foreground dark:text-[#EEF1FA] mb-1">Connected!</p>
+              <p className="text-xs text-muted-foreground">{message}</p>
             </div>
           </>
         )}
@@ -126,8 +126,8 @@ export function GbpCallback() {
               <AlertCircle className="w-7 h-7 text-red-400" />
             </div>
             <div>
-              <p className="text-sm font-bold text-[#EEF1FA] mb-1">Connection Failed</p>
-              <p className="text-xs text-[rgba(238,241,250,0.5)]">{message}</p>
+              <p className="text-sm font-bold text-foreground dark:text-[#EEF1FA] mb-1">Connection Failed</p>
+              <p className="text-xs text-muted-foreground">{message}</p>
             </div>
           </>
         )}

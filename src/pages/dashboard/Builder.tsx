@@ -85,25 +85,25 @@ function OutputPanel({
 
   if (error) {
     return (
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-[#111E33] rounded-xl p-5 border border-red-500/30">
+      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card dark:bg-[#111E33] rounded-xl p-5 border border-red-500/30">
         <div className="flex items-center justify-between mb-3">
           <span className="text-sm font-bold text-red-400">Generation Failed</span>
-          <button onClick={onReset} className="flex items-center gap-1.5 text-xs text-[rgba(238,241,250,0.5)] hover:text-[#EEF1FA] transition-colors">
+          <button onClick={onReset} className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground dark:text-[#EEF1FA] transition-colors">
             <RotateCcw className="w-3.5 h-3.5" /> Try Again
           </button>
         </div>
-        <p className="text-xs text-[rgba(238,241,250,0.7)]">{error}</p>
+        <p className="text-xs text-muted-foreground">{error}</p>
       </motion.div>
     );
   }
 
   return (
-    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-[#111E33] rounded-xl border border-white/8 overflow-hidden">
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="bg-card dark:bg-[#111E33] rounded-xl border border-border dark:border-white/8 overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-3.5 border-b border-white/8 flex items-center justify-between">
+      <div className="px-5 py-3.5 border-b border-border dark:border-white/8 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Sparkles className={cn("w-4 h-4", isGenerating ? "text-[#0078D7] animate-pulse" : "text-[#22C55E]")} />
-          <span className="text-sm font-bold text-[#EEF1FA]">
+          <span className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">
             {isGenerating ? "Generating App Specification..." : isDone ? "App Spec Ready" : "Output"}
           </span>
           {isGenerating && (
@@ -121,7 +121,7 @@ function OutputPanel({
           {isDone && (
             <button
               onClick={handleCopy}
-              className="flex items-center gap-1.5 text-xs font-bold text-[rgba(238,241,250,0.6)] hover:text-[#EEF1FA] transition-colors"
+              className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground dark:text-[#EEF1FA] transition-colors"
             >
               {copied ? <Check className="w-3.5 h-3.5 text-[#22C55E]" /> : <ClipboardCopy className="w-3.5 h-3.5" />}
               {copied ? "Copied!" : "Copy"}
@@ -138,7 +138,7 @@ function OutputPanel({
           {isDone && (
             <button
               onClick={onReset}
-              className="flex items-center gap-1.5 text-xs font-bold text-[rgba(238,241,250,0.5)] hover:text-[#EEF1FA] transition-colors"
+              className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground dark:text-[#EEF1FA] transition-colors"
             >
               <RotateCcw className="w-3.5 h-3.5" /> Reset
             </button>
@@ -149,14 +149,14 @@ function OutputPanel({
       {/* Streaming Output */}
       <div
         ref={outputRef}
-        className="p-5 max-h-[520px] overflow-y-auto font-mono text-xs leading-relaxed text-[rgba(238,241,250,0.85)] whitespace-pre-wrap scroll-smooth"
+        className="p-5 max-h-[520px] overflow-y-auto font-mono text-xs leading-relaxed text-muted-foreground whitespace-pre-wrap scroll-smooth"
       >
         {output}
         {isGenerating && (
           <span className="inline-block w-1.5 h-4 bg-[#0078D7] rounded-sm animate-pulse ml-0.5 align-text-bottom" />
         )}
         {!output && isGenerating && (
-          <div className="flex items-center gap-2 text-[rgba(238,241,250,0.4)]">
+          <div className="flex items-center gap-2 text-muted-foreground">
             <Loader2 className="w-3.5 h-3.5 animate-spin" />
             <span>Claude is analyzing your configuration...</span>
           </div>
@@ -237,7 +237,7 @@ export function Builder() {
                 "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold transition-all",
                 mode === m
                   ? "bg-[#0078D7] text-white shadow-[0_2px_8px_rgba(0,120,215,0.3)]"
-                  : "bg-white/5 border border-white/10 text-[rgba(238,241,250,0.6)] hover:bg-white/10"
+                  : "bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground hover:bg-muted dark:bg-white/10"
               )}
             >
               {m === "template" ? <LayoutTemplate className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -250,25 +250,25 @@ export function Builder() {
           {/* Left: Config */}
           <div className="lg:col-span-2 space-y-5">
             {/* Client Name */}
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-[#111E33] rounded-xl p-5 border border-white/8">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-white/8">
               <div className="flex items-center gap-2 mb-3">
-                <User className="w-4 h-4 text-[rgba(238,241,250,0.5)]" />
-                <h3 className="text-sm font-bold text-[#EEF1FA]">Client Name</h3>
+                <User className="w-4 h-4 text-muted-foreground" />
+                <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Client Name</h3>
               </div>
               <input
                 type="text"
                 placeholder="e.g. Luigi's NY Pizza"
                 value={clientName}
                 onChange={(e) => setClientName(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-[#EEF1FA] placeholder:text-[rgba(238,241,250,0.3)] focus:outline-none focus:border-[#0078D7] transition-colors"
+                className="w-full bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10 rounded-lg px-4 py-2.5 text-sm text-foreground dark:text-[#EEF1FA] placeholder:text-muted-foreground focus:outline-none focus:border-[#0078D7] transition-colors"
               />
             </motion.div>
 
             {/* Template / Competitor */}
             <AnimatePresence mode="wait">
               {mode === "template" ? (
-                <motion.div key="template" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-[#111E33] rounded-xl p-5 border border-white/8">
-                  <h3 className="text-sm font-bold text-[#EEF1FA] mb-4">Select Niche Template</h3>
+                <motion.div key="template" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-white/8">
+                  <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA] mb-4">Select Niche Template</h3>
                   <div className="grid sm:grid-cols-3 gap-3">
                     {TEMPLATES.map((t) => (
                       <button
@@ -278,12 +278,12 @@ export function Builder() {
                           "p-4 rounded-xl border text-left transition-all",
                           selectedTemplate === t.id
                             ? "border-[#0078D7] bg-[#0078D7]/10"
-                            : "border-white/8 bg-white/3 hover:border-white/20 hover:bg-white/5"
+                            : "border-border dark:border-white/8 bg-muted/40 dark:bg-white/3 hover:border-white/20 hover:bg-muted/60 dark:bg-white/5"
                         )}
                       >
                         <div className="text-2xl mb-2">{t.icon}</div>
-                        <div className="text-sm font-bold text-[#EEF1FA]">{t.label}</div>
-                        <div className="text-[10px] text-[rgba(238,241,250,0.5)] mt-1">{t.desc}</div>
+                        <div className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">{t.label}</div>
+                        <div className="text-[10px] text-muted-foreground mt-1">{t.desc}</div>
                         {selectedTemplate === t.id && (
                           <div className="mt-2 flex items-center gap-1 text-[10px] font-bold text-[#0078D7]">
                             <Check className="w-3 h-3" /> Selected
@@ -294,16 +294,16 @@ export function Builder() {
                   </div>
                 </motion.div>
               ) : (
-                <motion.div key="copy" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-[#111E33] rounded-xl p-5 border border-white/8">
-                  <h3 className="text-sm font-bold text-[#EEF1FA] mb-3">Clone Competitor Website</h3>
+                <motion.div key="copy" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-white/8">
+                  <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA] mb-3">Clone Competitor Website</h3>
                   <input
                     type="url"
                     placeholder="https://competitor-restaurant.com"
                     value={competitorUrl}
                     onChange={(e) => setCompetitorUrl(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-[#EEF1FA] placeholder:text-[rgba(238,241,250,0.3)] focus:outline-none focus:border-[#0078D7] transition-colors"
+                    className="w-full bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10 rounded-lg px-4 py-2.5 text-sm text-foreground dark:text-[#EEF1FA] placeholder:text-muted-foreground focus:outline-none focus:border-[#0078D7] transition-colors"
                   />
-                  <p className="text-[10px] text-[rgba(238,241,250,0.4)] mt-2">
+                  <p className="text-[10px] text-muted-foreground mt-2">
                     We'll analyze the design, structure, and niche features, then generate a superior version connected to your client's GBP.
                   </p>
                 </motion.div>
@@ -311,14 +311,14 @@ export function Builder() {
             </AnimatePresence>
 
             {/* GBP Toggle */}
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-[#111E33] rounded-xl p-5 border border-white/8 flex items-center justify-between">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-white/8 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-lg bg-[#22C55E]/10 flex items-center justify-center">
                   <Store className="w-4 h-4 text-[#22C55E]" />
                 </div>
                 <div>
-                  <div className="text-sm font-bold text-[#EEF1FA]">Connect Google Business Profile</div>
-                  <div className="text-[10px] text-[rgba(238,241,250,0.5)]">Auto-sync content, hours, menus, posts, and reviews</div>
+                  <div className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Connect Google Business Profile</div>
+                  <div className="text-[10px] text-muted-foreground">Auto-sync content, hours, menus, posts, and reviews</div>
                 </div>
               </div>
               <button
@@ -330,14 +330,14 @@ export function Builder() {
             </motion.div>
 
             {/* AI Prompt Presets */}
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-[#111E33] rounded-xl p-5 border border-white/8">
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-white/8">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Bot className="w-4 h-4 text-[#0078D7]" />
-                  <h3 className="text-sm font-bold text-[#EEF1FA]">AI Prompt Presets</h3>
+                  <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">AI Prompt Presets</h3>
                 </div>
                 {activePreset && (
-                  <button onClick={() => setActivePreset(null)} className="text-[10px] text-[rgba(238,241,250,0.4)] hover:text-[#EEF1FA] transition-colors">
+                  <button onClick={() => setActivePreset(null)} className="text-[10px] text-muted-foreground hover:text-foreground dark:text-[#EEF1FA] transition-colors">
                     Clear preset
                   </button>
                 )}
@@ -346,10 +346,10 @@ export function Builder() {
                 {PROMPT_PRESETS.map((preset) => {
                   const isActive = activePreset === preset.name;
                   return (
-                    <div key={preset.name} className={cn("border rounded-xl overflow-hidden transition-all", isActive ? "border-[#0078D7]/40" : "border-white/8")}>
+                    <div key={preset.name} className={cn("border rounded-xl overflow-hidden transition-all", isActive ? "border-[#0078D7]/40" : "border-border dark:border-white/8")}>
                       <button
                         onClick={() => setExpandedPrompt(expandedPrompt === preset.name ? null : preset.name)}
-                        className="w-full flex items-center justify-between p-3.5 hover:bg-white/3 transition-colors text-left"
+                        className="w-full flex items-center justify-between p-3.5 hover:bg-muted/40 dark:bg-white/3 transition-colors text-left"
                       >
                         <div className="flex items-center gap-3">
                           <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center", preset.bg)}>
@@ -357,25 +357,25 @@ export function Builder() {
                           </div>
                           <div>
                             <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-[#EEF1FA]">{preset.name}</span>
+                              <span className="text-xs font-bold text-foreground dark:text-[#EEF1FA]">{preset.name}</span>
                               {isActive && <span className="text-[9px] font-bold bg-[#0078D7] text-white px-1.5 py-0.5 rounded">Active</span>}
                             </div>
-                            <div className="text-[10px] text-[rgba(238,241,250,0.5)]">{preset.description}</div>
+                            <div className="text-[10px] text-muted-foreground">{preset.description}</div>
                           </div>
                         </div>
                         {expandedPrompt === preset.name
-                          ? <ChevronUp className="w-4 h-4 text-[rgba(238,241,250,0.4)] flex-shrink-0" />
-                          : <ChevronDown className="w-4 h-4 text-[rgba(238,241,250,0.4)] flex-shrink-0" />
+                          ? <ChevronUp className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                          : <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" />
                         }
                       </button>
                       {expandedPrompt === preset.name && (
-                        <div className="px-4 pb-4 border-t border-white/8 pt-3">
+                        <div className="px-4 pb-4 border-t border-border dark:border-white/8 pt-3">
                           <button
                             onClick={() => { setActivePreset(preset.name); setExpandedPrompt(null); }}
                             className={cn(
                               "w-full text-xs font-bold py-2.5 rounded-lg transition-colors",
                               isActive
-                                ? "bg-white/5 border border-white/10 text-[rgba(238,241,250,0.5)]"
+                                ? "bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10 text-muted-foreground"
                                 : "bg-[#0078D7] hover:bg-[#00447A] text-white"
                             )}
                           >
@@ -390,24 +390,24 @@ export function Builder() {
             </motion.div>
 
             {/* Custom Prompt */}
-            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="bg-[#111E33] rounded-xl p-5 border border-white/8">
-              <h3 className="text-sm font-bold text-[#EEF1FA] mb-3">Additional Instructions <span className="text-[10px] font-normal text-[rgba(238,241,250,0.4)]">(optional)</span></h3>
+            <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.12 }} className="bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-white/8">
+              <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA] mb-3">Additional Instructions <span className="text-[10px] font-normal text-muted-foreground">(optional)</span></h3>
               <textarea
                 rows={3}
                 placeholder="Any special requirements, brand voice notes, competitor context, or specific features to include..."
                 value={customPrompt}
                 onChange={(e) => setCustomPrompt(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-[#EEF1FA] placeholder:text-[rgba(238,241,250,0.3)] focus:outline-none focus:border-[#0078D7] transition-colors resize-none"
+                className="w-full bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10 rounded-lg px-4 py-2.5 text-sm text-foreground dark:text-[#EEF1FA] placeholder:text-muted-foreground focus:outline-none focus:border-[#0078D7] transition-colors resize-none"
               />
             </motion.div>
           </div>
 
           {/* Right: Tier + Generate */}
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }} className="space-y-4">
-            <div className="bg-[#111E33] rounded-xl p-5 border border-white/8">
+            <div className="bg-card dark:bg-[#111E33] rounded-xl p-5 border border-border dark:border-white/8">
               <div className="flex items-center gap-2 mb-4">
                 <Zap className="w-4 h-4 text-yellow-400" />
-                <h3 className="text-sm font-bold text-[#EEF1FA]">Select Tier</h3>
+                <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Select Tier</h3>
               </div>
               <div className="space-y-2.5">
                 {TIERS.map((t) => (
@@ -416,16 +416,16 @@ export function Builder() {
                     onClick={() => setTier(t.id)}
                     className={cn(
                       "w-full p-3.5 rounded-xl border text-left transition-all",
-                      tier === t.id ? "border-[#0078D7] bg-[#0078D7]/10" : "border-white/8 hover:border-white/20 hover:bg-white/3"
+                      tier === t.id ? "border-[#0078D7] bg-[#0078D7]/10" : "border-border dark:border-white/8 hover:border-white/20 hover:bg-muted/40 dark:bg-white/3"
                     )}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-bold text-[#EEF1FA]">{t.name}</span>
+                      <span className="text-xs font-bold text-foreground dark:text-[#EEF1FA]">{t.name}</span>
                       <span className="text-xs font-bold text-[#0078D7]">{t.price}</span>
                     </div>
                     <ul className="space-y-1">
                       {t.features.map((f) => (
-                        <li key={f} className="flex items-center gap-1.5 text-[10px] text-[rgba(238,241,250,0.55)]">
+                        <li key={f} className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                           <Check className="w-2.5 h-2.5 text-[#22C55E]" /> {f}
                         </li>
                       ))}
@@ -442,7 +442,7 @@ export function Builder() {
                   <Sparkles className="w-3.5 h-3.5 text-[#0078D7]" />
                   <span className="text-[10px] font-bold text-[#0078D7] uppercase tracking-wide">Active Preset</span>
                 </div>
-                <span className="text-xs text-[#EEF1FA]">{activePreset}</span>
+                <span className="text-xs text-foreground dark:text-[#EEF1FA]">{activePreset}</span>
               </div>
             )}
 
@@ -453,7 +453,7 @@ export function Builder() {
               className={cn(
                 "w-full text-white text-sm font-bold py-3.5 rounded-xl transition-all flex items-center justify-center gap-2",
                 isGenerating
-                  ? "bg-white/10 border border-white/10 cursor-not-allowed"
+                  ? "bg-muted dark:bg-white/10 border border-border dark:border-white/10 cursor-not-allowed"
                   : "bg-[linear-gradient(90deg,#0078D7,#00447A)] hover:opacity-90 shadow-[0_4px_16px_rgba(0,120,215,0.3)]"
               )}
             >
@@ -463,7 +463,7 @@ export function Builder() {
                 <><Wand2 className="w-4 h-4" /> Generate & Deploy</>
               )}
             </button>
-            <p className="text-[10px] text-center text-[rgba(238,241,250,0.3)]">
+            <p className="text-[10px] text-center text-muted-foreground">
               Powered by Claude Sonnet 4.5
             </p>
           </motion.div>
@@ -490,7 +490,7 @@ export function Builder() {
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
-              className="bg-[#111E33] rounded-xl border border-[#0078D7]/25 p-5 flex items-center justify-between gap-4 flex-wrap"
+              className="bg-card dark:bg-[#111E33] rounded-xl border border-[#0078D7]/25 p-5 flex items-center justify-between gap-4 flex-wrap"
             >
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-[#0078D7]/15 flex items-center justify-center flex-shrink-0">
@@ -498,10 +498,10 @@ export function Builder() {
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm font-bold text-[#EEF1FA]">Blueprint Ready</span>
+                    <span className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Blueprint Ready</span>
                     <span className="text-[9px] font-bold bg-[#22C55E]/15 text-[#22C55E] px-1.5 py-0.5 rounded-full">Step 2</span>
                   </div>
-                  <p className="text-xs text-[rgba(238,241,250,0.5)]">
+                  <p className="text-xs text-muted-foreground">
                     Convert this spec into real, downloadable React code for {clientName || "your client"}
                   </p>
                 </div>
@@ -516,7 +516,7 @@ export function Builder() {
                   className={cn(
                     "flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl transition-all",
                     isGeneratingCode
-                      ? "bg-white/10 text-[rgba(238,241,250,0.4)] cursor-not-allowed"
+                      ? "bg-muted dark:bg-white/10 text-muted-foreground cursor-not-allowed"
                       : "bg-[linear-gradient(90deg,#0078D7,#00447A)] text-white hover:opacity-90 shadow-[0_4px_12px_rgba(0,120,215,0.3)]"
                   )}
                 >

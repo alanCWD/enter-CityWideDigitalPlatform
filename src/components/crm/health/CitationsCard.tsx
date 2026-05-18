@@ -23,15 +23,15 @@ export function CitationsCard({ citationRows, lastResults, busy, onRun, readOnly
   const total = directoryRows.length;
 
   return (
-    <div className="bg-[#111E33] border border-white/10 rounded-2xl p-5">
+    <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-5">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="flex items-center gap-3">
           <span className="w-9 h-9 rounded-xl bg-[#22C55E]/15 text-[#22C55E] flex items-center justify-center">
             <ListChecks className="w-4 h-4" />
           </span>
           <div>
-            <h3 className="text-sm font-bold text-[#EEF1FA]">Citations & Listings</h3>
-            <p className="text-xs text-[rgba(238,241,250,0.55)]">Heuristic scan across {total || 15} key directories — checks if your business appears.</p>
+            <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Citations & Listings</h3>
+            <p className="text-xs text-muted-foreground">Heuristic scan across {total || 15} key directories — checks if your business appears.</p>
           </div>
         </div>
         {!readOnly && onRun && (
@@ -48,16 +48,16 @@ export function CitationsCard({ citationRows, lastResults, busy, onRun, readOnly
 
       {total > 0 && (
         <div className="mb-3 flex items-center gap-3">
-          <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+          <div className="flex-1 h-2 bg-muted/60 dark:bg-white/5 rounded-full overflow-hidden">
             <div className="h-full transition-all" style={{ width: `${(passing / total) * 100}%`, backgroundColor: passing >= total * 0.7 ? "#22C55E" : passing >= total * 0.4 ? "#F97316" : "#EF4444" }} />
           </div>
-          <span className="text-xs font-bold text-[#EEF1FA] tabular-nums">{passing}/{total}</span>
+          <span className="text-xs font-bold text-foreground dark:text-[#EEF1FA] tabular-nums">{passing}/{total}</span>
         </div>
       )}
 
       {directoryRows.length === 0 ? (
-        <div className="bg-white/3 border border-white/10 rounded-lg p-5 text-center">
-          <p className="text-xs text-[rgba(238,241,250,0.55)]">
+        <div className="bg-muted/40 dark:bg-white/3 border border-border dark:border-white/10 rounded-lg p-5 text-center">
+          <p className="text-xs text-muted-foreground">
             No citation scan yet. {readOnly ? "Your agency hasn't run a listing scan." : 'Click "Scan listings" — takes about 10 seconds.'}
           </p>
         </div>
@@ -69,11 +69,11 @@ export function CitationsCard({ citationRows, lastResults, busy, onRun, readOnly
             const liveResult = lastResults?.find((x) => x.key === r.key);
             const url = liveResult?.listing_url ?? r.evidence_url;
             return (
-              <li key={r.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/3">
+              <li key={r.key} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 dark:bg-white/3">
                 <span className="w-5 h-5 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: color.bg, color: color.fg }}>
                   <Icon className="w-3 h-3" />
                 </span>
-                <span className="text-xs text-[#EEF1FA] flex-1 truncate">
+                <span className="text-xs text-foreground dark:text-[#EEF1FA] flex-1 truncate">
                   {checkLabel(r.key).replace(/^Listed on /, "")}
                 </span>
                 {url && (
@@ -87,7 +87,7 @@ export function CitationsCard({ citationRows, lastResults, busy, onRun, readOnly
         </ul>
       )}
 
-      <p className="text-[10px] text-[rgba(238,241,250,0.4)] mt-3">
+      <p className="text-[10px] text-muted-foreground mt-3">
         Heuristic: matches business name + city/postal/phone in directory search results. False positives possible — verify before sharing externally.
       </p>
     </div>

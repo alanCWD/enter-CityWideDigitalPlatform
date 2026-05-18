@@ -59,11 +59,11 @@ export function InviteClientDialog({ connectionId, businessName, onClose }: Invi
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="relative w-full max-w-md bg-[#111E33] rounded-2xl border border-white/10 p-6 shadow-2xl"
+        className="relative w-full max-w-md bg-card dark:bg-[#111E33] rounded-2xl border border-border dark:border-white/10 p-6 shadow-2xl"
       >
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-[rgba(238,241,250,0.4)] hover:text-[#EEF1FA] transition-colors"
+          className="absolute top-4 right-4 text-muted-foreground hover:text-foreground dark:text-[#EEF1FA] transition-colors"
         >
           <X className="w-4 h-4" />
         </button>
@@ -73,14 +73,14 @@ export function InviteClientDialog({ connectionId, businessName, onClose }: Invi
             <UserPlus className="w-5 h-5 text-[#22C55E]" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-[#EEF1FA]">Invite client to portal</h3>
-            <p className="text-[10px] text-[rgba(238,241,250,0.5)]">{businessName}</p>
+            <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Invite client to portal</h3>
+            <p className="text-[10px] text-muted-foreground">{businessName}</p>
           </div>
         </div>
 
         {!inviteUrl ? (
           <>
-            <label className="block text-xs font-bold text-[rgba(238,241,250,0.7)] mb-2">
+            <label className="block text-xs font-bold text-muted-foreground mb-2">
               Client email
             </label>
             <input
@@ -89,7 +89,7 @@ export function InviteClientDialog({ connectionId, businessName, onClose }: Invi
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleInvite()}
-              className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-[#EEF1FA] placeholder:text-[rgba(238,241,250,0.3)] focus:outline-none focus:border-[#22C55E] transition-colors mb-1"
+              className="w-full bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10 rounded-lg px-4 py-2.5 text-sm text-foreground dark:text-[#EEF1FA] placeholder:text-muted-foreground focus:outline-none focus:border-[#22C55E] transition-colors mb-1"
             />
             {error && (
               <div className="flex items-start gap-2 mt-2 mb-2">
@@ -97,9 +97,9 @@ export function InviteClientDialog({ connectionId, businessName, onClose }: Invi
                 <p className="text-[10px] text-red-400">{error}</p>
               </div>
             )}
-            <p className="text-[10px] text-[rgba(238,241,250,0.4)] mt-2 mb-4 leading-relaxed">
+            <p className="text-[10px] text-muted-foreground mt-2 mb-4 leading-relaxed">
               When they sign up at the portal with this email, they'll automatically see{" "}
-              <strong className="text-[#EEF1FA]">{businessName}</strong>'s data.
+              <strong className="text-foreground dark:text-[#EEF1FA]">{businessName}</strong>'s data.
             </p>
             <button
               onClick={handleInvite}
@@ -107,7 +107,7 @@ export function InviteClientDialog({ connectionId, businessName, onClose }: Invi
               className={cn(
                 "w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all",
                 loading
-                  ? "bg-white/10 text-[rgba(238,241,250,0.4)] cursor-not-allowed"
+                  ? "bg-muted dark:bg-white/10 text-muted-foreground cursor-not-allowed"
                   : "bg-[#22C55E] hover:bg-[#16A34A] text-white shadow-[0_4px_12px_rgba(34,197,94,0.3)]",
               )}
             >
@@ -128,8 +128,8 @@ export function InviteClientDialog({ connectionId, businessName, onClose }: Invi
           <>
             <div className="bg-[#22C55E]/10 border border-[#22C55E]/30 rounded-lg p-3 mb-4">
               <p className="text-xs font-bold text-[#22C55E] mb-1">Invite ready</p>
-              <p className="text-[10px] text-[rgba(238,241,250,0.6)] leading-relaxed">
-                Share this link with <strong className="text-[#EEF1FA]">{email}</strong>. They'll
+              <p className="text-[10px] text-muted-foreground leading-relaxed">
+                Share this link with <strong className="text-foreground dark:text-[#EEF1FA]">{email}</strong>. They'll
                 create a password and land in their portal.
               </p>
             </div>
@@ -137,7 +137,7 @@ export function InviteClientDialog({ connectionId, businessName, onClose }: Invi
               <input
                 readOnly
                 value={inviteUrl}
-                className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-[#EEF1FA] font-mono"
+                className="flex-1 bg-muted/60 dark:bg-white/5 border border-border dark:border-white/10 rounded-lg px-3 py-2 text-[10px] text-foreground dark:text-[#EEF1FA] font-mono"
               />
               <button
                 onClick={handleCopy}
@@ -149,7 +149,7 @@ export function InviteClientDialog({ connectionId, businessName, onClose }: Invi
             </div>
             <button
               onClick={onClose}
-              className="w-full bg-white/5 hover:bg-white/10 border border-white/10 text-[#EEF1FA] text-sm font-bold py-2.5 rounded-xl transition-colors"
+              className="w-full bg-muted/60 dark:bg-white/5 hover:bg-muted dark:bg-white/10 border border-border dark:border-white/10 text-foreground dark:text-[#EEF1FA] text-sm font-bold py-2.5 rounded-xl transition-colors"
             >
               Done
             </button>
