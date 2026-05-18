@@ -54,8 +54,9 @@ Deno.serve(async (req) => {
         
         const zernioData = await response.json();
         if (!response.ok) {
-          console.error("Zernio API error details:", { status: response.status, body: zernioData, request: payloadData });
-          return json({ error: `Zernio API error (${response.status}): ${JSON.stringify(zernioData)}` }, response.status);
+          const errorMsg = `Zernio API error (${response.status}): ${JSON.stringify(zernioData)}`;
+          console.error(errorMsg);
+          return new Response(errorMsg, { status: response.status });
         }
         return json({ ok: true, authUrl: zernioData.auth_url });
       case "social.post":
