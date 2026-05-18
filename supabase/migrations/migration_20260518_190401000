@@ -1,0 +1,20 @@
+-- Upgrade posts table to support multi-platform calendar scheduling
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS title text;
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS platforms text[] NOT NULL DEFAULT '{}';
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS client_id text NOT NULL DEFAULT 'citywide';
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS agency_id text NOT NULL DEFAULT 'citywide';
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS media_urls text[] DEFAULT '{}';
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS published_at text;
+
+-- Enable RLS
+ALTER TABLE posts ENABLE ROW LEVEL SECURITY;
+
+-- Allow all for now (agency dashboard context)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename = 'posts' AND policyname = 'allow_all_for_now'
+  ) THEN
+    CREATE POLICY "allow_all_for_now" ON posts FOR ALL USING (true) WITH CHECK (true);
+  END IF;
+END $$;

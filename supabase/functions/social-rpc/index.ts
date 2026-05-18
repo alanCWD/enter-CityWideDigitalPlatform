@@ -7,7 +7,16 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+interface ZernioProfile {
+  _id: string;
+  name: string;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -15,21 +24,20 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    
+
     if (!supabaseUrl || !supabaseKey) {
       throw new Error("Missing Supabase environment variables");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-
     const body = await req.json().catch(() => ({}));
     const { action, payload } = body;
 
-    // Basic routing for social operations
     switch (action) {
-      case "social.connect":
+      case "social.connect": {
+        const { platform, client_id } = payload as { platform: string; client_id: string };
+
         // Mandatory Google Business check
-        const { platform, client_id } = payload;
         if (platform !== "google_business") {
           const { data: existing } = await supabase
             .from("social_accounts")
@@ -37,155 +45,141 @@ Deno.serve(async (req) => {
             .eq("client_id", client_id)
             .eq("platform", "google_business")
             .maybeSingle();
-            
+
           if (!existing) {
             return json({ ok: false, error: "Google Business must be connected first." });
           }
         }
-        
-        // OAuth flow initiation using Zernio
-        const zernioKey = Deno.env.get("ZERNIO_API_KEY");
-        // Use the frontend URL for the redirect, not the Supabase backend URL
-        const origin = req.headers.get("origin") || "http://localhost:5173";
-        const payloadData = { platform, profileId: client_id, redirect_uri: `${origin}/dashboard/social/profiles` };
-        console.log("Initiating Zernio OAuth for:", { platform, client_id, hasKey: !!zernioKey, redirect_uri: payloadData.redirect_uri });
-        
-        // Ensure the API key is clean (no whitespace/newlines)
-        const cleanKey = zernioKey ? zernioKey.trim() : "";
-        
-        // Step 1: Create or get a profile in Zernio
-        // We use the client_id (e.g., 'citywide') as the name/reference
-        let zernioProfileId = client_id;
-        
-        try {
-          // First, try to get existing profiles to see if we already created one for this client
-          const getProfilesResponse = await fetch("https://zernio.com/api/v1/profiles", {
-            method: "GET",
-            headers: {
-              "Authorization": `Bearer ${cleanKey}`
-            }
-          });
-          
-          let profileExists = false;
-          if (getProfilesResponse.ok) {
-            const profilesData = await getProfilesResponse.json();
-            const existingProfile = profilesData.profiles?.find((p: any) => p.name === `Profile for ${client_id}`);
-            if (existingProfile) {
-              zernioProfileId = existingProfile._id;
-              profileExists = true;
-              console.log(`Found existing Zernio profile: ${zernioProfileId}`);
-            }
-          }
 
-          // If it doesn't exist, create it
-          if (!profileExists) {
-            const profileResponse = await fetch("https://zernio.com/api/v1/profiles", {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${cleanKey}`,
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
-                name: `Profile for ${client_id}`,
-                description: `Auto-generated profile for ${client_id}`
-              })
-            });
-            
-            if (profileResponse.ok) {
-              const profileData = await profileResponse.json();
-              if (profileData.profile && profileData.profile._id) {
-                zernioProfileId = profileData.profile._id;
-                console.log(`Created Zernio profile: ${zernioProfileId}`);
-              }
+        const zernioKey = Deno.env.get("ZERNIO_API_KEY") ?? "";
+        const cleanKey = zernioKey.trim();
+        const origin = req.headers.get("origin") ?? "http://localhost:5173";
+        const redirectUri = encodeURIComponent(`${origin}/dashboard/social/profiles`);
+
+        console.log("Initiating Zernio OAuth for:", { platform, client_id, hasKey: !!cleanKey });
+
+        // Find or create a Zernio profile for this client
+        let zernioProfileId: string = client_id;
+
+        try {
+          const getRes = await fetch("https://zernio.com/api/v1/profiles", {
+            headers: { Authorization: `Bearer ${cleanKey}` },
+          });
+
+          if (getRes.ok) {
+            const profilesData = await getRes.json() as { profiles?: ZernioProfile[] };
+            const existing = profilesData.profiles?.find(
+              (p) => p.name === `Profile for ${client_id}`
+            );
+            if (existing) {
+              zernioProfileId = existing._id;
+              console.log("Found existing Zernio profile:", zernioProfileId);
             } else {
-              console.warn("Failed to create Zernio profile, proceeding with client_id", await profileResponse.text());
+              // Create a new profile
+              const createRes = await fetch("https://zernio.com/api/v1/profiles", {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${cleanKey}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  name: `Profile for ${client_id}`,
+                  description: `Auto-generated profile for ${client_id}`,
+                }),
+              });
+
+              if (createRes.ok) {
+                const created = await createRes.json() as { profile?: ZernioProfile };
+                if (created.profile?._id) {
+                  zernioProfileId = created.profile._id;
+                  console.log("Created Zernio profile:", zernioProfileId);
+                }
+              } else {
+                console.warn("Failed to create Zernio profile:", await createRes.text());
+              }
             }
           }
         } catch (e) {
           console.error("Error managing Zernio profile:", e);
         }
-        
-        // Zernio API uses GET for connect URL, not POST
-        // Note: Zernio expects 'googlebusiness' not 'google_business'
-        const zernioPlatform = platform === 'google_business' ? 'googlebusiness' : platform;
-        
-        // Pass the redirect_uri to Zernio so it knows where to send the user back
-        const redirectUri = encodeURIComponent(payloadData.redirect_uri);
-        const response = await fetch(`https://zernio.com/api/v1/connect/${zernioPlatform}?profileId=${zernioProfileId}&redirectUri=${redirectUri}`, {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${cleanKey}`
-          }
+
+        const zernioPlatform = platform === "google_business" ? "googlebusiness" : platform;
+        const connectUrl = `https://zernio.com/api/v1/connect/${zernioPlatform}?profileId=${zernioProfileId}&redirectUri=${redirectUri}`;
+
+        const response = await fetch(connectUrl, {
+          headers: { Authorization: `Bearer ${cleanKey}` },
         });
-        
-        const text = await response.text();
-        let zernioData;
+
+        const responseText = await response.text();
+        let zernioData: unknown;
         try {
-          zernioData = JSON.parse(text);
-        } catch (e) {
-          zernioData = text;
+          zernioData = JSON.parse(responseText);
+        } catch {
+          zernioData = responseText;
         }
 
         if (!response.ok) {
-          const errorMsg = `Zernio API error (${response.status}): ${typeof zernioData === 'string' ? zernioData : JSON.stringify(zernioData)}`;
+          const errorMsg = `Zernio API error (${response.status}): ${
+            typeof zernioData === "string" ? zernioData : JSON.stringify(zernioData)
+          }`;
           console.error(errorMsg);
-          // Always return 200 so the Supabase client doesn't throw a generic error,
-          // but include the error message in the JSON payload.
           return json({ ok: false, error: errorMsg });
         }
-        
-        // Zernio returns { authUrl: "..." } or { auth_url: "..." } depending on the endpoint version
-        const authUrl = zernioData.authUrl || zernioData.auth_url;
-        return json({ ok: true, authUrl });
-      case "social.sync":
-        // In a real implementation, this would fetch the connected platforms from Zernio
-        // For now, we'll just return the platforms we know are connected in our DB
-        // or mock a sync if needed.
-        const { sync_client_id } = payload;
-        
-        // Let's try to fetch the profile from Zernio to see if it has connection info
-        const syncKey = Deno.env.get("ZERNIO_API_KEY")?.trim() || "";
+
+        const data = zernioData as { authUrl?: string; auth_url?: string };
+        return json({ ok: true, authUrl: data.authUrl ?? data.auth_url });
+      }
+
+      case "social.sync": {
+        const syncKey = (Deno.env.get("ZERNIO_API_KEY") ?? "").trim();
         try {
           const profilesRes = await fetch("https://zernio.com/api/v1/profiles", {
-            headers: { "Authorization": `Bearer ${syncKey}` }
+            headers: { Authorization: `Bearer ${syncKey}` },
           });
           if (profilesRes.ok) {
             const profilesData = await profilesRes.json();
-            console.log("Zernio profiles data for sync:", JSON.stringify(profilesData));
-            // If we knew the exact structure, we could parse connected platforms here
-            // and upsert them into our social_accounts table.
+            console.log("Zernio profiles for sync:", JSON.stringify(profilesData));
           }
         } catch (e) {
           console.error("Sync error:", e);
         }
-
         return json({ ok: true, message: "Connections synced successfully" });
-        
-      case "social.post":
-        // Logic for unified posting via Zernio
-        const zernioKeyPost = Deno.env.get("ZERNIO_API_KEY");
-        const postResponse = await fetch("https://api.zernio.com/v1/posts", {
+      }
+
+      case "social.post": {
+        const zernioKeyPost = (Deno.env.get("ZERNIO_API_KEY") ?? "").trim();
+        const postResponse = await fetch("https://zernio.com/api/v1/posts", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${zernioKeyPost}`,
-            "Content-Type": "application/json"
+            Authorization: `Bearer ${zernioKeyPost}`,
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(payload),
         });
-        
+
         const postText = await postResponse.text();
-        let postData;
+        let postData: unknown;
         try {
           postData = JSON.parse(postText);
-        } catch (e) {
+        } catch {
           postData = postText;
         }
-        return json({ ok: true, message: "Post scheduled", data: postData });
+
+        if (!postResponse.ok) {
+          const errorMsg = `Zernio post error (${postResponse.status}): ${
+            typeof postData === "string" ? postData : JSON.stringify(postData)
+          }`;
+          return json({ ok: false, error: errorMsg });
+        }
+
+        return json({ ok: true, message: "Post published", data: postData });
+      }
+
       default:
         return json({ ok: false, error: "Unknown action" });
     }
   } catch (err) {
     console.error("Unhandled error:", err);
-    return json({ ok: false, error: `Internal Edge Function Error: ${(err as Error).message}` });
+    return json({ ok: false, error: `Internal Error: ${(err as Error).message}` });
   }
 });

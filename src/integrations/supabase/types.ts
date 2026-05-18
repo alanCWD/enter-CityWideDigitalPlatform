@@ -3355,28 +3355,46 @@ export type Database = {
       }
       posts: {
         Row: {
+          agency_id: string
+          client_id: string
           content: string | null
           created_at: string
           id: string
+          media_urls: string[] | null
+          platforms: string[]
+          published_at: string | null
           scheduled_at: string | null
           social_account_id: string
           status: string
+          title: string | null
         }
         Insert: {
+          agency_id?: string
+          client_id?: string
           content?: string | null
           created_at?: string
           id: string
+          media_urls?: string[] | null
+          platforms?: string[]
+          published_at?: string | null
           scheduled_at?: string | null
           social_account_id: string
           status?: string
+          title?: string | null
         }
         Update: {
+          agency_id?: string
+          client_id?: string
           content?: string | null
           created_at?: string
           id?: string
+          media_urls?: string[] | null
+          platforms?: string[]
+          published_at?: string | null
           scheduled_at?: string | null
           social_account_id?: string
           status?: string
+          title?: string | null
         }
         Relationships: []
       }
