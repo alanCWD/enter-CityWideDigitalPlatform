@@ -47,10 +47,14 @@ Deno.serve(async (req) => {
         const zernioKey = Deno.env.get("ZERNIO_API_KEY");
         const payloadData = { platform, client_id, redirect_uri: `${Deno.env.get("SUPABASE_URL")}/functions/v1/social-callback` };
         console.log("Initiating Zernio OAuth for:", { platform, client_id, hasKey: !!zernioKey });
+        
+        // Ensure the API key is clean (no whitespace/newlines)
+        const cleanKey = zernioKey ? zernioKey.trim() : "";
+        
         const response = await fetch("https://api.zernio.com/v1/oauth/init", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${zernioKey}`,
+            "Authorization": `Bearer ${cleanKey}`,
             "Content-Type": "application/json"
           },
           body: JSON.stringify(payloadData)
