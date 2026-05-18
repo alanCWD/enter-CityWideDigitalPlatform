@@ -41,19 +41,20 @@ Deno.serve(async (req) => {
         
         // OAuth flow initiation using Zernio
         const zernioKey = Deno.env.get("ZERNIO_API_KEY");
-        console.log("Initiating Zernio OAuth for:", { platform, client_id });
+        const payloadData = { platform, client_id, redirect_uri: `${Deno.env.get("SUPABASE_URL")}/functions/v1/social-callback` };
+        console.log("Initiating Zernio OAuth for:", { platform, client_id, hasKey: !!zernioKey });
         const response = await fetch("https://api.zernio.com/v1/oauth/init", {
           method: "POST",
           headers: {
             "Authorization": `Bearer ${zernioKey}`,
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ platform, client_id, redirect_uri: `${Deno.env.get("SUPABASE_URL")}/functions/v1/social-callback` })
+          body: JSON.stringify(payloadData)
         });
         
         const zernioData = await response.json();
         if (!response.ok) {
-          console.error("Zernio API error:", { status: response.status, body: zernioData });
+          console.error("Zernio API error details:", { status: response.status, body: zernioData, request: payloadData });
           return json({ error: `Zernio API error (${response.status}): ${JSON.stringify(zernioData)}` }, response.status);
         }
         return json({ ok: true, authUrl: zernioData.auth_url });
