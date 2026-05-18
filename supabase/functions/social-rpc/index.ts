@@ -12,6 +12,11 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   
+  const supabase = createClient(
+    Deno.env.get("SUPABASE_URL") ?? "",
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+  );
+
   try {
     const body = await req.json().catch(() => ({}));
     const { action, payload } = body;
@@ -19,8 +24,24 @@ Deno.serve(async (req) => {
     // Basic routing for social operations
     switch (action) {
       case "social.connect":
-        // Logic for OAuth and mandatory Google Business check
-        return json({ ok: true, message: "Connect flow initiated" });
+        // Mandatory Google Business check
+        const { platform, client_id } = payload;
+        if (platform !== "google_business") {
+          // Check if Google Business is already connected for this client
+          const { data: existing } = await supabase
+            .from("social_accounts")
+            .select("id")
+            .eq("client_id", client_id)
+            .eq("platform", "google_business")
+            .maybeSingle();
+            
+          if (!existing) {
+            return json({ error: "Google Business must be connected first." }, 403);
+          }
+        }
+        
+        // Logic for OAuth flow initiation
+        return json({ ok: true, message: "OAuth flow initiated for " + platform });
       case "social.post":
         // Logic for unified posting
         return json({ ok: true, message: "Post scheduled" });
