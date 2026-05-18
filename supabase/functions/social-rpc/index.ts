@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
             .maybeSingle();
             
           if (!existing) {
-            return json({ error: "Google Business must be connected first." }, 403);
+            return json({ ok: false, error: "Google Business must be connected first." });
           }
         }
         
@@ -52,9 +52,16 @@ Deno.serve(async (req) => {
           body: JSON.stringify(payloadData)
         });
         
-        const zernioData = await response.json();
+        const text = await response.text();
+        let zernioData;
+        try {
+          zernioData = JSON.parse(text);
+        } catch (e) {
+          zernioData = text;
+        }
+
         if (!response.ok) {
-          const errorMsg = `Zernio API error (${response.status}): ${JSON.stringify(zernioData)}`;
+          const errorMsg = `Zernio API error (${response.status}): ${typeof zernioData === 'string' ? zernioData : JSON.stringify(zernioData)}`;
           console.error(errorMsg);
           // Always return 200 so the Supabase client doesn't throw a generic error,
           // but include the error message in the JSON payload.
@@ -73,12 +80,19 @@ Deno.serve(async (req) => {
           body: JSON.stringify(payload)
         });
         
-        const postData = await postResponse.json();
+        const postText = await postResponse.text();
+        let postData;
+        try {
+          postData = JSON.parse(postText);
+        } catch (e) {
+          postData = postText;
+        }
         return json({ ok: true, message: "Post scheduled", data: postData });
       default:
-        return json({ error: "Unknown action" }, 400);
+        return json({ ok: false, error: "Unknown action" });
     }
   } catch (err) {
-    return json({ error: (err as Error).message }, 500);
+    console.error("Unhandled error:", err);
+    return json({ ok: false, error: `Internal Edge Function Error: ${(err as Error).message}` });
   }
 });
