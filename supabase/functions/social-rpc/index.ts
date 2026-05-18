@@ -53,8 +53,41 @@ Deno.serve(async (req) => {
         // Ensure the API key is clean (no whitespace/newlines)
         const cleanKey = zernioKey ? zernioKey.trim() : "";
         
+        // Step 1: Create a profile in Zernio if it doesn't exist
+        // We use the client_id (e.g., 'citywide') as the name/reference
+        let zernioProfileId = client_id;
+        
+        try {
+          const profileResponse = await fetch("https://zernio.com/api/v1/profiles", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${cleanKey}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              name: `Profile for ${client_id}`,
+              description: `Auto-generated profile for ${client_id}`
+            })
+          });
+          
+          if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            if (profileData.profile && profileData.profile._id) {
+              zernioProfileId = profileData.profile._id;
+              console.log(`Created Zernio profile: ${zernioProfileId}`);
+            }
+          } else {
+            console.warn("Failed to create Zernio profile, proceeding with client_id", await profileResponse.text());
+          }
+        } catch (e) {
+          console.error("Error creating Zernio profile:", e);
+        }
+        
         // Zernio API uses GET for connect URL, not POST
-        const response = await fetch(`https://zernio.com/api/v1/connect/${platform}?profileId=${client_id}`, {
+        // Note: Zernio expects 'googlebusiness' not 'google_business'
+        const zernioPlatform = platform === 'google_business' ? 'googlebusiness' : platform;
+        
+        const response = await fetch(`https://zernio.com/api/v1/connect/${zernioPlatform}?profileId=${zernioProfileId}`, {
           method: "GET",
           headers: {
             "Authorization": `Bearer ${cleanKey}`
