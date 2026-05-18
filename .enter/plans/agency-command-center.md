@@ -1,17 +1,19 @@
-# Plan: Fix Zernio API Error Handling
+# Plan: Update Social Profiles UX and Handle Zernio Limits
 
 ## Context
-The user is seeing a raw HTML/JSON string dump in the toast notification when attempting to connect to Zernio. The error message contains fragments of a marketing page or documentation (e.g., "Head-to-head comparison", "Planoly Alternative", "Zernio publishes a 99.97% uptime"). This indicates that the `fetch` request to `https://api.zernio.com/v1/oauth/init` is returning a 404 Not Found page (likely an HTML page) instead of a JSON API response.
+The user successfully connected Google Business Profile (GBP) via Zernio. However:
+1.  **UX Update**: The UI needs to reflect that the connection was successful (hide the "Connect" button, show "Connected" status).
+2.  **Zernio Limits**: The user hit a 402 Payment Required error when trying to connect LinkedIn because Zernio's free tier limits accounts to 2, and requires a payment method on file to proceed further.
 
 ## Exploration
-- The endpoint `https://api.zernio.com/v1/oauth/init` appears to be incorrect or non-existent, causing the Zernio server to return a generic 404 HTML page.
-- The edge function is catching this non-2xx response, parsing the HTML as text, and sending it back to the frontend, which then displays the massive string in the toast.
+- The `social_accounts` table in Supabase should store the connection status. We need to fetch this data in `src/pages/dashboard/social/profiles.tsx` to update the UI.
+- The 402 error from Zernio is expected behavior for their free tier. We need to handle this gracefully in the UI, perhaps by showing a specific message about tier limits.
 
 ## Design
-1.  **Endpoint Verification**: The Zernio API endpoint for OAuth initiation needs to be corrected. Since I don't have the exact Zernio API documentation, I need to ask the user for the correct endpoint or handle the 404 gracefully.
-2.  **Error Formatting**: Update the edge function to detect if the response is HTML (e.g., starts with `<` or fails JSON parsing) and return a clean, user-friendly error message instead of dumping the raw HTML text.
-3.  **Frontend Toast**: Ensure the frontend toast can handle long error messages gracefully (e.g., truncation or scrolling).
+1.  **Fetch Connections**: Update `SocialProfiles` to fetch existing connections from the `social_accounts` table for the current client (`citywide`).
+2.  **Update UI**: Change the card UI to show a "Connected" badge and disable the connect button if the platform is already connected.
+3.  **Handle 402 Error**: Update the error handling in `SocialProfiles` to specifically catch the 402/PAYMENT_REQUIRED error and display a user-friendly message about reaching the account limit.
 
 ## Verification
-- Update the edge function to handle HTML error responses cleanly.
-- Ask the user to verify the correct Zernio API endpoint for OAuth initiation.
+- Verify the UI shows GBP as "Connected".
+- Verify that attempting to connect a 3rd account shows a clean "Account limit reached" message instead of a raw JSON dump.
