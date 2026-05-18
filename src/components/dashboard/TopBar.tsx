@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { ClientSearch } from "./ClientSearch";
 import { ThemeToggle } from "./ThemeToggle";
 import { ProfileMenu } from "@/components/layout/ProfileMenu";
+import { useTheme } from "@/hooks/useTheme";
+import { cn } from "@/lib/utils";
 
 interface TopBarProps {
   title: string;
@@ -11,11 +13,37 @@ interface TopBarProps {
 }
 
 export function TopBar({ title, subtitle, action }: TopBarProps) {
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
+
   return (
-    <header className="sticky top-0 z-30 bg-[#0D1526]/95 backdrop-blur border-b border-white/8 px-6 py-4 flex items-center justify-between gap-4">
+    <header
+      className={cn(
+        "sticky top-0 z-30 backdrop-blur border-b px-6 py-4 flex items-center justify-between gap-4",
+        isDark
+          ? "bg-[#0D1526]/95 border-white/8"
+          : "bg-background/95 border-border",
+      )}
+    >
       <div>
-        <h1 className="text-lg font-bold text-[#EEF1FA] leading-tight">{title}</h1>
-        {subtitle && <p className="text-xs text-[rgba(238,241,250,0.5)] mt-0.5">{subtitle}</p>}
+        <h1
+          className={cn(
+            "text-lg font-bold leading-tight",
+            isDark ? "text-[#EEF1FA]" : "text-foreground",
+          )}
+        >
+          {title}
+        </h1>
+        {subtitle && (
+          <p
+            className={cn(
+              "text-xs mt-0.5",
+              isDark ? "text-[rgba(238,241,250,0.5)]" : "text-muted-foreground",
+            )}
+          >
+            {subtitle}
+          </p>
+        )}
       </div>
 
       <div className="flex items-center gap-3">
@@ -23,7 +51,14 @@ export function TopBar({ title, subtitle, action }: TopBarProps) {
         <ClientSearch />
 
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg bg-white/5 border border-white/10 text-[rgba(238,241,250,0.6)] hover:text-[#EEF1FA] hover:bg-white/10 transition-colors">
+        <button
+          className={cn(
+            "relative p-2 rounded-lg border transition-colors",
+            isDark
+              ? "bg-white/5 border-white/10 text-[rgba(238,241,250,0.6)] hover:text-[#EEF1FA] hover:bg-white/10"
+              : "bg-muted border-border text-muted-foreground hover:text-foreground hover:bg-accent",
+          )}
+        >
           <Bell className="w-4 h-4" />
           <span className="absolute top-1 right-1 w-2 h-2 bg-[#0078D7] rounded-full" />
         </button>

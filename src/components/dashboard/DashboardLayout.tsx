@@ -13,7 +13,7 @@ function DashboardShell({ children }: DashboardLayoutProps) {
     <div
       className={cn(
         "min-h-screen flex",
-        theme === "light" ? "theme-light bg-[#0D1526]" : "bg-[#0D1526]",
+        theme === "dark" ? "bg-[#0D1526]" : "bg-background",
       )}
     >
       <Sidebar />

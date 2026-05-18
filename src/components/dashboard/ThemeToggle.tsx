@@ -23,9 +23,11 @@ export function ThemeToggle({ className }: { className?: string }) {
       onClick={toggle}
       className={cn(
         "relative inline-flex h-9 w-[70px] items-center rounded-full",
-        "bg-white/5 border border-white/10",
-        "transition-colors duration-200",
-        "hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0078D7]/50",
+        "border transition-colors duration-200",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0078D7]/50",
+        isLight
+          ? "bg-muted border-border hover:bg-accent"
+          : "bg-white/5 border-white/10 hover:bg-white/10",
         className,
       )}
     >
@@ -40,7 +42,7 @@ export function ThemeToggle({ className }: { className?: string }) {
         <Moon
           className={cn(
             "w-3.5 h-3.5 transition-opacity duration-200",
-            isLight ? "opacity-50 text-[rgba(13,21,38,0.55)]" : "opacity-0",
+            isLight ? "opacity-40 text-foreground" : "opacity-0",
           )}
         />
       </span>
