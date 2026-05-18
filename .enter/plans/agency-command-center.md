@@ -1,18 +1,17 @@
-# Plan: Debug and Fix Zernio OAuth Integration
+# Plan: Fix Zernio API Error Handling
 
 ## Context
-The user is experiencing a "non-2xx status code" error when attempting to connect their Google Business Profile (GBP) via Zernio. The error persists despite adding status codes to the logs.
+The user is seeing a raw HTML/JSON string dump in the toast notification when attempting to connect to Zernio. The error message contains fragments of a marketing page or documentation (e.g., "Head-to-head comparison", "Planoly Alternative", "Zernio publishes a 99.97% uptime"). This indicates that the `fetch` request to `https://api.zernio.com/v1/oauth/init` is returning a 404 Not Found page (likely an HTML page) instead of a JSON API response.
 
 ## Exploration
-- The `social-rpc` function is failing when calling `https://api.zernio.com/v1/oauth/init`.
-- The error is likely due to an invalid API key, incorrect request body, or Zernio API endpoint mismatch.
-- I need to verify the request structure and ensure the API key is correctly retrieved.
+- The endpoint `https://api.zernio.com/v1/oauth/init` appears to be incorrect or non-existent, causing the Zernio server to return a generic 404 HTML page.
+- The edge function is catching this non-2xx response, parsing the HTML as text, and sending it back to the frontend, which then displays the massive string in the toast.
 
 ## Design
-1.  **Debug Request**: Add more detailed logging to `social-rpc` to inspect the exact request being sent to Zernio (headers, body).
-2.  **Verify API Key**: Ensure `ZERNIO_API_KEY` is correctly set in the environment.
-3.  **Flow Clarification**: Explain to the user that after pressing the button, the system should return an `authUrl`, which the frontend then uses to redirect the user to Zernio/Google for authorization.
+1.  **Endpoint Verification**: The Zernio API endpoint for OAuth initiation needs to be corrected. Since I don't have the exact Zernio API documentation, I need to ask the user for the correct endpoint or handle the 404 gracefully.
+2.  **Error Formatting**: Update the edge function to detect if the response is HTML (e.g., starts with `<` or fails JSON parsing) and return a clean, user-friendly error message instead of dumping the raw HTML text.
+3.  **Frontend Toast**: Ensure the frontend toast can handle long error messages gracefully (e.g., truncation or scrolling).
 
 ## Verification
-- Check logs for the exact request payload and response from Zernio.
-- Verify the API key is accessible in the edge function.
+- Update the edge function to handle HTML error responses cleanly.
+- Ask the user to verify the correct Zernio API endpoint for OAuth initiation.
