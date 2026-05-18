@@ -27,6 +27,7 @@ import { CrmIndex } from "./pages/dashboard/crm/CrmIndex";
 import { ClientsList } from "./pages/dashboard/crm/ClientsList";
 import { ClientDetail } from "./pages/dashboard/crm/ClientDetail";
 import { Catalog } from "./pages/dashboard/crm/Catalog";
+import SocialProfiles from "./pages/dashboard/social/profiles";
 
 export const routers = [
   {
@@ -177,6 +178,11 @@ export const routers = [
     path: "/dashboard/crm/catalog",
     name: "crm-catalog",
     element: <Catalog />,
+  },
+  {
+    path: "/dashboard/social/profiles",
+    name: "social-profiles",
+    element: <SocialProfiles />,
   },
   /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
   {
