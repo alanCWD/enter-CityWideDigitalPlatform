@@ -45,8 +45,10 @@ Deno.serve(async (req) => {
         
         // OAuth flow initiation using Zernio
         const zernioKey = Deno.env.get("ZERNIO_API_KEY");
-        const payloadData = { platform, client_id, redirect_uri: `${Deno.env.get("SUPABASE_URL")}/functions/v1/social-callback` };
-        console.log("Initiating Zernio OAuth for:", { platform, client_id, hasKey: !!zernioKey });
+        // Use the frontend URL for the redirect, not the Supabase backend URL
+        const origin = req.headers.get("origin") || "http://localhost:5173";
+        const payloadData = { platform, client_id, redirect_uri: `${origin}/dashboard/social/profiles` };
+        console.log("Initiating Zernio OAuth for:", { platform, client_id, hasKey: !!zernioKey, redirect_uri: payloadData.redirect_uri });
         
         // Ensure the API key is clean (no whitespace/newlines)
         const cleanKey = zernioKey ? zernioKey.trim() : "";

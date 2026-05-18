@@ -29,6 +29,7 @@ export default function SocialProfiles() {
       });
 
       if (error) throw new Error(error.message);
+      if (!data) throw new Error("No data returned from edge function");
       if (data.error) throw new Error(data.error);
 
       if (data.authUrl) {
@@ -37,6 +38,7 @@ export default function SocialProfiles() {
         toast({ title: "Success", description: data.message });
       }
     } catch (e) {
+      console.error("Connection error:", e);
       toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
     } finally {
       setConnecting(null);
