@@ -39,14 +39,33 @@ Deno.serve(async (req) => {
           }
         }
         
-        // OAuth flow initiation
-        // In a real implementation, this would redirect to the platform's auth URL
-        // For now, we simulate the initiation by returning a mock auth URL
-        const authUrl = `https://auth.social-platform.com/oauth?platform=${platform}&client_id=${client_id}`;
-        return json({ ok: true, authUrl });
+        // OAuth flow initiation using Zernio
+        const zernioKey = Deno.env.get("ZERNIO_API_KEY");
+        const response = await fetch("https://api.zernio.com/v1/oauth/init", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${zernioKey}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ platform, client_id })
+        });
+        
+        const zernioData = await response.json();
+        return json({ ok: true, authUrl: zernioData.auth_url });
       case "social.post":
-        // Logic for unified posting
-        return json({ ok: true, message: "Post scheduled" });
+        // Logic for unified posting via Zernio
+        const zernioKeyPost = Deno.env.get("ZERNIO_API_KEY");
+        const postResponse = await fetch("https://api.zernio.com/v1/posts", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${zernioKeyPost}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const postData = await postResponse.json();
+        return json({ ok: true, message: "Post scheduled", data: postData });
       default:
         return json({ error: "Unknown action" }, 400);
     }
