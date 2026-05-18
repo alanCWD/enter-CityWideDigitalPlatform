@@ -28,6 +28,9 @@ import { ClientsList } from "./pages/dashboard/crm/ClientsList";
 import { ClientDetail } from "./pages/dashboard/crm/ClientDetail";
 import { Catalog } from "./pages/dashboard/crm/Catalog";
 import SocialProfiles from "./pages/dashboard/social/profiles";
+import ContentCalendar from "./pages/dashboard/social/calendar";
+import SocialInbox from "./pages/dashboard/social/inbox";
+import SmartCampaigns from "./pages/dashboard/social/campaigns";
 
 export const routers = [
   {
@@ -183,6 +186,21 @@ export const routers = [
     path: "/dashboard/social/profiles",
     name: "social-profiles",
     element: <SocialProfiles />,
+  },
+  {
+    path: "/dashboard/social/calendar",
+    name: "social-calendar",
+    element: <ContentCalendar />,
+  },
+  {
+    path: "/dashboard/social/inbox",
+    name: "social-inbox",
+    element: <SocialInbox />,
+  },
+  {
+    path: "/dashboard/social/campaigns",
+    name: "social-campaigns",
+    element: <SmartCampaigns />,
   },
   /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
   {
