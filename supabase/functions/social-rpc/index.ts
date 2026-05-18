@@ -47,19 +47,18 @@ Deno.serve(async (req) => {
         const zernioKey = Deno.env.get("ZERNIO_API_KEY");
         // Use the frontend URL for the redirect, not the Supabase backend URL
         const origin = req.headers.get("origin") || "http://localhost:5173";
-        const payloadData = { platform, client_id, redirect_uri: `${origin}/dashboard/social/profiles` };
+        const payloadData = { platform, profileId: client_id, redirect_uri: `${origin}/dashboard/social/profiles` };
         console.log("Initiating Zernio OAuth for:", { platform, client_id, hasKey: !!zernioKey, redirect_uri: payloadData.redirect_uri });
         
         // Ensure the API key is clean (no whitespace/newlines)
         const cleanKey = zernioKey ? zernioKey.trim() : "";
         
-        const response = await fetch("https://api.zernio.com/v1/oauth/init", {
-          method: "POST",
+        // Zernio API uses GET for connect URL, not POST
+        const response = await fetch(`https://zernio.com/api/v1/connect/${platform}?profileId=${client_id}`, {
+          method: "GET",
           headers: {
-            "Authorization": `Bearer ${cleanKey}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(payloadData)
+            "Authorization": `Bearer ${cleanKey}`
+          }
         });
         
         const text = await response.text();
@@ -77,7 +76,10 @@ Deno.serve(async (req) => {
           // but include the error message in the JSON payload.
           return json({ ok: false, error: errorMsg });
         }
-        return json({ ok: true, authUrl: zernioData.auth_url });
+        
+        // Zernio returns { authUrl: "..." } or { auth_url: "..." } depending on the endpoint version
+        const authUrl = zernioData.authUrl || zernioData.auth_url;
+        return json({ ok: true, authUrl });
       case "social.post":
         // Logic for unified posting via Zernio
         const zernioKeyPost = Deno.env.get("ZERNIO_API_KEY");
