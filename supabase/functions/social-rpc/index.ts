@@ -56,7 +56,9 @@ Deno.serve(async (req) => {
         if (!response.ok) {
           const errorMsg = `Zernio API error (${response.status}): ${JSON.stringify(zernioData)}`;
           console.error(errorMsg);
-          return new Response(errorMsg, { status: response.status });
+          // Always return 200 so the Supabase client doesn't throw a generic error,
+          // but include the error message in the JSON payload.
+          return json({ ok: false, error: errorMsg });
         }
         return json({ ok: true, authUrl: zernioData.auth_url });
       case "social.post":
