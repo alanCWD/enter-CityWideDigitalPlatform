@@ -1,0 +1,37 @@
+-- Add social media tables
+CREATE TABLE IF NOT EXISTS social_accounts (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  agency_id TEXT NOT NULL,
+  platform TEXT NOT NULL,
+  account_id TEXT NOT NULL,
+  access_token TEXT,
+  refresh_token TEXT,
+  expires_at TEXT,
+  status TEXT NOT NULL DEFAULT 'connected',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS posts (
+  id TEXT PRIMARY KEY,
+  social_account_id TEXT NOT NULL,
+  content TEXT,
+  scheduled_at TEXT,
+  status TEXT NOT NULL DEFAULT 'draft',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS affiliates (
+  id TEXT PRIMARY KEY,
+  agency_id TEXT NOT NULL,
+  commission_rate REAL NOT NULL DEFAULT 0.20,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS billing_records (
+  id TEXT PRIMARY KEY,
+  agency_id TEXT NOT NULL,
+  amount_cents INTEGER NOT NULL,
+  type TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);

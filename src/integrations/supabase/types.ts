@@ -3109,6 +3109,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      affiliates: {
+        Row: {
+          agency_id: string
+          commission_rate: number
+          created_at: string
+          id: string
+        }
+        Insert: {
+          agency_id: string
+          commission_rate?: number
+          created_at?: string
+          id: string
+        }
+        Update: {
+          agency_id?: string
+          commission_rate?: number
+          created_at?: string
+          id?: string
+        }
+        Relationships: []
+      }
+      billing_records: {
+        Row: {
+          agency_id: string
+          amount_cents: number
+          created_at: string
+          id: string
+          type: string
+        }
+        Insert: {
+          agency_id: string
+          amount_cents: number
+          created_at?: string
+          id: string
+          type: string
+        }
+        Update: {
+          agency_id?: string
+          amount_cents?: number
+          created_at?: string
+          id?: string
+          type?: string
+        }
+        Relationships: []
+      }
       gbp_connections: {
         Row: {
           access_token: string | null
@@ -3308,6 +3353,72 @@ export type Database = {
           },
         ]
       }
+      posts: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          scheduled_at: string | null
+          social_account_id: string
+          status: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id: string
+          scheduled_at?: string | null
+          social_account_id: string
+          status?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          scheduled_at?: string | null
+          social_account_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      social_accounts: {
+        Row: {
+          access_token: string | null
+          account_id: string
+          agency_id: string
+          client_id: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          platform: string
+          refresh_token: string | null
+          status: string
+        }
+        Insert: {
+          access_token?: string | null
+          account_id: string
+          agency_id: string
+          client_id: string
+          created_at?: string
+          expires_at?: string | null
+          id: string
+          platform: string
+          refresh_token?: string | null
+          status?: string
+        }
+        Update: {
+          access_token?: string | null
+          account_id?: string
+          agency_id?: string
+          client_id?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          platform?: string
+          refresh_token?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -3388,7 +3499,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_06: {
+      messages_2026_05_14: {
         Row: {
           event: string | null
           extension: string
@@ -3421,7 +3532,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_07: {
+      messages_2026_05_15: {
         Row: {
           event: string | null
           extension: string
@@ -3454,7 +3565,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_08: {
+      messages_2026_05_16: {
         Row: {
           event: string | null
           extension: string
@@ -3487,7 +3598,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_09: {
+      messages_2026_05_17: {
         Row: {
           event: string | null
           extension: string
@@ -3520,7 +3631,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_10: {
+      messages_2026_05_18: {
         Row: {
           event: string | null
           extension: string
