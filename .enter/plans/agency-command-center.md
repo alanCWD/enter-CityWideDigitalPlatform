@@ -1,34 +1,18 @@
-# Plan: Multi-tenant Social Publishing & Management SaaS
+# Plan: Investigate Zernio API Integration
 
 ## Context
-The user wants to transform the existing CRM-focused application into a comprehensive multi-tenant social media management platform. This involves:
-1.  **Multi-tenancy Architecture**: Root (CityWide) -> Agencies (Tenants) -> Clients (Sub-tenants).
-2.  **Social Media Integration**: Unified API wrapper for 15+ platforms, enforcing Google Business as the mandatory first step.
-3.  **Modules**: Social Profiles, Content Calendar, Social Inbox, Smart Campaigns.
-4.  **Monetization**: Hierarchical pricing (markup logic) and an affiliate system (20% commission).
+The user is asking if the current social media integration uses the Zernio API and if it requires secret management.
 
-## Phase 1: Exploration & Architecture
-- **Database**: Extend the existing BunnyDB schema to support social accounts, posts, campaigns, and billing/affiliate records.
-- **API Integration**: Design a unified internal wrapper for social media operations.
-- **Auth/Tenancy**: Leverage existing `agency_id` logic and extend it to support the client/sub-tenant hierarchy.
+## Exploration
+- I have searched the codebase for "zernio" and found no matches.
+- The current implementation uses a simulated `social-rpc` edge function that does not yet connect to any real third-party social media API.
 
-## Phase 2: Implementation Steps
-1.  **Schema Extensions**:
-    - Add `social_accounts` table (linked to `clients`).
-    - Add `posts`, `campaigns`, `inbox_messages` tables.
-    - Add `affiliates` and `billing_records` tables.
-2.  **Social API Wrapper**:
-    - Create a new Edge Function `social-rpc` to handle unified social operations.
-    - Implement OAuth flow with mandatory Google Business check.
-3.  **UI Modules**:
-    - Build "Social Profiles" (connection management).
-    - Build "Content Calendar" (scheduling).
-    - Build "Social Inbox" (unified messaging).
-    - Build "Smart Campaigns" (ad management).
-4.  **Billing & Affiliate Logic**:
-    - Implement usage aggregation and commission calculation logic.
+## Design
+1.  **Clarification**: Inform the user that the current implementation is a scaffold and does not use Zernio.
+2.  **Integration Strategy**: If the user intends to use Zernio, I will need to:
+    - Obtain the API key from the user.
+    - Use `supabase_add_secret` to store it securely in Enter Cloud.
+    - Update the `social-rpc` edge function to use the secret via `Deno.env.get()`.
 
 ## Verification
-- **Tenancy**: Verify that agencies can only see their own clients and social accounts.
-- **Integration**: Verify Google Business mandatory flow.
-- **Billing**: Verify markup logic and affiliate commission tracking.
+- Confirm with the user if they want to integrate Zernio or another social media API provider.
