@@ -51,14 +51,14 @@
     --text-subtle: 220 9% 48%;
     --success: 142 72% 44%;
 
-    /* ── Sidebar (unchanged) ── */
-    --sidebar-background: 220 73% 8%;
-    --sidebar-foreground: 230 38% 96%;
+    /* ── Sidebar (light mode) ── */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 8% 30%;
     --sidebar-primary: 212 100% 42%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 230 40% 24%;
-    --sidebar-accent-foreground: 230 38% 96%;
-    --sidebar-border: 220 30% 20%;
+    --sidebar-accent: 215 25% 94%;
+    --sidebar-accent-foreground: 220 8% 18%;
+    --sidebar-border: 220 13% 88%;
     --sidebar-ring: 212 100% 42%;
   }
 
@@ -82,6 +82,13 @@
     --border: 230 30% 22%;
     --input: 230 30% 22%;
     --ring: 212 100% 52%;
+
+    /* ── Sidebar (dark mode) ── */
+    --sidebar-background: 220 73% 8%;
+    --sidebar-foreground: 230 38% 96%;
+    --sidebar-accent: 230 40% 24%;
+    --sidebar-accent-foreground: 230 38% 96%;
+    --sidebar-border: 220 30% 20%;
   }
 }
 
