@@ -18,22 +18,30 @@ export function useCrmMetrics() {
   return { data, loading, error, reload };
 }
 
-export function useCrmClients(opts: { q?: string; status?: string } = {}) {
+export function useCrmClients(opts: { q?: string; status?: string; page?: number; pageSize?: number } = {}) {
   const [clients, setClients] = useState<CrmClient[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const pageSize = opts.pageSize ?? 100;
+  const page = opts.page ?? 0;
   const reload = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await crm<{ clients: CrmClient[] }>("clients.list", opts);
+      const data = await crm<{ clients: CrmClient[]; total: number }>("clients.list", {
+        q: opts.q,
+        status: opts.status,
+        limit: pageSize,
+        offset: page * pageSize,
+      });
       setClients(data.clients ?? []);
+      setTotal(data.total ?? 0);
       setError(null);
     } catch (e) { setError((e as Error).message); }
     finally { setLoading(false); }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [opts.q, opts.status]);
+  }, [opts.q, opts.status, page, pageSize]);
   useEffect(() => { reload(); }, [reload]);
-  return { clients, loading, error, reload };
+  return { clients, total, loading, error, reload };
 }
 
 export interface CrmClientDetail {

@@ -251,8 +251,14 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const where: string[] = [ts.sql]; const args: SqlValue[] = [...ts.args];
       if (status && status !== "all") { where.push("status = ?"); args.push(status); }
       if (search) { where.push("(name LIKE ? OR billing_email LIKE ? OR city LIKE ?)"); const s = `%${search}%`; args.push(s, s, s); }
-      const { rows } = await exec({ sql: `SELECT id, name, status, billing_email, phone, city, region, gbp_connection_id, agency_id, created_at, updated_at FROM clients WHERE ${where.join(" AND ")} ORDER BY updated_at DESC LIMIT 200`, args });
-      return { clients: rows };
+      const limit = Math.min(Number(payload.limit ?? 100), 500);
+      const offset = Number(payload.offset ?? 0);
+      const whereClause = where.join(" AND ");
+      const [{ rows }, { rows: countRows }] = await execMany([
+        { sql: `SELECT id, name, status, billing_email, phone, city, region, gbp_connection_id, agency_id, created_at, updated_at FROM clients WHERE ${whereClause} ORDER BY updated_at DESC LIMIT ? OFFSET ?`, args: [...args, limit, offset] },
+        { sql: `SELECT COUNT(*) as total FROM clients WHERE ${whereClause}`, args },
+      ]);
+      return { clients: rows, total: Number(countRows[0]?.total ?? 0), limit, offset };
     }
     case "clients.get": {
       const id = payload.id as string; await assertClientAccess(ctx, id);

@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, Plus, X, Upload } from "lucide-react";
+import { Search, Plus, X, Upload, ChevronLeft, ChevronRight } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClients } from "@/hooks/useCrm";
@@ -8,26 +8,51 @@ import { crm } from "@/lib/crm";
 import { StatusPill } from "@/components/crm/StatusPill";
 import { ImportClientsDialog } from "@/components/crm/ImportClientsDialog";
 
+const PAGE_SIZE = 100;
+
 export function ClientsList() {
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState("");
+  const [debouncedQ, setDebouncedQ] = useState("");
   const [status, setStatus] = useState<string>("");
-  const { clients, loading, reload } = useCrmClients({ q: q || undefined, status: status || undefined });
+  const [page, setPage] = useState(0);
+  const { clients, total, loading, reload } = useCrmClients({
+    q: debouncedQ || undefined,
+    status: status || undefined,
+    page,
+    pageSize: PAGE_SIZE,
+  });
   const showNew = params.get("new") === "1";
   const showImport = params.get("import") === "1";
+
+  // Debounce search input — reset to page 0 when query changes
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedQ(q);
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(t);
+  }, [q]);
+
+  // Reset to page 0 when status filter changes
+  useEffect(() => { setPage(0); }, [status]);
+
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const start = total === 0 ? 0 : page * PAGE_SIZE + 1;
+  const end = Math.min((page + 1) * PAGE_SIZE, total);
 
   return (
     <DashboardLayout>
       <TopBar
         title="Clients"
-        subtitle={`${clients.length} client${clients.length === 1 ? "" : "s"}`}
+        subtitle={total > 0 ? `${start}–${end} of ${total.toLocaleString()}` : loading ? "Loading…" : "0 clients"}
         action={{ label: "+ New Client", onClick: () => setParams({ new: "1" }) }}
       />
 
       <div className="px-6 pt-4 flex justify-end">
         <button
           onClick={() => setParams({ import: "1" })}
-          className="inline-flex items-center gap-1.5 bg-card dark:bg-[#111E33] hover:bg-muted dark:bg-white/10 border border-border dark:border-white/10 text-foreground dark:text-[#EEF1FA] text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+          className="inline-flex items-center gap-1.5 bg-card hover:bg-muted border border-border text-foreground text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
         >
           <Upload className="w-3.5 h-3.5" /> Import CSV
         </button>
@@ -40,16 +65,21 @@ export function ClientsList() {
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               type="text"
-              placeholder="Search by name or email…"
+              placeholder="Search by name, email or city…"
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              className="w-full bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg pl-9 pr-3 py-2 text-sm text-foreground dark:text-[#EEF1FA] placeholder:text-muted-foreground focus:outline-none focus:border-[#0078D7]/50"
+              className="w-full bg-card border border-border rounded-lg pl-9 pr-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
             />
+            {q && (
+              <button onClick={() => setQ("")} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
-            className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]/50"
+            className="bg-card border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/50"
           >
             <option value="">All statuses</option>
             <option value="active">Active</option>
@@ -61,10 +91,10 @@ export function ClientsList() {
         </div>
 
         {/* Table */}
-        <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl overflow-hidden">
+        <div className="bg-card border border-border rounded-2xl overflow-hidden">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-border dark:border-white/10 bg-muted/40 dark:bg-white/3">
+              <tr className="border-b border-border bg-muted/40">
                 <Th>Name</Th>
                 <Th>Email</Th>
                 <Th>Phone</Th>
@@ -73,28 +103,82 @@ export function ClientsList() {
               </tr>
             </thead>
             <tbody>
-              {loading && <tr><td colSpan={5} className="py-8 text-center text-xs text-muted-foreground">Loading…</td></tr>}
+              {loading && (
+                <tr><td colSpan={5} className="py-8 text-center text-xs text-muted-foreground">Loading…</td></tr>
+              )}
               {!loading && clients.length === 0 && (
                 <tr><td colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
-                  No clients yet. Click <span className="text-[#0078D7]">+ New Client</span> to add one.
+                  {q || status ? "No clients match your search." : "No clients yet. Click + New Client to add one."}
                 </td></tr>
               )}
               {clients.map((c) => (
-                <tr key={c.id} className="border-b border-border dark:border-white/5 hover:bg-muted/20 dark:bg-white/2 transition-colors">
+                <tr key={c.id} className="border-b border-border/50 hover:bg-muted/20 transition-colors">
                   <td className="px-4 py-3">
-                    <Link to={`/dashboard/crm/clients/${c.id}`} className="text-sm font-semibold text-foreground dark:text-[#EEF1FA] hover:text-[#0078D7]">
+                    <Link to={`/dashboard/crm/clients/${c.id}`} className="text-sm font-semibold text-foreground hover:text-primary">
                       {c.name}
                     </Link>
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{c.billing_email ?? "—"}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{c.phone ?? "—"}</td>
                   <td className="px-4 py-3"><StatusPill status={c.status} /></td>
-                  <td className="px-4 py-3 text-right text-xs text-muted-foreground">{new Date(c.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-right text-xs text-muted-foreground">
+                    {new Date(c.created_at).toLocaleDateString()}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-1">
+            <span className="text-xs text-muted-foreground">
+              Page {page + 1} of {totalPages} &middot; {total.toLocaleString()} total clients
+            </span>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+                className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              {/* Page number buttons — show window around current page */}
+              {Array.from({ length: totalPages }, (_, i) => i)
+                .filter((i) => i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 2)
+                .reduce<(number | "…")[]>((acc, i, idx, arr) => {
+                  if (idx > 0 && (i as number) - (arr[idx - 1] as number) > 1) acc.push("…");
+                  acc.push(i);
+                  return acc;
+                }, [])
+                .map((item, idx) =>
+                  item === "…" ? (
+                    <span key={`ellipsis-${idx}`} className="px-1 text-xs text-muted-foreground">…</span>
+                  ) : (
+                    <button
+                      key={item}
+                      onClick={() => setPage(item as number)}
+                      className={`min-w-[28px] h-7 px-1.5 text-xs rounded-lg border transition-colors ${
+                        page === item
+                          ? "bg-primary text-primary-foreground border-primary font-bold"
+                          : "border-border text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {(item as number) + 1}
+                    </button>
+                  )
+                )}
+              <button
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+                className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {showNew && (
@@ -146,24 +230,24 @@ function NewClientDialog({ onClose, onCreated }: { onClose: () => void; onCreate
       <form
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}
-        className="w-full max-w-md bg-[#0A1120] border border-border dark:border-white/10 rounded-2xl p-6 m-4 shadow-[0_24px_60px_rgba(0,0,0,0.6)]"
+        className="w-full max-w-md bg-card border border-border rounded-2xl p-6 m-4 shadow-xl"
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-foreground dark:text-[#EEF1FA]">Add Client</h2>
-          <button type="button" onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted dark:bg-white/10 hover:text-foreground dark:text-[#EEF1FA]"><X className="w-4 h-4" /></button>
+          <h2 className="text-lg font-bold text-foreground">Add Client</h2>
+          <button type="button" onClick={onClose} className="p-1 rounded-md text-muted-foreground hover:bg-muted"><X className="w-4 h-4" /></button>
         </div>
         <div className="space-y-3">
           <Field label="Business name" value={name} onChange={setName} required autoFocus />
           <Field label="Billing email" type="email" value={email} onChange={setEmail} />
           <Field label="Phone" value={phone} onChange={setPhone} />
         </div>
-        {err && <p className="mt-3 text-xs text-red-400">{err}</p>}
+        {err && <p className="mt-3 text-xs text-destructive">{err}</p>}
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground dark:text-[#EEF1FA]">Cancel</button>
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground">Cancel</button>
           <button
             type="submit"
             disabled={busy || !name.trim()}
-            className="inline-flex items-center gap-1.5 bg-[#0078D7] hover:bg-[#00447A] disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors"
+            className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-bold px-4 py-2 rounded-lg transition-colors"
           >
             <Plus className="w-3.5 h-3.5" /> {busy ? "Creating…" : "Create Client"}
           </button>
@@ -181,7 +265,7 @@ function Field({ label, value, onChange, ...props }: { label: string; value: str
         {...props}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-1 w-full bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-lg px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA] placeholder:text-muted-foreground focus:outline-none focus:border-[#0078D7]/50"
+        className="mt-1 w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
       />
     </label>
   );
