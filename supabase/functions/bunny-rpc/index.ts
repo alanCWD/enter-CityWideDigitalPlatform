@@ -250,6 +250,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const search = (payload.q ?? payload.search) as string | undefined;
       const where: string[] = [ts.sql]; const args: SqlValue[] = [...ts.args];
       if (status && status !== "all") { where.push("status = ?"); args.push(status); }
+      else if (!status) { where.push("status != 'archived'"); }
       if (search) { where.push("(name LIKE ? OR billing_email LIKE ? OR city LIKE ?)"); const s = `%${search}%`; args.push(s, s, s); }
       const limit = Math.min(Number(payload.limit ?? 100), 500);
       const offset = Number(payload.offset ?? 0);
@@ -264,7 +265,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const id = payload.id as string; await assertClientAccess(ctx, id);
       const [client, contacts, subs, invs, pays] = await execMany([
         { sql: `SELECT * FROM clients WHERE id = ? LIMIT 1`, args: [id] },
-        { sql: `SELECT * FROM contacts WHERE client_id = ? ORDER BY is_primary DESC, name ASC`, args: [id] },
+        { sql: `SELECT id, client_id, name as full_name, email, phone, role, is_primary, created_at FROM contacts WHERE client_id = ? ORDER BY is_primary DESC, name ASC`, args: [id] },
         { sql: `SELECT s.*, p.name as product_name, p.price_cents as product_price_cents, p.currency as product_currency, p.interval as product_interval FROM subscriptions s JOIN products p ON p.id = s.product_id WHERE s.client_id = ? ORDER BY s.created_at DESC`, args: [id] },
         { sql: `SELECT * FROM invoices WHERE client_id = ? ORDER BY issued_at DESC LIMIT 50`, args: [id] },
         { sql: `SELECT * FROM payments WHERE client_id = ? ORDER BY paid_at DESC LIMIT 50`, args: [id] },
@@ -289,6 +290,11 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     case "clients.archive": {
       const id = payload.id as string; await assertClientAccess(ctx, id);
       await exec({ sql: `UPDATE clients SET status = 'archived', updated_at = ? WHERE id = ?`, args: [now(), id] });
+      return { ok: true };
+    }
+    case "clients.delete": {
+      const id = payload.id as string; await assertClientAccess(ctx, id);
+      await exec({ sql: `DELETE FROM clients WHERE id = ?`, args: [id] });
       return { ok: true };
     }
     case "clients.bulkImport": {

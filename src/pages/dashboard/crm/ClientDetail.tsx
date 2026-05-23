@@ -1,6 +1,6 @@
-import { useState } from "react";
-import { useParams, Link } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
@@ -12,8 +12,10 @@ import { cn } from "@/lib/utils";
 
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>();
-  const { detail, loading, reload } = useCrmClient(id);
+  const navigate = useNavigate();
+  const { detail, loading, error, reload } = useCrmClient(id);
   const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments">("overview");
+  const [deleting, setDeleting] = useState(false);
 
   if (loading) {
     return <DashboardLayout><TopBar title="Loading…" /></DashboardLayout>;
@@ -22,16 +24,25 @@ export function ClientDetail() {
     return (
       <DashboardLayout>
         <TopBar title="Client not found" />
-        <div className="p-6">
-          <Link to="/dashboard/crm/clients" className="text-sm text-[#0078D7] hover:underline inline-flex items-center gap-1">
+        <div className="p-6 space-y-3">
+          <Link to="/dashboard/crm/clients" className="text-sm text-primary hover:underline inline-flex items-center gap-1">
             <ArrowLeft className="w-4 h-4" /> Back to clients
           </Link>
+          <ErrorDebug id={id} error={error} />
         </div>
       </DashboardLayout>
     );
   }
 
   const c = detail.client;
+  const deleteClient = async () => {
+    if (!confirm(`Permanently delete "${c.name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await crm("clients.delete", { id: c.id });
+      navigate("/dashboard/crm/clients");
+    } catch { setDeleting(false); }
+  };
 
   return (
     <DashboardLayout>
@@ -48,6 +59,14 @@ export function ClientDetail() {
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-xl font-extrabold text-foreground dark:text-[#EEF1FA]">{c.name}</h2>
               <StatusPill status={c.status} />
+              <button
+                onClick={deleteClient}
+                disabled={deleting}
+                title="Delete client"
+                className="ml-auto p-1 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
             <InfoLine icon={Mail} value={c.billing_email} />
             <InfoLine icon={Phone} value={c.phone} />
@@ -138,7 +157,7 @@ function ContactsPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
 
   const submit = async () => {
     if (!name.trim()) return;
-    await crm("contacts.upsert", { client_id: detail.client.id, full_name: name, email: email || null, phone: phone || null });
+    await crm("contacts.upsert", { client_id: detail.client.id, name, email: email || null, phone: phone || null });
     setName(""); setEmail(""); setPhone(""); setAdding(false); reload();
   };
   const remove = async (id: string) => { await crm("contacts.delete", { id }); reload(); };
@@ -166,7 +185,7 @@ function ContactsPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
           {detail.contacts.map((p) => (
             <li key={p.id} className="flex items-center justify-between py-2.5">
               <div>
-                <div className="text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{p.full_name} {p.role && <span className="text-muted-foreground font-normal">· {p.role}</span>}</div>
+                <div className="text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{(p as Record<string,unknown>).name as string ?? p.full_name} {p.role && <span className="text-muted-foreground font-normal">· {p.role}</span>}</div>
                 <div className="text-xs text-muted-foreground">{p.email ?? "—"} {p.phone && `· ${p.phone}`}</div>
               </div>
               <button onClick={() => remove(p.id)} className="p-1 text-muted-foreground hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
@@ -295,6 +314,28 @@ function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
 
 function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
   return <th className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground ${className ?? ""}`}>{children}</th>;
+}
+
+function ErrorDebug({ id, error }: { id?: string; error?: string | null }) {
+  const [raw, setRaw] = useState<string | null>(null);
+  useEffect(() => {
+    if (!id) return;
+    crm("clients.get", { id })
+      .then((d) => setRaw(JSON.stringify(d, null, 2)))
+      .catch((e) => setRaw(`Error: ${(e as Error).message}`));
+  }, [id]);
+  return (
+    <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 space-y-2">
+      <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+        <AlertCircle className="w-4 h-4" />
+        {error ?? "Could not load client"}
+      </div>
+      {raw && (
+        <pre className="text-[10px] font-mono text-muted-foreground bg-muted/40 rounded p-3 overflow-x-auto max-h-48">{raw}</pre>
+      )}
+      <p className="text-xs text-muted-foreground">Client ID: <code className="font-mono">{id}</code></p>
+    </div>
+  );
 }
 
 function InvoiceComposer({ clientId, onClose, onSent }: { clientId: string; onClose: () => void; onSent: () => void }) {
