@@ -128,14 +128,10 @@ async function bootstrap() {
 
 interface AuthCtx { userId: string; isSuperAdmin: boolean; agencyId: string; }
 async function resolveAuth(token: string): Promise<AuthCtx | { error: string }> {
-  // Use service-role admin client to validate the JWT — the recommended pattern for Edge Functions.
-  // Passing the token explicitly to getUser() decodes it server-side without needing a stored session.
   const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
   const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
   if (userErr || !userData?.user) return { error: "Invalid token" };
   const userId = userData.user.id;
-  // Super-admin: match ADMIN_EMAIL env var. Any authenticated user is otherwise allowed —
-  // tenant scoping via agency_members provides row-level isolation.
   const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "";
   const isSuperAdmin = !!ADMIN_EMAIL && userData.user.email === ADMIN_EMAIL;
   let agencyId = "citywide";
@@ -239,10 +235,10 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         { sql: `SELECT COUNT(*) as count, COALESCE(SUM(amount_cents),0) as cents FROM invoices i JOIN clients c ON c.id = i.client_id WHERE i.status IN ('open','past_due') AND ${ts.sql.replace(/agency_id/g, "c.agency_id")}`, args: ts.args },
         { sql: `SELECT COALESCE(SUM(amount_cents),0) as cents FROM payments p JOIN clients c ON c.id = p.client_id WHERE p.status = 'succeeded' AND p.paid_at >= datetime('now','-30 day') AND ${ts.sql.replace(/agency_id/g, "c.agency_id")}`, args: ts.args },
       ]);
-      return { active_clients: clients.rows[0]?.count ?? 0, mrr_cents: mrr.rows[0]?.cents ?? 0, open_invoices: openInv.rows[0]?.count ?? 0, open_invoice_cents: openInv.rows[0]?.cents ?? 0, paid30_cents: paid30.rows[0]?.cents ?? 0 };
+      return { active_clients: clients.rows[0]?.count ?? 0, mrr_cents: mrr.rows[0]?.cents ?? 0, overdue_count: openInv.rows[0]?.count ?? 0, outstanding_cents: openInv.rows[0]?.cents ?? 0, paid30_cents: paid30.rows[0]?.cents ?? 0 };
     }
 
-    case "products.list": { const { rows } = await exec({ sql: `SELECT * FROM products WHERE active = 1 ORDER BY price_cents ASC` }); return rows; }
+    case "products.list": { const { rows } = await exec({ sql: `SELECT * FROM products WHERE active = 1 ORDER BY price_cents ASC` }); return { products: rows }; }
     case "products.upsert": {
       const id = (payload.id as string) || uuid();
       await exec({ sql: `INSERT INTO products (id, name, description, price_cents, currency, interval, stripe_price_id, active) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, price_cents=excluded.price_cents, currency=excluded.currency, interval=excluded.interval, stripe_price_id=excluded.stripe_price_id, active=excluded.active`, args: [id, payload.name as string, (payload.description as string) ?? null, (payload.price_cents as number) ?? 0, (payload.currency as string) ?? "CAD", (payload.interval as string) ?? "month", (payload.stripe_price_id as string) ?? null, (payload.active as number) ?? 1] });
@@ -251,12 +247,12 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
 
     case "clients.list": {
       const status = payload.status as string | undefined;
-      const search = payload.search as string | undefined;
+      const search = (payload.q ?? payload.search) as string | undefined;
       const where: string[] = [ts.sql]; const args: SqlValue[] = [...ts.args];
       if (status && status !== "all") { where.push("status = ?"); args.push(status); }
       if (search) { where.push("(name LIKE ? OR billing_email LIKE ? OR city LIKE ?)"); const s = `%${search}%`; args.push(s, s, s); }
-      const { rows } = await exec({ sql: `SELECT id, name, status, billing_email, phone, city, region, gbp_connection_id, agency_id, created_at FROM clients WHERE ${where.join(" AND ")} ORDER BY updated_at DESC LIMIT 200`, args });
-      return rows;
+      const { rows } = await exec({ sql: `SELECT id, name, status, billing_email, phone, city, region, gbp_connection_id, agency_id, created_at, updated_at FROM clients WHERE ${where.join(" AND ")} ORDER BY updated_at DESC LIMIT 200`, args });
+      return { clients: rows };
     }
     case "clients.get": {
       const id = payload.id as string; await assertClientAccess(ctx, id);
@@ -321,8 +317,12 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       return { ok: true };
     }
     case "invoices.list": {
-      const { rows } = await exec({ sql: `SELECT i.* FROM invoices i JOIN clients c ON c.id = i.client_id WHERE ${ts.sql.replace(/agency_id/g, "c.agency_id")} ORDER BY i.issued_at DESC LIMIT 200`, args: ts.args });
-      return rows;
+      const invWhere: string[] = [ts.sql.replace(/agency_id/g, "c.agency_id")];
+      const invArgs: SqlValue[] = [...ts.args];
+      if (payload.client_id) { invWhere.push("i.client_id = ?"); invArgs.push(payload.client_id as string); }
+      if (payload.status) { invWhere.push("i.status = ?"); invArgs.push(payload.status as string); }
+      const { rows } = await exec({ sql: `SELECT i.*, c.name as client_name FROM invoices i JOIN clients c ON c.id = i.client_id WHERE ${invWhere.join(" AND ")} ORDER BY i.issued_at DESC LIMIT 200`, args: invArgs });
+      return { invoices: rows };
     }
 
     case "vault.list": {

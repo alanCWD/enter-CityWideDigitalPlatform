@@ -13,6 +13,7 @@ import {
   MessagesSquare,
   ExternalLink,
   Receipt,
+  Users,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { name: "Leads & Alerts", path: "/leads", icon: Bell },
   { name: "GSO Coach", path: "/coaching", icon: GraduationCap },
   { name: "CRM & Billing", path: "/dashboard/crm", icon: Receipt },
+  { name: "Clients", path: "/dashboard/crm/clients", icon: Users },
 ];
 
 export function Sidebar() {
@@ -97,7 +99,7 @@ function SidebarContent({ onNav }: { onNav: () => void }) {
             key={item.path}
             to={item.path}
             onClick={onNav}
-            end={item.path === "/dashboard"}
+            end={item.path === "/dashboard" || item.path === "/dashboard/crm"}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 w-full font-medium",

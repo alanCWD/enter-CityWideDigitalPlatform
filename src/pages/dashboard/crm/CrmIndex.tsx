@@ -78,9 +78,9 @@ export function CrmIndex() {
       <div className="px-6 py-6 space-y-6">
         {/* Social Modules */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <ModuleTile icon={Share2} label="Social Profiles" href="/dashboard/social/profiles" accent="#0078D7" />
-          <ModuleTile icon={Calendar} label="Content Calendar" href="/dashboard/social/calendar" accent="#8B5CF6" />
-          <ModuleTile icon={MessageSquare} label="Social Inbox" href="/dashboard/social/inbox" accent="#F59E0B" />
+          <ModuleTile icon={Users} label="Clients" href="/dashboard/crm/clients" accent="#0078D7" />
+          <ModuleTile icon={Share2} label="Social Profiles" href="/dashboard/social/profiles" accent="#8B5CF6" />
+          <ModuleTile icon={Calendar} label="Content Calendar" href="/dashboard/social/calendar" accent="#F59E0B" />
           <ModuleTile icon={Megaphone} label="Smart Campaigns" href="/dashboard/social/campaigns" accent="#EC4899" />
         </div>
 
