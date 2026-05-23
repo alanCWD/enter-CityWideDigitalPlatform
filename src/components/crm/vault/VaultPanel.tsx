@@ -34,7 +34,7 @@ export function VaultPanel({ clientId }: Props) {
 
   return (
     <div className="space-y-5">
-      <header className="bg-[#0D1526] border border-border dark:border-white/10 rounded-2xl px-5 py-4">
+      <header className="bg-card dark:bg-[#0D1526] border border-border dark:border-white/10 rounded-2xl px-5 py-4">
         <h2 className="text-base font-bold text-foreground dark:text-[#EEF1FA]">Client Vault</h2>
         <p className="text-xs text-muted-foreground mt-1">
           Internal notes, login credentials, and files for this client. Items marked

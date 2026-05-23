@@ -14,7 +14,7 @@ export function NotesSection({ clientId, notes, onChange }: Props) {
   const [adding, setAdding] = useState(false);
 
   return (
-    <section className="bg-[#0D1526] border border-border dark:border-white/10 rounded-2xl">
+    <section className="bg-card dark:bg-[#0D1526] border border-border dark:border-white/10 rounded-2xl">
       <div className="flex items-center justify-between px-5 py-3 border-b border-border dark:border-white/10">
         <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Notes</h3>
         <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#0078D7] hover:text-[#3FA9FF]">
@@ -95,7 +95,7 @@ function NoteEditor({ clientId, note, onClose, onSaved }: { clientId: string; no
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl bg-[#0A1120] border border-border dark:border-white/10 rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.6)] m-4">
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-xl bg-card dark:bg-[#0A1120] border border-border dark:border-white/10 rounded-2xl shadow-[0_24px_60px_rgba(0,0,0,0.6)] m-4">
         <div className="px-5 py-3 border-b border-border dark:border-white/10 flex items-center justify-between">
           <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">{note ? "Edit note" : "New note"}</h3>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground dark:text-[#EEF1FA] text-xs">Cancel</button>
@@ -127,7 +127,7 @@ function NoteEditor({ clientId, note, onClose, onSaved }: { clientId: string; no
           </button>
         </div>
       </div>
-      <style>{`.input { width:100%; background:#111E33; border:1px solid rgba(255,255,255,0.1); color:#EEF1FA; padding:0.5rem 0.75rem; border-radius:0.5rem; font-size:0.875rem; outline:none; } .input:focus { border-color:#0078D7; }`}</style>
+      <style>{`.input { width:100%; background:hsl(var(--input)); border:1px solid hsl(var(--border)); color:hsl(var(--foreground)); padding:0.5rem 0.75rem; border-radius:0.5rem; font-size:0.875rem; outline:none; } .input:focus { border-color:#0078D7; }`}</style>
     </div>
   );
 }

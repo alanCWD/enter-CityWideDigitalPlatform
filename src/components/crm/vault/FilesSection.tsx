@@ -74,7 +74,7 @@ export function FilesSection({ clientId, files, onChange }: Props) {
   }
 
   return (
-    <section className="bg-[#0D1526] border border-border dark:border-white/10 rounded-2xl">
+    <section className="bg-card dark:bg-[#0D1526] border border-border dark:border-white/10 rounded-2xl">
       <div className="flex items-center justify-between px-5 py-3 border-b border-border dark:border-white/10 gap-3 flex-wrap">
         <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Files</h3>
         <div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ function FileRow({ file, onChange }: { file: VaultFile; onChange: () => void }) 
           <span>{fmtSize(file.size_bytes)}</span>
           <span>{new Date(file.created_at).toLocaleDateString()}</span>
           <select value={file.kind ?? "other"} onChange={(e) => setKind(e.target.value)} disabled={busy} className="bg-transparent border border-border dark:border-white/10 rounded px-1 py-0.5 text-[10px] text-muted-foreground">
-            {KIND_OPTIONS.map((k) => <option key={k.value} value={k.value} className="bg-[#0A1120]">{k.label}</option>)}
+            {KIND_OPTIONS.map((k) => <option key={k.value} value={k.value} className="bg-card dark:bg-[#0A1120]">{k.label}</option>)}
           </select>
         </div>
       </div>
