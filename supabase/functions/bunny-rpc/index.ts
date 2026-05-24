@@ -107,7 +107,10 @@ async function bootstrap() {
     `ALTER TABLE clients ADD COLUMN agency_id TEXT NOT NULL DEFAULT 'citywide'`,
     `UPDATE clients SET agency_id = 'citywide' WHERE agency_id IS NULL OR agency_id = ''`,
     `CREATE INDEX IF NOT EXISTS clients_agency_idx ON clients(agency_id)`,
-    `CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, name TEXT NOT NULL, email TEXT, phone TEXT, role TEXT, is_primary INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    // contacts: use full_name as the canonical column; add it if the table already exists with 'name'
+    `CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, full_name TEXT NOT NULL DEFAULT '', email TEXT, phone TEXT, role TEXT, is_primary INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `ALTER TABLE contacts ADD COLUMN full_name TEXT NOT NULL DEFAULT ''`,
+    `UPDATE contacts SET full_name = name WHERE full_name = '' AND name IS NOT NULL`,
     `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', interval TEXT NOT NULL DEFAULT 'month', stripe_price_id TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE products ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 0`,
     `CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, product_id TEXT NOT NULL, quantity INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'pending', start_date TEXT, current_period_end TEXT, cancel_at_period_end INTEGER NOT NULL DEFAULT 0, stripe_subscription_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -157,8 +160,6 @@ async function assertClientAccess(ctx: AuthCtx, clientId: string): Promise<void>
 const adminStorage = createClient(SUPABASE_URL, SERVICE_KEY).storage;
 function safeName(name: string) { return name.replace(/[^\w.-]+/g, "_").slice(0, 200); }
 
-type HealthStatus = "pass" | "warn" | "fail" | "unknown" | "skipped";
-
 function bucketFor(score: number): { bucket: "critical" | "needs_work" | "healthy" | "excellent"; label: string } {
   if (score >= 90) return { bucket: "excellent", label: "Excellent" };
   if (score >= 75) return { bucket: "healthy", label: "Healthy" };
@@ -191,14 +192,14 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const { rows: tableRows } = await exec({ sql: `SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name` });
       const out: Array<{ table: string; count: number; columns: string[]; sample: BunnyRow | null; error?: string }> = [];
       for (const t of tableRows) {
-        const name = t.name as string;
+        const tname = t.name as string;
         try {
-          const { rows: countRows } = await exec({ sql: `SELECT COUNT(*) AS n FROM "${name}"` });
-          const { rows: colRows } = await exec({ sql: `PRAGMA table_info("${name}")` });
-          const { rows: sampleRows } = await exec({ sql: `SELECT * FROM "${name}" LIMIT 1` });
-          out.push({ table: name, count: Number(countRows[0]?.n ?? 0), columns: colRows.map((r) => r.name as string), sample: sampleRows[0] ?? null });
+          const { rows: countRows } = await exec({ sql: `SELECT COUNT(*) AS n FROM "${tname}"` });
+          const { rows: colRows } = await exec({ sql: `PRAGMA table_info("${tname}")` });
+          const { rows: sampleRows } = await exec({ sql: `SELECT * FROM "${tname}" LIMIT 1` });
+          out.push({ table: tname, count: Number(countRows[0]?.n ?? 0), columns: colRows.map((r) => r.name as string), sample: sampleRows[0] ?? null });
         } catch (e) {
-          out.push({ table: name, count: -1, columns: [], sample: null, error: (e as Error).message.slice(0, 200) });
+          out.push({ table: tname, count: -1, columns: [], sample: null, error: (e as Error).message.slice(0, 200) });
         }
       }
       return { tables: out };
@@ -265,7 +266,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const id = payload.id as string; await assertClientAccess(ctx, id);
       const [client, contacts, subs, invs, pays] = await execMany([
         { sql: `SELECT * FROM clients WHERE id = ? LIMIT 1`, args: [id] },
-        { sql: `SELECT id, client_id, name as full_name, email, phone, role, is_primary, created_at FROM contacts WHERE client_id = ? ORDER BY is_primary DESC, name ASC`, args: [id] },
+        { sql: `SELECT id, client_id, full_name, email, phone, role, is_primary, created_at FROM contacts WHERE client_id = ? ORDER BY is_primary DESC, full_name ASC`, args: [id] },
         { sql: `SELECT s.*, p.name as product_name, p.price_cents as product_price_cents, p.currency as product_currency, p.interval as product_interval FROM subscriptions s JOIN products p ON p.id = s.product_id WHERE s.client_id = ? ORDER BY s.created_at DESC`, args: [id] },
         { sql: `SELECT * FROM invoices WHERE client_id = ? ORDER BY issued_at DESC LIMIT 50`, args: [id] },
         { sql: `SELECT * FROM payments WHERE client_id = ? ORDER BY paid_at DESC LIMIT 50`, args: [id] },
@@ -313,7 +314,8 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     case "contacts.upsert": {
       const id = (payload.id as string) || uuid();
       await assertClientAccess(ctx, payload.client_id as string);
-      await exec({ sql: `INSERT INTO contacts (id, client_id, name, email, phone, role, is_primary) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, email=excluded.email, phone=excluded.phone, role=excluded.role, is_primary=excluded.is_primary`, args: [id, payload.client_id as string, payload.name as string, (payload.email as string) ?? null, (payload.phone as string) ?? null, (payload.role as string) ?? null, (payload.is_primary as number) ?? 0] });
+      const contactName = (payload.full_name ?? payload.name) as string;
+      await exec({ sql: `INSERT INTO contacts (id, client_id, full_name, email, phone, role, is_primary) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET full_name=excluded.full_name, email=excluded.email, phone=excluded.phone, role=excluded.role, is_primary=excluded.is_primary`, args: [id, payload.client_id as string, contactName, (payload.email as string) ?? null, (payload.phone as string) ?? null, (payload.role as string) ?? null, (payload.is_primary as number) ?? 0] });
       return { id };
     }
     case "contacts.delete": { await exec({ sql: `DELETE FROM contacts WHERE id = ?`, args: [payload.id as string] }); return { ok: true }; }

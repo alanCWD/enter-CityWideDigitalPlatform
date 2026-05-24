@@ -185,7 +185,7 @@ function ContactsPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
           {detail.contacts.map((p) => (
             <li key={p.id} className="flex items-center justify-between py-2.5">
               <div>
-                <div className="text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{(p as Record<string,unknown>).name as string ?? p.full_name} {p.role && <span className="text-muted-foreground font-normal">· {p.role}</span>}</div>
+                <div className="text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{p.full_name} {p.role && <span className="text-muted-foreground font-normal">· {p.role}</span>}</div>
                 <div className="text-xs text-muted-foreground">{p.email ?? "—"} {p.phone && `· ${p.phone}`}</div>
               </div>
               <button onClick={() => remove(p.id)} className="p-1 text-muted-foreground hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
