@@ -311,7 +311,11 @@ function StatusSelect({ clientId, status, onUpdated }: { clientId: string; statu
     try {
       await crm("clients.update", { id: clientId, status: next });
       onUpdated();
-    } catch { setCurrent(prev); }
+    } catch (err) {
+      setCurrent(prev);
+      // Stale row — reload the list to clear it
+      if ((err as Error).message?.includes("not found")) onUpdated();
+    }
     finally { setSaving(false); }
   };
 
