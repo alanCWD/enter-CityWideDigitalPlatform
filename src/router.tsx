@@ -32,6 +32,12 @@ import ContentCalendar from "./pages/dashboard/social/calendar";
 import SocialInbox from "./pages/dashboard/social/inbox";
 import { SmartCampaigns } from "./pages/dashboard/social/campaigns";
 import BillingAffiliates from "./pages/dashboard/billing/affiliates";
+import { RequirePortalAuth } from "./components/portal/RequirePortalAuth";
+
+/** Wrap an element so unauthenticated users are redirected to /portal/login */
+function Auth({ children }: { children: React.ReactNode }) {
+  return <RequirePortalAuth>{children}</RequirePortalAuth>;
+}
 
 export const routers = [
   {
@@ -59,46 +65,46 @@ export const routers = [
     name: "contact",
     element: <Contact />,
   },
-  // Agency Command Center — Dashboard Routes
+  // Agency Command Center — Dashboard Routes (require authentication)
   {
     path: "/dashboard",
     name: "dashboard",
-    element: <Dashboard />,
+    element: <Auth><Dashboard /></Auth>,
   },
   {
     path: "/builder",
     name: "builder",
-    element: <Builder />,
+    element: <Auth><Builder /></Auth>,
   },
   {
     path: "/gbp",
     name: "gbp",
-    element: <GBPIntegration />,
+    element: <Auth><GBPIntegration /></Auth>,
   },
   {
     path: "/gbp/callback",
     name: "gbp-callback",
-    element: <GbpCallback />,
+    element: <Auth><GbpCallback /></Auth>,
   },
   {
     path: "/restaurant",
     name: "restaurant",
-    element: <RestaurantHub />,
+    element: <Auth><RestaurantHub /></Auth>,
   },
   {
     path: "/analytics",
     name: "analytics",
-    element: <Analytics />,
+    element: <Auth><Analytics /></Auth>,
   },
   {
     path: "/leads",
     name: "leads",
-    element: <Leads />,
+    element: <Auth><Leads /></Auth>,
   },
   {
     path: "/coaching",
     name: "coaching",
-    element: <Coaching />,
+    element: <Auth><Coaching /></Auth>,
   },
   // Client Portal — what the agency's clients see
   {
@@ -156,57 +162,57 @@ export const routers = [
     name: "portal-vault",
     element: <PortalVault />,
   },
-  // Admin
+  // Admin (require authentication)
   {
     path: "/admin/users",
     name: "admin-users",
-    element: <AdminUsers />,
+    element: <Auth><AdminUsers /></Auth>,
   },
-  // CRM & Billing
+  // CRM & Billing (require authentication)
   {
     path: "/dashboard/crm",
     name: "crm-index",
-    element: <CrmIndex />,
+    element: <Auth><CrmIndex /></Auth>,
   },
   {
     path: "/dashboard/crm/clients",
     name: "crm-clients",
-    element: <ClientsList />,
+    element: <Auth><ClientsList /></Auth>,
   },
   {
     path: "/dashboard/crm/clients/:id",
     name: "crm-client-detail",
-    element: <ClientDetail />,
+    element: <Auth><ClientDetail /></Auth>,
   },
   {
     path: "/dashboard/crm/catalog",
     name: "crm-catalog",
-    element: <Catalog />,
+    element: <Auth><Catalog /></Auth>,
   },
   {
     path: "/dashboard/social/profiles",
     name: "social-profiles",
-    element: <SocialProfiles />,
+    element: <Auth><SocialProfiles /></Auth>,
   },
   {
     path: "/dashboard/social/calendar",
     name: "social-calendar",
-    element: <ContentCalendar />,
+    element: <Auth><ContentCalendar /></Auth>,
   },
   {
     path: "/dashboard/social/inbox",
     name: "social-inbox",
-    element: <SocialInbox />,
+    element: <Auth><SocialInbox /></Auth>,
   },
   {
     path: "/dashboard/social/campaigns",
     name: "social-campaigns",
-    element: <SmartCampaigns />,
+    element: <Auth><SmartCampaigns /></Auth>,
   },
   {
     path: "/dashboard/billing/affiliates",
     name: "billing-affiliates",
-    element: <BillingAffiliates />,
+    element: <Auth><BillingAffiliates /></Auth>,
   },
   /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
   {
@@ -215,6 +221,14 @@ export const routers = [
     element: <NotFound />,
   },
 ];
+
+declare global {
+  interface Window {
+    __routers__: typeof routers;
+  }
+}
+
+window.__routers__ = routers;
 
 declare global {
   interface Window {
