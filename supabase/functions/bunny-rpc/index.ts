@@ -357,10 +357,70 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const clientId = payload.client_id as string; await assertClientAccess(ctx, clientId);
       const [notes, creds, files] = await execMany([
         { sql: `SELECT * FROM vault_notes WHERE client_id = ? ORDER BY pinned DESC, updated_at DESC`, args: [clientId] },
-        { sql: `SELECT * FROM vault_credentials WHERE client_id = ? ORDER BY label ASC`, args: [clientId] },
+        { sql: `SELECT id, client_id, agency_id, label, category, username, password, url, mfa_method, mfa_codes as mfa_notes, notes, visibility, created_by, created_at, updated_at FROM vault_credentials WHERE client_id = ? ORDER BY label ASC`, args: [clientId] },
         { sql: `SELECT * FROM vault_files WHERE client_id = ? ORDER BY created_at DESC`, args: [clientId] },
       ]);
       return { notes: notes.rows, credentials: creds.rows, files: files.rows };
+    }
+
+    case "vault.notes.upsert": {
+      const id = (payload.id as string) || uuid();
+      await assertClientAccess(ctx, payload.client_id as string);
+      await exec({ sql: `INSERT INTO vault_notes (id, client_id, agency_id, title, body, visibility, pinned, created_by) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, visibility=excluded.visibility, pinned=excluded.pinned, updated_at=CURRENT_TIMESTAMP`, args: [id, payload.client_id as string, ctx.agencyId, payload.title as string, (payload.body as string) ?? null, (payload.visibility as string) ?? "agency_only", (payload.pinned as number) ?? 0, ctx.userId] });
+      return { id };
+    }
+    case "vault.notes.delete": {
+      await exec({ sql: `DELETE FROM vault_notes WHERE id = ?`, args: [payload.id as string] });
+      return { ok: true };
+    }
+
+    case "vault.creds.upsert": {
+      const id = (payload.id as string) || uuid();
+      await assertClientAccess(ctx, payload.client_id as string);
+      await exec({ sql: `INSERT INTO vault_credentials (id, client_id, agency_id, label, category, username, password, url, mfa_codes, notes, visibility, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET label=excluded.label, category=excluded.category, username=excluded.username, password=excluded.password, url=excluded.url, mfa_codes=excluded.mfa_codes, notes=excluded.notes, visibility=excluded.visibility, updated_at=CURRENT_TIMESTAMP`, args: [id, payload.client_id as string, ctx.agencyId, payload.label as string, (payload.category as string) ?? null, (payload.username as string) ?? null, (payload.password as string) ?? null, (payload.url as string) ?? null, (payload.mfa_notes as string) ?? null, (payload.notes as string) ?? null, (payload.visibility as string) ?? "agency_only", ctx.userId] });
+      return { id };
+    }
+    case "vault.creds.delete": {
+      await exec({ sql: `DELETE FROM vault_credentials WHERE id = ?`, args: [payload.id as string] });
+      return { ok: true };
+    }
+
+    case "vault.files.uploadUrl": {
+      const clientId = payload.client_id as string; await assertClientAccess(ctx, clientId);
+      try { await adminStorage.createBucket("vault", { public: false }); } catch { /* already exists */ }
+      const fileId = uuid();
+      const storagePath = `${ctx.agencyId}/${clientId}/${fileId}/${(payload.filename as string).replace(/[^\w.-]+/g, "_")}`;
+      const { data, error } = await adminStorage.from("vault").createSignedUploadUrl(storagePath);
+      if (error || !data) throw new Error(error?.message ?? "Failed to create upload URL");
+      return { upload_url: data.signedUrl, token: data.token, storage_path: storagePath, file_id: fileId };
+    }
+    case "vault.files.confirm": {
+      const id = (payload.file_id as string) || uuid();
+      await assertClientAccess(ctx, payload.client_id as string);
+      await exec({ sql: `INSERT OR REPLACE INTO vault_files (id, client_id, agency_id, storage_path, filename, mime_type, size_bytes, kind, visibility, uploaded_by) VALUES (?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.client_id as string, ctx.agencyId, payload.storage_path as string, payload.filename as string, (payload.mime_type as string) ?? null, (payload.size_bytes as number) ?? null, (payload.kind as string) ?? "other", (payload.visibility as string) ?? "agency_only", ctx.userId] });
+      return { id };
+    }
+    case "vault.files.download": {
+      const { rows } = await exec({ sql: `SELECT storage_path, filename, mime_type FROM vault_files WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      if (!rows[0]) throw new Error("File not found");
+      const { data, error } = await adminStorage.from("vault").createSignedUrl(rows[0].storage_path as string, 3600);
+      if (error || !data) throw new Error(error?.message ?? "Failed to create download URL");
+      return { url: data.signedUrl, filename: rows[0].filename, mime_type: rows[0].mime_type };
+    }
+    case "vault.files.delete": {
+      const { rows } = await exec({ sql: `SELECT storage_path FROM vault_files WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      if (rows[0]) {
+        await adminStorage.from("vault").remove([rows[0].storage_path as string]);
+        await exec({ sql: `DELETE FROM vault_files WHERE id = ?`, args: [payload.id as string] });
+      }
+      return { ok: true };
+    }
+    case "vault.files.update": {
+      const fields: string[] = []; const args: SqlValue[] = [];
+      if ("visibility" in payload) { fields.push("visibility = ?"); args.push(payload.visibility as string); }
+      if ("kind" in payload) { fields.push("kind = ?"); args.push(payload.kind as string); }
+      if (fields.length) { args.push(payload.id as string); await exec({ sql: `UPDATE vault_files SET ${fields.join(", ")} WHERE id = ?`, args }); }
+      return { ok: true };
     }
 
     case "agencies.list": {
