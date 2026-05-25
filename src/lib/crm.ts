@@ -102,8 +102,17 @@ export interface CrmMetrics {
 
 /** One-shot RPC call. Throws on transport / function error. */
 export async function crm<T = unknown>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
+  // Await getSession() explicitly so the session is always restored from
+  // localStorage before we call invoke — prevents the race condition where
+  // the Supabase client falls back to the anon key on first mount.
+  const { data: { session } } = await supabase.auth.getSession();
+  const headers: Record<string, string> = {};
+  if (session?.access_token) {
+    headers["Authorization"] = `Bearer ${session.access_token}`;
+  }
   const { data, error } = await supabase.functions.invoke("bunny-rpc", {
     body: { action, payload },
+    headers,
   });
   if (error) throw new Error(error.message || "Network error");
   if (data && typeof data === "object" && "error" in data && data.error) {
