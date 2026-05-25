@@ -1,11 +1,10 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, Plus, X, Upload, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, Plus, X, Upload, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClients } from "@/hooks/useCrm";
 import { crm } from "@/lib/crm";
-import { StatusPill } from "@/components/crm/StatusPill";
 import { ImportClientsDialog } from "@/components/crm/ImportClientsDialog";
 
 const PAGE_SIZE = 100;
@@ -40,6 +39,14 @@ export function ClientsList() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const start = total === 0 ? 0 : page * PAGE_SIZE + 1;
   const end = Math.min((page + 1) * PAGE_SIZE, total);
+
+  const deleteClient = useCallback(async (id: string, name: string) => {
+    if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+    try {
+      await crm("clients.delete", { id });
+      reload();
+    } catch (e) { alert((e as Error).message); }
+  }, [reload]);
 
   return (
     <DashboardLayout>
@@ -100,14 +107,15 @@ export function ClientsList() {
                 <Th>Phone</Th>
                 <Th>Status</Th>
                 <Th className="text-right">Created</Th>
+                <Th></Th>
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={5} className="py-8 text-center text-xs text-muted-foreground">Loading…</td></tr>
+                <tr><td colSpan={6} className="py-8 text-center text-xs text-muted-foreground">Loading…</td></tr>
               )}
               {!loading && clients.length === 0 && (
-                <tr><td colSpan={5} className="py-12 text-center text-sm text-muted-foreground">
+                <tr><td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
                   {q || status ? "No clients match your search." : "No clients yet. Click + New Client to add one."}
                 </td></tr>
               )}
@@ -120,9 +128,20 @@ export function ClientsList() {
                   </td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{c.billing_email ?? "—"}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground">{c.phone ?? "—"}</td>
-                  <td className="px-4 py-3"><StatusPill status={c.status} /></td>
+                  <td className="px-4 py-3">
+                    <StatusSelect clientId={c.id} status={c.status} onUpdated={reload} />
+                  </td>
                   <td className="px-4 py-3 text-right text-xs text-muted-foreground">
                     {new Date(c.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button
+                      onClick={() => deleteClient(c.id, c.name)}
+                      title="Delete client"
+                      className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -268,5 +287,44 @@ function Field({ label, value, onChange, ...props }: { label: string; value: str
         className="mt-1 w-full bg-input border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary/50"
       />
     </label>
+  );
+}
+
+const STATUS_OPTIONS = ["lead", "prospect", "active", "paused", "churned"] as const;
+const STATUS_STYLES: Record<string, string> = {
+  active:   "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
+  lead:     "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30",
+  prospect: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30",
+  paused:   "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30",
+  churned:  "bg-muted text-muted-foreground border-border",
+};
+
+function StatusSelect({ clientId, status, onUpdated }: { clientId: string; status: string; onUpdated: () => void }) {
+  const [current, setCurrent] = useState(status);
+  const [saving, setSaving] = useState(false);
+
+  const onChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const next = e.target.value;
+    const prev = current;
+    setCurrent(next);
+    setSaving(true);
+    try {
+      await crm("clients.update", { id: clientId, status: next });
+      onUpdated();
+    } catch { setCurrent(prev); }
+    finally { setSaving(false); }
+  };
+
+  const style = STATUS_STYLES[current] ?? "bg-muted text-muted-foreground border-border";
+  return (
+    <select
+      value={current}
+      onChange={onChange}
+      disabled={saving}
+      onClick={(e) => e.stopPropagation()}
+      className={`text-[10px] font-bold uppercase tracking-wider border rounded-full px-2 py-0.5 cursor-pointer focus:outline-none disabled:opacity-60 transition-colors appearance-none ${style}`}
+    >
+      {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+    </select>
   );
 }

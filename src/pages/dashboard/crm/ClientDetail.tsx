@@ -43,7 +43,6 @@ export function ClientDetail() {
       navigate("/dashboard/crm/clients");
     } catch { setDeleting(false); }
   };
-
   return (
     <DashboardLayout>
       <TopBar title={c.name} subtitle={c.billing_email ?? "No billing email"} />
@@ -58,7 +57,7 @@ export function ClientDetail() {
           <div className="md:col-span-2 space-y-1">
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-xl font-extrabold text-foreground dark:text-[#EEF1FA]">{c.name}</h2>
-              <StatusPill status={c.status} />
+              <StatusSelectPill clientId={c.id} status={c.status} onUpdated={reload} />
               <button
                 onClick={deleteClient}
                 disabled={deleting}
@@ -314,6 +313,44 @@ function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
 
 function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
   return <th className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground ${className ?? ""}`}>{children}</th>;
+}
+
+const STATUS_OPTIONS = ["lead", "prospect", "active", "paused", "churned"] as const;
+const STATUS_STYLES: Record<string, string> = {
+  active:   "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
+  lead:     "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30",
+  prospect: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30",
+  paused:   "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30",
+  churned:  "bg-muted text-muted-foreground border-border",
+};
+
+function StatusSelectPill({ clientId, status, onUpdated }: { clientId: string; status: string; onUpdated: () => void }) {
+  const [current, setCurrent] = useState(status);
+  const [saving, setSaving] = useState(false);
+
+  const onChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const next = e.target.value;
+    const prev = current;
+    setCurrent(next);
+    setSaving(true);
+    try {
+      await crm("clients.update", { id: clientId, status: next });
+      onUpdated();
+    } catch { setCurrent(prev); }
+    finally { setSaving(false); }
+  };
+
+  const style = STATUS_STYLES[current] ?? "bg-muted text-muted-foreground border-border";
+  return (
+    <select
+      value={current}
+      onChange={onChange}
+      disabled={saving}
+      className={`text-[10px] font-bold uppercase tracking-wider border rounded-full px-2 py-0.5 cursor-pointer focus:outline-none disabled:opacity-60 transition-colors appearance-none ${style}`}
+    >
+      {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
+    </select>
+  );
 }
 
 function ErrorDebug({ id, error }: { id?: string; error?: string | null }) {

@@ -123,7 +123,10 @@ async function bootstrap() {
     `CREATE TABLE IF NOT EXISTS health_checks (client_id TEXT NOT NULL, agency_id TEXT NOT NULL DEFAULT 'citywide', key TEXT NOT NULL, category TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'unknown', weight INTEGER NOT NULL DEFAULT 1, auto INTEGER NOT NULL DEFAULT 1, client_visible INTEGER NOT NULL DEFAULT 1, evidence TEXT, evidence_url TEXT, metric_value TEXT, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (client_id, key))`,
     `CREATE TABLE IF NOT EXISTS health_audits (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, url TEXT NOT NULL, strategy TEXT NOT NULL, performance INTEGER, seo INTEGER, accessibility INTEGER, best_practices INTEGER, lcp_ms INTEGER, cls REAL, inp_ms INTEGER, cwv_pass INTEGER, error TEXT, raw_report_url TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS health_citations (client_id TEXT NOT NULL, directory TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'unknown', listing_url TEXT, evidence TEXT, checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (client_id, directory))`,
-    `INSERT OR IGNORE INTO clients (id, name, status, billing_email, phone, agency_id, created_at, updated_at) VALUES ('hyperdrii-primary', 'HyperDrii', 'lead', 'info@hyperdrii.ca', '226-225-8333', 'citywide', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+    `INSERT OR IGNORE INTO clients (id, name, status, billing_email, phone, agency_id, created_at, updated_at) VALUES ('hyperdrii-1', 'HyperDrii', 'lead', 'info@hyperdrii.ca', '226-225-8333', 'citywide', '2026-05-23T00:00:00Z', '2026-05-23T00:00:00Z')`,
+    `INSERT OR IGNORE INTO clients (id, name, status, billing_email, phone, agency_id, created_at, updated_at) VALUES ('hyperdrii-2', 'HyperDrii', 'active', 'alan@citywidedigital.ca', '+1 226 225 8333', 'citywide', '2026-05-10T00:00:00Z', '2026-05-10T00:00:00Z')`,
+    `INSERT OR IGNORE INTO clients (id, name, status, billing_email, phone, agency_id, created_at, updated_at) VALUES ('hyperdrii-3', 'HyperDrii', 'lead', NULL, '226-225-8333', 'citywide', '2026-05-24T00:00:00Z', '2026-05-24T00:00:00Z')`,
+    `DELETE FROM clients WHERE id = 'hyperdrii-primary'`,
   ];
   try { await bootstrapBatch(stmts); } catch (e) { console.error("bootstrap batch failed", e); }
   bootstrapped = true;
