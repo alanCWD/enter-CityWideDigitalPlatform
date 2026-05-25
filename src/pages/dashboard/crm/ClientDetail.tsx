@@ -172,10 +172,10 @@ function ContactsPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
       </div>
       {adding && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-3 p-3 bg-muted/40 dark:bg-white/3 border border-border dark:border-white/10 rounded-lg">
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="bg-[#0A1120] border border-border dark:border-white/10 rounded-md px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
-          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="bg-[#0A1120] border border-border dark:border-white/10 rounded-md px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
-          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className="bg-[#0A1120] border border-border dark:border-white/10 rounded-md px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
-          <button onClick={submit} className="bg-[#0078D7] hover:bg-[#00447A] text-white font-bold text-sm rounded-md">Save</button>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Full name" className="bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" />
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email" className="bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" />
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Phone" className="bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" />
+          <button onClick={submit} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm rounded-md">Save</button>
         </div>
       )}
       {detail.contacts.length === 0 ? (
@@ -227,11 +227,11 @@ function SubscriptionsPanel({ detail, reload }: { detail: NonNullable<ReturnType
       <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA] uppercase tracking-wider mb-4">Subscriptions</h3>
 
       <div className="flex flex-wrap gap-2 mb-4 p-3 bg-muted/40 dark:bg-white/3 border border-border dark:border-white/10 rounded-lg">
-        <select value={pid} onChange={(e) => setPid(e.target.value)} className="flex-1 min-w-[200px] bg-[#0A1120] border border-border dark:border-white/10 rounded-md px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA]">
+        <select value={pid} onChange={(e) => setPid(e.target.value)} className="flex-1 min-w-[200px] bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground">
           <option value="">Choose a plan…</option>
           {subs.map((p) => <option key={p.id} value={p.id}>{p.name} — {fmtMoney(p.unit_amount_cents, p.currency)} / {p.interval}</option>)}
         </select>
-        <button disabled={!pid || busy} onClick={add} className="bg-[#0078D7] hover:bg-[#00447A] disabled:opacity-50 text-white font-bold text-sm px-4 py-2 rounded-md inline-flex items-center gap-1.5">
+        <button disabled={!pid || busy} onClick={add} className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-bold text-sm px-4 py-2 rounded-md inline-flex items-center gap-1.5">
           <Plus className="w-3.5 h-3.5" /> {busy ? "Adding…" : "Add Subscription"}
         </button>
       </div>
@@ -273,7 +273,7 @@ function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <button onClick={() => setComposing(true)} className="bg-[#0078D7] hover:bg-[#00447A] text-white text-sm font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5">
+        <button onClick={() => setComposing(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5">
           <Plus className="w-3.5 h-3.5" /> New Invoice
         </button>
       </div>
@@ -378,19 +378,19 @@ function InvoiceComposer({ clientId, onClose, onSent }: { clientId: string; onCl
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl bg-[#0A1120] border border-border dark:border-white/10 rounded-2xl p-6 m-4 shadow-[0_24px_60px_rgba(0,0,0,0.6)]">
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl bg-background border border-border rounded-2xl p-6 m-4 shadow-2xl">
         <h2 className="text-lg font-bold text-foreground dark:text-[#EEF1FA] mb-4">New Invoice</h2>
 
         <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1">
           {items.map((it, i) => (
             <div key={i} className="grid grid-cols-12 gap-2 items-center">
-              <select onChange={(e) => applyProduct(i, e.target.value)} value={it.product_id ?? ""} className="col-span-3 bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-md px-2 py-2 text-xs text-foreground dark:text-[#EEF1FA]">
+              <select onChange={(e) => applyProduct(i, e.target.value)} value={it.product_id ?? ""} className="col-span-3 bg-background border border-border rounded-md px-2 py-2 text-xs text-foreground">
                 <option value="">Custom…</option>
                 {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              <input value={it.description} onChange={(e) => updateItem(i, { description: e.target.value })} placeholder="Description" className="col-span-5 bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-md px-3 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
-              <input type="number" min={1} value={it.quantity} onChange={(e) => updateItem(i, { quantity: parseInt(e.target.value || "1") })} className="col-span-1 bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-md px-2 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
-              <input type="number" step="0.01" placeholder="0.00" value={it.unit_amount_cents ? String(it.unit_amount_cents / 100) : ""} onChange={(e) => updateItem(i, { unit_amount_cents: Math.round(parseFloat(e.target.value || "0") * 100) })} className="col-span-2 bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-md px-2 py-2 text-sm text-foreground dark:text-[#EEF1FA]" />
+              <input value={it.description} onChange={(e) => updateItem(i, { description: e.target.value })} placeholder="Description" className="col-span-5 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground" />
+              <input type="number" min={1} value={it.quantity} onChange={(e) => updateItem(i, { quantity: parseInt(e.target.value || "1") })} className="col-span-1 bg-background border border-border rounded-md px-2 py-2 text-sm text-foreground" />
+              <input type="number" step="0.01" placeholder="0.00" value={it.unit_amount_cents ? String(it.unit_amount_cents / 100) : ""} onChange={(e) => updateItem(i, { unit_amount_cents: Math.round(parseFloat(e.target.value || "0") * 100) })} className="col-span-2 bg-background border border-border rounded-md px-2 py-2 text-sm text-foreground placeholder:text-muted-foreground" />
               <button onClick={() => removeRow(i)} className="col-span-1 text-muted-foreground hover:text-red-400 justify-self-center"><Trash2 className="w-4 h-4" /></button>
             </div>
           ))}
@@ -403,7 +403,7 @@ function InvoiceComposer({ clientId, onClose, onSent }: { clientId: string; onCl
           <div className="flex items-center gap-3">
             <label className="text-xs text-muted-foreground flex items-center gap-2">
               Due in
-              <input type="number" min={1} max={90} value={dueDays} onChange={(e) => setDueDays(parseInt(e.target.value || "14"))} className="w-16 bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-md px-2 py-1 text-sm text-foreground dark:text-[#EEF1FA]" />
+              <input type="number" min={1} max={90} value={dueDays} onChange={(e) => setDueDays(parseInt(e.target.value || "14"))} className="w-16 bg-background border border-border rounded-md px-2 py-1 text-sm text-foreground" />
               days
             </label>
             <label className="text-xs text-muted-foreground flex items-center gap-2">
@@ -420,7 +420,7 @@ function InvoiceComposer({ clientId, onClose, onSent }: { clientId: string; onCl
 
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground dark:text-[#EEF1FA]">Cancel</button>
-          <button disabled={busy} onClick={submit} className="bg-[#0078D7] hover:bg-[#00447A] disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5">
+          <button disabled={busy} onClick={submit} className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5">
             <Send className="w-3.5 h-3.5" /> {busy ? "Sending…" : sendNow ? "Create & Send" : "Create Draft"}
           </button>
         </div>
