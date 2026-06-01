@@ -110,8 +110,10 @@ async function bootstrap() {
     `CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, full_name TEXT NOT NULL DEFAULT '', email TEXT, phone TEXT, role TEXT, is_primary INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE contacts ADD COLUMN full_name TEXT NOT NULL DEFAULT ''`,
     `UPDATE contacts SET full_name = name WHERE full_name = '' AND name IS NOT NULL`,
-    `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', interval TEXT NOT NULL DEFAULT 'month', stripe_price_id TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', interval TEXT, stripe_price_id TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE products ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE products ADD COLUMN type TEXT NOT NULL DEFAULT 'subscription'`,
+    `ALTER TABLE products ADD COLUMN interval TEXT`,
     `CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, product_id TEXT NOT NULL, quantity INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'pending', start_date TEXT, current_period_end TEXT, cancel_at_period_end INTEGER NOT NULL DEFAULT 0, stripe_subscription_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, subscription_id TEXT, number TEXT, amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', status TEXT NOT NULL DEFAULT 'draft', issued_at TEXT, due_at TEXT, paid_at TEXT, hosted_invoice_url TEXT, stripe_invoice_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE invoices ADD COLUMN amount_cents INTEGER NOT NULL DEFAULT 0`,
@@ -131,7 +133,6 @@ async function bootstrap() {
   bootstrapped = true;
 }
 
-// Runs once per instance lifespan (survives warm re-use but resets on new deployment cold start)
 let seedEnsured = false;
 async function ensureSeedData() {
   if (seedEnsured) return;
@@ -175,7 +176,6 @@ async function assertClientAccess(ctx: AuthCtx, clientId: string): Promise<void>
 }
 
 const adminStorage = createClient(SUPABASE_URL, SERVICE_KEY).storage;
-function safeName(name: string) { return name.replace(/[^\w.-]+/g, "_").slice(0, 200); }
 
 function bucketFor(score: number): { bucket: "critical" | "needs_work" | "healthy" | "excellent"; label: string } {
   if (score >= 90) return { bucket: "excellent", label: "Excellent" };
@@ -256,10 +256,14 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       return { active_clients: clients.rows[0]?.count ?? 0, mrr_cents: mrr.rows[0]?.cents ?? 0, overdue_count: openInv.rows[0]?.count ?? 0, outstanding_cents: openInv.rows[0]?.cents ?? 0, paid30_cents: paid30.rows[0]?.cents ?? 0 };
     }
 
-    case "products.list": { const { rows } = await exec({ sql: `SELECT * FROM products WHERE active = 1 ORDER BY price_cents ASC` }); return { products: rows }; }
+    case "products.list": {
+      const { rows } = await exec({ sql: `SELECT id, name, description, type, price_cents as unit_amount_cents, currency, interval, stripe_price_id, active, created_at FROM products WHERE active = 1 ORDER BY price_cents ASC` });
+      return { products: rows };
+    }
     case "products.upsert": {
       const id = (payload.id as string) || uuid();
-      await exec({ sql: `INSERT INTO products (id, name, description, price_cents, currency, interval, stripe_price_id, active) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, price_cents=excluded.price_cents, currency=excluded.currency, interval=excluded.interval, stripe_price_id=excluded.stripe_price_id, active=excluded.active`, args: [id, payload.name as string, (payload.description as string) ?? null, (payload.price_cents as number) ?? 0, (payload.currency as string) ?? "CAD", (payload.interval as string) ?? "month", (payload.stripe_price_id as string) ?? null, (payload.active as number) ?? 1] });
+      const cents = (payload.unit_amount_cents ?? payload.price_cents ?? 0) as number;
+      await exec({ sql: `INSERT INTO products (id, name, description, type, price_cents, currency, interval, stripe_price_id, active) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, type=excluded.type, price_cents=excluded.price_cents, currency=excluded.currency, interval=excluded.interval, stripe_price_id=excluded.stripe_price_id, active=excluded.active`, args: [id, payload.name as string, (payload.description as string) ?? null, (payload.type as string) ?? "subscription", cents, (payload.currency as string) ?? "CAD", (payload.interval as string) ?? null, (payload.stripe_price_id as string) ?? null, (payload.active as number) ?? 1] });
       return { id };
     }
 
@@ -284,7 +288,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const [client, contacts, subs, invs, pays] = await execMany([
         { sql: `SELECT * FROM clients WHERE id = ? LIMIT 1`, args: [id] },
         { sql: `SELECT id, client_id, full_name, email, phone, role, is_primary, created_at FROM contacts WHERE client_id = ? ORDER BY is_primary DESC, full_name ASC`, args: [id] },
-        { sql: `SELECT s.*, p.name as product_name, p.price_cents as product_price_cents, p.currency as product_currency, p.interval as product_interval FROM subscriptions s JOIN products p ON p.id = s.product_id WHERE s.client_id = ? ORDER BY s.created_at DESC`, args: [id] },
+        { sql: `SELECT s.*, p.name as product_name, p.price_cents as unit_amount_cents, p.currency as product_currency, p.interval as product_interval FROM subscriptions s JOIN products p ON p.id = s.product_id WHERE s.client_id = ? ORDER BY s.created_at DESC`, args: [id] },
         { sql: `SELECT * FROM invoices WHERE client_id = ? ORDER BY issued_at DESC LIMIT 50`, args: [id] },
         { sql: `SELECT * FROM payments WHERE client_id = ? ORDER BY paid_at DESC LIMIT 50`, args: [id] },
       ]);
@@ -365,7 +369,6 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       ]);
       return { notes: notes.rows, credentials: creds.rows, files: files.rows };
     }
-
     case "vault.notes.upsert": {
       const id = (payload.id as string) || uuid();
       await assertClientAccess(ctx, payload.client_id as string);
@@ -376,7 +379,6 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await exec({ sql: `DELETE FROM vault_notes WHERE id = ?`, args: [payload.id as string] });
       return { ok: true };
     }
-
     case "vault.creds.upsert": {
       const id = (payload.id as string) || uuid();
       await assertClientAccess(ctx, payload.client_id as string);
@@ -387,7 +389,6 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await exec({ sql: `DELETE FROM vault_credentials WHERE id = ?`, args: [payload.id as string] });
       return { ok: true };
     }
-
     case "vault.files.uploadUrl": {
       const clientId = payload.client_id as string; await assertClientAccess(ctx, clientId);
       try { await adminStorage.createBucket("vault", { public: false }); } catch { /* already exists */ }
