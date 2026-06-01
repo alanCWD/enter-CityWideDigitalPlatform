@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
@@ -16,6 +16,7 @@ export function ClientDetail() {
   const { detail, loading, error, reload } = useCrmClient(id);
   const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments">("overview");
   const [deleting, setDeleting] = useState(false);
+  const [editingHeader, setEditingHeader] = useState(false);
 
   if (loading) {
     return <DashboardLayout><TopBar title="Loading…" /></DashboardLayout>;
@@ -53,32 +54,45 @@ export function ClientDetail() {
         </Link>
 
         {/* Header summary */}
-        <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="md:col-span-2 space-y-1">
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-xl font-extrabold text-foreground dark:text-[#EEF1FA]">{c.name}</h2>
-              <StatusSelectPill clientId={c.id} status={c.status} onUpdated={reload} />
-              <button
-                onClick={deleteClient}
-                disabled={deleting}
-                title="Delete client"
-                className="ml-auto p-1 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+        {editingHeader ? (
+          <ClientEditForm client={c} onSaved={() => { setEditingHeader(false); reload(); }} onCancel={() => setEditingHeader(false)} />
+        ) : (
+          <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="md:col-span-2 space-y-1">
+              <div className="flex items-center gap-2 mb-1">
+                <h2 className="text-xl font-extrabold text-foreground dark:text-[#EEF1FA]">{c.name}</h2>
+                <StatusSelectPill clientId={c.id} status={c.status} onUpdated={reload} />
+                <div className="ml-auto flex items-center gap-1">
+                  <button
+                    onClick={() => setEditingHeader(true)}
+                    title="Edit company details"
+                    className="p-1 text-muted-foreground hover:text-[#0078D7] transition-colors"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={deleteClient}
+                    disabled={deleting}
+                    title="Delete client"
+                    className="p-1 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              <InfoLine icon={Mail} value={c.billing_email} />
+              <InfoLine icon={Phone} value={c.phone} />
+              <InfoLine icon={MapPin} value={[c.city, c.region, c.country].filter(Boolean).join(", ") || null} />
+              {c.gbp_connection_id && (
+                <Link to={`/portal/${c.gbp_connection_id}`} className="text-xs text-[#0078D7] hover:underline inline-flex items-center gap-1 mt-2">
+                  <ExternalLink className="w-3 h-3" /> Open linked GBP portal
+                </Link>
+              )}
             </div>
-            <InfoLine icon={Mail} value={c.billing_email} />
-            <InfoLine icon={Phone} value={c.phone} />
-            <InfoLine icon={MapPin} value={[c.city, c.region, c.country].filter(Boolean).join(", ") || null} />
-            {c.gbp_connection_id && (
-              <Link to={`/portal/${c.gbp_connection_id}`} className="text-xs text-[#0078D7] hover:underline inline-flex items-center gap-1 mt-2">
-                <ExternalLink className="w-3 h-3" /> Open linked GBP portal
-              </Link>
-            )}
+            <SummaryStat label="Subscriptions" value={String(detail.subscriptions.length)} />
+            <SummaryStat label="Open Invoices" value={String(detail.invoices.filter((i) => i.status === "open").length)} />
           </div>
-          <SummaryStat label="Subscriptions" value={String(detail.subscriptions.length)} />
-          <SummaryStat label="Open Invoices" value={String(detail.invoices.filter((i) => i.status === "open").length)} />
-        </div>
+        )}
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-1 border-b border-border dark:border-white/10">
@@ -125,6 +139,87 @@ export function ClientDetail() {
         )}
       </div>
     </DashboardLayout>
+  );
+}
+
+// ─── Inline client detail editor ─────────────────────────────────────────
+type ClientRow = Record<string, string | null>;
+
+function ClientEditForm({ client, onSaved, onCancel }: { client: ClientRow; onSaved: () => void; onCancel: () => void }) {
+  const fields: { key: string; label: string; type?: string; placeholder?: string }[] = [
+    { key: "name",          label: "Business Name",  placeholder: "Acme Corp" },
+    { key: "billing_email", label: "Billing Email",  type: "email", placeholder: "billing@company.com" },
+    { key: "phone",         label: "Phone",          type: "tel",   placeholder: "+1 (555) 000-0000" },
+    { key: "address_line1", label: "Street Address", placeholder: "123 Main St" },
+    { key: "city",          label: "City",           placeholder: "Vancouver" },
+    { key: "region",        label: "Province / State", placeholder: "BC" },
+    { key: "postal_code",   label: "Postal / ZIP",   placeholder: "V5K 0A1" },
+    { key: "country",       label: "Country",        placeholder: "CA" },
+    { key: "notes",         label: "Notes",          placeholder: "Internal notes…" },
+  ];
+
+  const [form, setForm] = useState<Record<string, string>>(() =>
+    Object.fromEntries(fields.map(({ key }) => [key, (client[key] as string) ?? ""]))
+  );
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
+
+  const save = async () => {
+    if (!form.name.trim()) { setErr("Business name is required."); return; }
+    setBusy(true); setErr(null);
+    try {
+      const payload: Record<string, string | null> = { id: client.id as string };
+      for (const { key } of fields) payload[key] = form[key] || null;
+      await crm("clients.update", payload);
+      onSaved();
+    } catch (e) { setErr((e as Error).message); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="bg-card dark:bg-[#111E33] border border-[#0078D7]/40 rounded-2xl p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-bold text-[#0078D7] uppercase tracking-wider">Edit Company Details</h3>
+        <button onClick={onCancel} className="p-1 text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {fields.map(({ key, label, type, placeholder }) => (
+          <label key={key} className={cn("block space-y-1", key === "notes" && "sm:col-span-2 lg:col-span-3")}>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
+            {key === "notes" ? (
+              <textarea
+                value={form[key]}
+                onChange={(e) => set(key, e.target.value)}
+                placeholder={placeholder}
+                rows={2}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#0078D7] resize-none"
+              />
+            ) : (
+              <input
+                type={type ?? "text"}
+                value={form[key]}
+                onChange={(e) => set(key, e.target.value)}
+                placeholder={placeholder}
+                className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#0078D7]"
+              />
+            )}
+          </label>
+        ))}
+      </div>
+      {err && <p className="text-xs text-red-400">{err}</p>}
+      <div className="flex justify-end gap-2 pt-1">
+        <button onClick={onCancel} className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground">Cancel</button>
+        <button
+          disabled={busy}
+          onClick={save}
+          className="bg-[#0078D7] hover:bg-[#0078D7]/90 disabled:opacity-50 text-white text-sm font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5"
+        >
+          <Save className="w-3.5 h-3.5" /> {busy ? "Saving…" : "Save Changes"}
+        </button>
+      </div>
+    </div>
   );
 }
 
