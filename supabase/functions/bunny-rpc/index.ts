@@ -110,8 +110,9 @@ async function bootstrap() {
     `CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, full_name TEXT NOT NULL DEFAULT '', email TEXT, phone TEXT, role TEXT, is_primary INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE contacts ADD COLUMN full_name TEXT NOT NULL DEFAULT ''`,
     `UPDATE contacts SET full_name = name WHERE full_name = '' AND name IS NOT NULL`,
-    `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', interval TEXT, stripe_price_id TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_cents INTEGER NOT NULL DEFAULT 0, unit_amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', interval TEXT, type TEXT NOT NULL DEFAULT 'subscription', stripe_price_id TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE products ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE products ADD COLUMN unit_amount_cents INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE products ADD COLUMN type TEXT NOT NULL DEFAULT 'subscription'`,
     `ALTER TABLE products ADD COLUMN interval TEXT`,
     `CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, product_id TEXT NOT NULL, quantity INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'pending', start_date TEXT, current_period_end TEXT, cancel_at_period_end INTEGER NOT NULL DEFAULT 0, stripe_subscription_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -249,7 +250,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     case "metrics.summary": {
       const [clients, mrr, openInv, paid30] = await execMany([
         { sql: `SELECT COUNT(*) as count FROM clients WHERE status = 'active' AND ${ts.sql}`, args: ts.args },
-        { sql: `SELECT COALESCE(SUM(p.price_cents * s.quantity), 0) as cents FROM subscriptions s JOIN products p ON p.id = s.product_id JOIN clients c ON c.id = s.client_id WHERE s.status IN ('active','trialing') AND ${ts.sql.replace(/agency_id/g, "c.agency_id")}`, args: ts.args },
+        { sql: `SELECT COALESCE(SUM(p.unit_amount_cents * s.quantity), 0) as cents FROM subscriptions s JOIN products p ON p.id = s.product_id JOIN clients c ON c.id = s.client_id WHERE s.status IN ('active','trialing') AND ${ts.sql.replace(/agency_id/g, "c.agency_id")}`, args: ts.args },
         { sql: `SELECT COUNT(*) as count, COALESCE(SUM(amount_cents),0) as cents FROM invoices i JOIN clients c ON c.id = i.client_id WHERE i.status IN ('open','past_due') AND ${ts.sql.replace(/agency_id/g, "c.agency_id")}`, args: ts.args },
         { sql: `SELECT COALESCE(SUM(amount_cents),0) as cents FROM payments p JOIN clients c ON c.id = p.client_id WHERE p.status = 'succeeded' AND p.paid_at >= datetime('now','-30 day') AND ${ts.sql.replace(/agency_id/g, "c.agency_id")}`, args: ts.args },
       ]);
@@ -257,13 +258,13 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     }
 
     case "products.list": {
-      const { rows } = await exec({ sql: `SELECT id, name, description, type, price_cents as unit_amount_cents, currency, interval, stripe_price_id, active, created_at FROM products WHERE active = 1 ORDER BY price_cents ASC` });
+      const { rows } = await exec({ sql: `SELECT id, name, description, type, unit_amount_cents, price_cents, currency, interval, stripe_price_id, active, created_at FROM products WHERE active = 1 ORDER BY unit_amount_cents ASC` });
       return { products: rows };
     }
     case "products.upsert": {
       const id = (payload.id as string) || uuid();
       const cents = (payload.unit_amount_cents ?? payload.price_cents ?? 0) as number;
-      await exec({ sql: `INSERT INTO products (id, name, description, type, price_cents, currency, interval, stripe_price_id, active) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, type=excluded.type, price_cents=excluded.price_cents, currency=excluded.currency, interval=excluded.interval, stripe_price_id=excluded.stripe_price_id, active=excluded.active`, args: [id, payload.name as string, (payload.description as string) ?? null, (payload.type as string) ?? "subscription", cents, (payload.currency as string) ?? "CAD", (payload.interval as string) ?? null, (payload.stripe_price_id as string) ?? null, (payload.active as number) ?? 1] });
+      await exec({ sql: `INSERT INTO products (id, name, description, type, price_cents, unit_amount_cents, currency, interval, stripe_price_id, active) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, type=excluded.type, price_cents=excluded.price_cents, unit_amount_cents=excluded.unit_amount_cents, currency=excluded.currency, interval=excluded.interval, stripe_price_id=excluded.stripe_price_id, active=excluded.active`, args: [id, payload.name as string, (payload.description as string) ?? null, (payload.type as string) ?? "subscription", cents, cents, (payload.currency as string) ?? "CAD", (payload.interval as string) ?? null, (payload.stripe_price_id as string) ?? null, (payload.active as number) ?? 1] });
       return { id };
     }
 
@@ -288,7 +289,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const [client, contacts, subs, invs, pays] = await execMany([
         { sql: `SELECT * FROM clients WHERE id = ? LIMIT 1`, args: [id] },
         { sql: `SELECT id, client_id, full_name, email, phone, role, is_primary, created_at FROM contacts WHERE client_id = ? ORDER BY is_primary DESC, full_name ASC`, args: [id] },
-        { sql: `SELECT s.*, p.name as product_name, p.price_cents as unit_amount_cents, p.currency as product_currency, p.interval as product_interval FROM subscriptions s JOIN products p ON p.id = s.product_id WHERE s.client_id = ? ORDER BY s.created_at DESC`, args: [id] },
+        { sql: `SELECT s.*, p.name as product_name, p.unit_amount_cents, p.currency as product_currency, p.interval as product_interval FROM subscriptions s JOIN products p ON p.id = s.product_id WHERE s.client_id = ? ORDER BY s.created_at DESC`, args: [id] },
         { sql: `SELECT * FROM invoices WHERE client_id = ? ORDER BY issued_at DESC LIMIT 50`, args: [id] },
         { sql: `SELECT * FROM payments WHERE client_id = ? ORDER BY paid_at DESC LIMIT 50`, args: [id] },
       ]);
