@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
-import { crm, fmtMoney } from "@/lib/crm";
+import { crm, fmtMoney, CrmClient, CrmInvoice } from "@/lib/crm";
 import { StatusPill } from "@/components/crm/StatusPill";
 import { VaultPanel } from "@/components/crm/vault/VaultPanel";
 import { HealthPanel } from "@/components/crm/health/HealthPanel";
@@ -619,6 +619,7 @@ function SubscriptionsPanel({ detail, reload }: { detail: NonNullable<ReturnType
 // ─── Tab: Invoices ───────────────────────────────────────────────────────
 function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<typeof useCrmClient>["detail"]>; reload: () => void }) {
   const [composing, setComposing] = useState(false);
+  const [viewing, setViewing] = useState<(typeof detail.invoices)[0] | null>(null);
 
   return (
     <div className="space-y-4">
@@ -627,10 +628,10 @@ function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
           <Plus className="w-3.5 h-3.5" /> New Invoice
         </button>
       </div>
-      <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl overflow-hidden">
+      <div className="bg-card border border-border rounded-2xl overflow-hidden">
         <table className="w-full">
           <thead>
-            <tr className="border-b border-border dark:border-white/10 bg-muted/40 dark:bg-white/3">
+            <tr className="border-b border-border bg-muted/40">
               <Th>Number</Th><Th>Status</Th><Th>Issued</Th><Th>Due</Th>
               <Th className="text-right">Total</Th><Th></Th>
             </tr>
@@ -638,18 +639,19 @@ function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
           <tbody>
             {detail.invoices.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-xs text-muted-foreground">No invoices yet.</td></tr>}
             {detail.invoices.map((inv) => (
-              <tr key={inv.id} className="border-b border-border dark:border-white/5">
-                <td className="px-4 py-3 text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{inv.number ?? inv.id.slice(0, 8)}</td>
+              <tr key={inv.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                <td className="px-4 py-3 text-sm font-semibold text-foreground">{inv.number ?? inv.id.slice(0, 8)}</td>
                 <td className="px-4 py-3"><StatusPill status={inv.status} /></td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{inv.issued_at ? new Date(inv.issued_at).toLocaleDateString() : "—"}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}</td>
-                <td className="px-4 py-3 text-right text-sm font-bold text-foreground dark:text-[#EEF1FA]">{fmtMoney(inv.total_cents, inv.currency)}</td>
+                <td className="px-4 py-3 text-right text-sm font-bold text-foreground">{fmtMoney(inv.total_cents, inv.currency)}</td>
                 <td className="px-4 py-3 text-right">
-                  {inv.hosted_invoice_url && (
-                    <a href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer" className="text-xs text-[#0078D7] hover:underline inline-flex items-center gap-1">
-                      View <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
+                  <button
+                    onClick={() => setViewing(inv)}
+                    className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium"
+                  >
+                    <FileText className="w-3 h-3" /> View
+                  </button>
                 </td>
               </tr>
             ))}
@@ -658,6 +660,7 @@ function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
       </div>
 
       {composing && <InvoiceComposer clientId={detail.client.id} onClose={() => setComposing(false)} onSent={() => { setComposing(false); reload(); }} />}
+      {viewing && <InvoicePreviewModal invoice={viewing} client={detail.client} onClose={() => setViewing(null)} onReload={reload} />}
     </div>
   );
 }
@@ -722,6 +725,175 @@ function ErrorDebug({ id, error }: { id?: string; error?: string | null }) {
         <pre className="text-[10px] font-mono text-muted-foreground bg-muted/40 rounded p-3 overflow-x-auto max-h-48">{raw}</pre>
       )}
       <p className="text-xs text-muted-foreground">Client ID: <code className="font-mono">{id}</code></p>
+    </div>
+  );
+}
+
+function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
+  invoice: CrmInvoice;
+  client: CrmClient;
+  onClose: () => void;
+  onReload: () => void;
+}) {
+  const [marking, setMarking] = useState(false);
+  const items: Array<{ description: string; quantity: number; unit_amount_cents: number }> =
+    invoice.line_items ? JSON.parse(invoice.line_items as unknown as string) : [];
+
+  const markPaid = async () => {
+    setMarking(true);
+    try {
+      await crm("invoices.markPaid", { id: invoice.id });
+      onReload();
+      onClose();
+    } finally { setMarking(false); }
+  };
+
+  const statusColors: Record<string, string> = {
+    draft: "bg-muted text-muted-foreground border-border",
+    open: "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-950 dark:text-blue-300 dark:border-blue-800",
+    paid: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:border-emerald-800",
+    past_due: "bg-red-100 text-red-700 border-red-200 dark:bg-red-950 dark:text-red-300 dark:border-red-800",
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" onClick={onClose}>
+      <div onClick={(e) => e.stopPropagation()} className="w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-card border border-border rounded-2xl shadow-2xl">
+
+        {/* Toolbar */}
+        <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-muted/30 rounded-t-2xl print:hidden">
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Invoice Preview</span>
+          <div className="flex items-center gap-2">
+            {invoice.status === "open" && (
+              <button
+                onClick={markPaid}
+                disabled={marking}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+              >
+                {marking ? "Saving…" : "Mark as Paid"}
+              </button>
+            )}
+            <button
+              onClick={() => window.print()}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-muted hover:bg-accent text-foreground transition-colors inline-flex items-center gap-1.5"
+            >
+              <Printer className="w-3.5 h-3.5" /> Print / Save PDF
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg text-muted-foreground hover:bg-accent transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Invoice Document */}
+        <div className="p-8 space-y-8">
+
+          {/* Header */}
+          <div className="flex items-start justify-between">
+            <div>
+              <h1 className="text-3xl font-black text-foreground tracking-tight">INVOICE</h1>
+              <p className="text-lg font-bold text-primary mt-0.5">{invoice.number ?? invoice.id.slice(0, 8)}</p>
+            </div>
+            <span className={cn(
+              "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border",
+              statusColors[invoice.status] ?? statusColors.draft,
+            )}>
+              {invoice.status}
+            </span>
+          </div>
+
+          {/* Agency + Client */}
+          <div className="grid grid-cols-2 gap-8">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">From</p>
+              <p className="text-sm font-bold text-foreground">Citywide Digital</p>
+              <p className="text-xs text-muted-foreground mt-0.5">alan@citywidedigital.ca</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Bill To</p>
+              <p className="text-sm font-bold text-foreground">{client.name}</p>
+              {client.billing_email && <p className="text-xs text-muted-foreground">{client.billing_email}</p>}
+              {client.phone && <p className="text-xs text-muted-foreground">{client.phone}</p>}
+              {client.address_line1 && <p className="text-xs text-muted-foreground">{client.address_line1}</p>}
+              {(client.city || client.region) && (
+                <p className="text-xs text-muted-foreground">
+                  {[client.city, client.region, client.postal_code].filter(Boolean).join(", ")}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Dates */}
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: "Issue Date", value: invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }) : "—" },
+              { label: "Due Date", value: invoice.due_date ? new Date(invoice.due_date).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }) : "—" },
+              { label: "Paid Date", value: invoice.paid_at ? new Date(invoice.paid_at).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }) : "—" },
+            ].map(({ label, value }) => (
+              <div key={label} className="bg-muted/40 rounded-xl px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
+                <p className="text-sm font-semibold text-foreground mt-0.5">{value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Line Items */}
+          <div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b-2 border-border">
+                  <th className="text-left py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Description</th>
+                  <th className="text-center py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-16">Qty</th>
+                  <th className="text-right py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-28">Unit Price</th>
+                  <th className="text-right py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-28">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.length === 0 ? (
+                  <tr><td colSpan={4} className="py-6 text-center text-xs text-muted-foreground italic">No line items</td></tr>
+                ) : items.map((item, i) => (
+                  <tr key={i} className="border-b border-border/50">
+                    <td className="py-3 text-foreground">{item.description}</td>
+                    <td className="py-3 text-center text-muted-foreground">{item.quantity}</td>
+                    <td className="py-3 text-right text-muted-foreground">{fmtMoney(item.unit_amount_cents, invoice.currency)}</td>
+                    <td className="py-3 text-right font-semibold text-foreground">{fmtMoney(item.unit_amount_cents * item.quantity, invoice.currency)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Totals */}
+          <div className="flex justify-end">
+            <div className="w-64 space-y-2">
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Subtotal</span>
+                <span>{fmtMoney(invoice.subtotal_cents ?? invoice.total_cents, invoice.currency)}</span>
+              </div>
+              {(invoice.tax_cents ?? 0) > 0 && (
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Tax</span>
+                  <span>{fmtMoney(invoice.tax_cents!, invoice.currency)}</span>
+                </div>
+              )}
+              <div className="flex justify-between text-base font-black text-foreground border-t border-border pt-2">
+                <span>Total</span>
+                <span>{fmtMoney(invoice.total_cents, invoice.currency)}</span>
+              </div>
+              {invoice.status === "paid" && (
+                <div className="flex justify-between text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                  <span>Amount Paid</span>
+                  <span>{fmtMoney(invoice.amount_paid_cents ?? invoice.total_cents, invoice.currency)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer note */}
+          <p className="text-xs text-muted-foreground text-center border-t border-border pt-4">
+            Thank you for your business.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

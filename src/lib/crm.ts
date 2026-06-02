@@ -73,12 +73,14 @@ export interface CrmInvoice {
   total_cents: number;
   amount_paid_cents: number;
   currency: string;
+  line_items: string | null;
   stripe_invoice_id: string | null;
   hosted_invoice_url: string | null;
   pdf_url: string | null;
   due_date: string | null;
   issued_at: string | null;
   paid_at: string | null;
+  sent_at: string | null;
   created_at: string;
 }
 
