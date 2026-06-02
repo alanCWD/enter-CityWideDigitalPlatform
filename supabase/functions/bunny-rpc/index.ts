@@ -116,8 +116,15 @@ async function bootstrap() {
     `ALTER TABLE products ADD COLUMN type TEXT NOT NULL DEFAULT 'subscription'`,
     `ALTER TABLE products ADD COLUMN interval TEXT`,
     `CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, product_id TEXT NOT NULL, quantity INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'pending', start_date TEXT, current_period_end TEXT, cancel_at_period_end INTEGER NOT NULL DEFAULT 0, stripe_subscription_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
-    `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, subscription_id TEXT, number TEXT, amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', status TEXT NOT NULL DEFAULT 'draft', issued_at TEXT, due_at TEXT, paid_at TEXT, hosted_invoice_url TEXT, stripe_invoice_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, agency_id TEXT NOT NULL DEFAULT 'citywide', subscription_id TEXT, number TEXT, subtotal_cents INTEGER NOT NULL DEFAULT 0, tax_cents INTEGER NOT NULL DEFAULT 0, total_cents INTEGER NOT NULL DEFAULT 0, amount_cents INTEGER NOT NULL DEFAULT 0, amount_paid_cents INTEGER NOT NULL DEFAULT 0, line_items TEXT, currency TEXT NOT NULL DEFAULT 'CAD', status TEXT NOT NULL DEFAULT 'draft', issued_at TEXT, due_at TEXT, paid_at TEXT, sent_at TEXT, hosted_invoice_url TEXT, stripe_invoice_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE invoices ADD COLUMN amount_cents INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE invoices ADD COLUMN subtotal_cents INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE invoices ADD COLUMN tax_cents INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE invoices ADD COLUMN total_cents INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE invoices ADD COLUMN amount_paid_cents INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE invoices ADD COLUMN line_items TEXT`,
+    `ALTER TABLE invoices ADD COLUMN agency_id TEXT NOT NULL DEFAULT 'citywide'`,
+    `ALTER TABLE invoices ADD COLUMN sent_at TEXT`,
     `CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, invoice_id TEXT, client_id TEXT NOT NULL, amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', method TEXT, status TEXT NOT NULL DEFAULT 'succeeded', stripe_payment_intent_id TEXT, paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE payments ADD COLUMN amount_cents INTEGER NOT NULL DEFAULT 0`,
     `CREATE TABLE IF NOT EXISTS vault_notes (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, agency_id TEXT NOT NULL DEFAULT 'citywide', title TEXT NOT NULL, body TEXT NOT NULL, visibility TEXT NOT NULL DEFAULT 'agency_only', pinned INTEGER NOT NULL DEFAULT 0, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -251,7 +258,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const [clients, mrr, openInv, paid30] = await execMany([
         { sql: `SELECT COUNT(*) as count FROM clients WHERE status = 'active' AND ${ts.sql}`, args: ts.args },
         { sql: `SELECT COALESCE(SUM(p.unit_amount_cents * s.quantity), 0) as cents FROM subscriptions s JOIN products p ON p.id = s.product_id JOIN clients c ON c.id = s.client_id WHERE s.status IN ('active','trialing') AND ${ts.sql.replace(/agency_id/g, "c.agency_id")}`, args: ts.args },
-        { sql: `SELECT COUNT(*) as count, COALESCE(SUM(amount_cents),0) as cents FROM invoices i JOIN clients c ON c.id = i.client_id WHERE i.status IN ('open','past_due') AND ${ts.sql.replace(/agency_id/g, "c.agency_id")}`, args: ts.args },
+        { sql: `SELECT COUNT(*) as count, COALESCE(SUM(total_cents),0) as cents FROM invoices i JOIN clients c ON c.id = i.client_id WHERE i.status IN ('open','past_due') AND ${ts.sql.replace(/agency_id/g, "c.agency_id")}`, args: ts.args },
         { sql: `SELECT COALESCE(SUM(amount_cents),0) as cents FROM payments p JOIN clients c ON c.id = p.client_id WHERE p.status = 'succeeded' AND p.paid_at >= datetime('now','-30 day') AND ${ts.sql.replace(/agency_id/g, "c.agency_id")}`, args: ts.args },
       ]);
       return { active_clients: clients.rows[0]?.count ?? 0, mrr_cents: mrr.rows[0]?.cents ?? 0, overdue_count: openInv.rows[0]?.count ?? 0, outstanding_cents: openInv.rows[0]?.cents ?? 0, paid30_cents: paid30.rows[0]?.cents ?? 0 };
@@ -290,7 +297,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         { sql: `SELECT * FROM clients WHERE id = ? LIMIT 1`, args: [id] },
         { sql: `SELECT id, client_id, full_name, email, phone, role, is_primary, created_at FROM contacts WHERE client_id = ? ORDER BY is_primary DESC, full_name ASC`, args: [id] },
         { sql: `SELECT s.*, p.name as product_name, p.unit_amount_cents, p.currency as product_currency, p.interval as product_interval FROM subscriptions s JOIN products p ON p.id = s.product_id WHERE s.client_id = ? ORDER BY s.created_at DESC`, args: [id] },
-        { sql: `SELECT * FROM invoices WHERE client_id = ? ORDER BY issued_at DESC LIMIT 50`, args: [id] },
+        { sql: `SELECT id, client_id, number, status, subtotal_cents, tax_cents, total_cents, amount_paid_cents, currency, line_items, issued_at, due_at as due_date, paid_at, sent_at, hosted_invoice_url, stripe_invoice_id, created_at FROM invoices WHERE client_id = ? ORDER BY issued_at DESC LIMIT 50`, args: [id] },
         { sql: `SELECT * FROM payments WHERE client_id = ? ORDER BY paid_at DESC LIMIT 50`, args: [id] },
       ]);
       return { client: client.rows[0] ?? null, contacts: contacts.rows, subscriptions: subs.rows, invoices: invs.rows, payments: pays.rows };
@@ -352,12 +359,40 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await exec({ sql: `UPDATE subscriptions SET status = ?, cancel_at_period_end = ?, updated_at = ? WHERE id = ?`, args: [payload.at_period_end ? "active" : "canceled", payload.at_period_end ? 1 : 0, now(), payload.id as string] });
       return { ok: true };
     }
+
+    case "invoices.create": {
+      await assertClientAccess(ctx, payload.client_id as string);
+      type LineItem = { description: string; quantity: number; unit_amount_cents: number; product_id?: string };
+      const items = (payload.items as LineItem[]) ?? [];
+      const subtotal = items.reduce((s, i) => s + (i.unit_amount_cents * (i.quantity || 1)), 0);
+      const tax = 0;
+      const total = subtotal + tax;
+      const dueDays = (payload.due_days as number) ?? 14;
+      const issuedAt = now();
+      const dueAt = new Date(Date.now() + dueDays * 86400000).toISOString();
+      const { rows: countRows } = await exec({ sql: `SELECT COUNT(*) as n FROM invoices` });
+      const seq = Number(countRows[0]?.n ?? 0) + 1;
+      const invoiceNum = `INV-${new Date().getFullYear()}-${String(seq).padStart(4, "0")}`;
+      const id = uuid();
+      await exec({ sql: `INSERT INTO invoices (id, client_id, agency_id, number, subtotal_cents, tax_cents, total_cents, amount_cents, amount_paid_cents, line_items, currency, status, issued_at, due_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.client_id as string, ctx.agencyId, invoiceNum, subtotal, tax, total, total, 0, JSON.stringify(items), "CAD", "draft", issuedAt, dueAt] });
+      return { id, number: invoiceNum };
+    }
+    case "invoices.send": {
+      const { rows } = await exec({ sql: `SELECT id FROM invoices WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      if (!rows[0]) throw new Error("Invoice not found");
+      await exec({ sql: `UPDATE invoices SET status = 'open', sent_at = ? WHERE id = ?`, args: [now(), payload.id as string] });
+      return { ok: true };
+    }
+    case "invoices.markPaid": {
+      await exec({ sql: `UPDATE invoices SET status = 'paid', paid_at = ?, amount_paid_cents = total_cents WHERE id = ?`, args: [now(), payload.id as string] });
+      return { ok: true };
+    }
     case "invoices.list": {
-      const invWhere: string[] = [ts.sql.replace(/agency_id/g, "c.agency_id")];
-      const invArgs: SqlValue[] = [...ts.args];
+      const invWhere: string[] = ["1=1"];
+      const invArgs: SqlValue[] = [];
       if (payload.client_id) { invWhere.push("i.client_id = ?"); invArgs.push(payload.client_id as string); }
       if (payload.status) { invWhere.push("i.status = ?"); invArgs.push(payload.status as string); }
-      const { rows } = await exec({ sql: `SELECT i.*, c.name as client_name FROM invoices i JOIN clients c ON c.id = i.client_id WHERE ${invWhere.join(" AND ")} ORDER BY i.issued_at DESC LIMIT 200`, args: invArgs });
+      const { rows } = await exec({ sql: `SELECT i.id, i.client_id, c.name as client_name, i.number, i.status, i.subtotal_cents, i.tax_cents, i.total_cents, i.amount_cents, i.amount_paid_cents, i.currency, i.line_items, i.issued_at, i.due_at as due_date, i.paid_at, i.sent_at, i.hosted_invoice_url, i.stripe_invoice_id, i.created_at FROM invoices i JOIN clients c ON c.id = i.client_id WHERE ${invWhere.join(" AND ")} ORDER BY i.issued_at DESC LIMIT 200`, args: invArgs });
       return { invoices: rows };
     }
 
