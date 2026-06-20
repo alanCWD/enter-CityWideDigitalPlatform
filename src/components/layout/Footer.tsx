@@ -14,7 +14,6 @@ const footerLinks = {
     { label: "About Us", href: "/about" },
     { label: "Pricing", href: "/pricing" },
     { label: "Contact", href: "/contact" },
-    { label: "GSO Coach Tool", href: "https://gso-coach.replit.app", external: true },
     { label: "Partner Program", href: "/contact" },
   ],
   Support: [
@@ -46,14 +45,14 @@ export default function Footer() {
               </div>
               <div className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-[#0078D7]" />
-                <a href="mailto:hello@citywideDigital.com" className="hover:text-[#EEF1FA] transition-colors">
-                  hello@citywideDigital.com
+                <a href="mailto:alan@citywidedigital.ca" className="hover:text-[#EEF1FA] transition-colors">
+                  alan@citywidedigital.ca
                 </a>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-[#0078D7]" />
-                <a href="tel:+18005550100" className="hover:text-[#EEF1FA] transition-colors">
-                  1-800-555-0100
+                <a href="tel:+12508827378" className="hover:text-[#EEF1FA] transition-colors">
+                  250-882-7378
                 </a>
               </div>
             </div>
