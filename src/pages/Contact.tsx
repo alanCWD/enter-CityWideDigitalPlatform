@@ -91,8 +91,7 @@ export default function Contact() {
               {/* Support hours */}
               <div className="text-sm text-muted-foreground">
                 <p className="font-semibold text-foreground mb-2">Support Hours</p>
-                <p>Mon–Fri: 9am – 6pm EST</p>
-                <p>Sat: 10am – 2pm EST</p>
+                <p>Mon–Fri: 9am – 6pm PST</p>
                 <p>Sun: Closed</p>
               </div>
             </div>
