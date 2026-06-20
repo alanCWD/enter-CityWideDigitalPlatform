@@ -27,7 +27,7 @@ export default function HowItWorks() {
       <div className="max-w-[1200px] mx-auto px-6">
         <div className="text-center mb-14">
           <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Simple Setup</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-secondary leading-tight mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground leading-tight mb-4">
             Live in 3 simple steps
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
@@ -46,11 +46,11 @@ export default function HowItWorks() {
                   <div className="w-16 h-16 rounded-2xl bg-[linear-gradient(135deg,#0078D7,#00447A)] flex items-center justify-center shadow-[0_4px_16px_rgba(0,120,215,0.3)]">
                     <step.icon className="w-7 h-7 text-white" />
                   </div>
-                  <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-secondary text-[10px] font-bold text-[#EEF1FA] flex items-center justify-center border-2 border-background">
+                  <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-foreground text-[10px] font-bold text-background flex items-center justify-center border-2 border-background">
                     {index + 1}
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-secondary mb-3">{step.title}</h3>
+                <h3 className="text-xl font-bold text-foreground mb-3">{step.title}</h3>
                 <p className="text-muted-foreground text-sm leading-relaxed max-w-xs">{step.description}</p>
               </div>
             ))}

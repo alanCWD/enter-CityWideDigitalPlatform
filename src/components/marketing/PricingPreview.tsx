@@ -55,7 +55,7 @@ export default function PricingPreview() {
       <div className="max-w-[1200px] mx-auto px-6">
         <div className="text-center mb-14">
           <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Simple Pricing</p>
-          <h2 className="text-3xl md:text-4xl font-bold text-secondary leading-tight mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-foreground leading-tight mb-4">
             Transparent plans. No surprises.
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
@@ -70,7 +70,7 @@ export default function PricingPreview() {
               className={
                 tier.featured
                   ? "relative rounded-2xl p-8 bg-[#1B2A4A] border-2 border-primary shadow-[0_8px_40px_rgba(0,120,215,0.25)] flex flex-col"
-                  : "relative rounded-2xl p-8 bg-white border border-border card-shadow flex flex-col"
+                  : "relative rounded-2xl p-8 bg-card border border-border card-shadow flex flex-col"
               }
             >
               {tier.featured && tier.badge && (
@@ -84,7 +84,7 @@ export default function PricingPreview() {
                   {tier.name}
                 </div>
                 <div className="flex items-baseline gap-1">
-                  <span className={`text-4xl font-extrabold ${tier.featured ? "text-[#EEF1FA]" : "text-secondary"}`}>
+                  <span className={`text-4xl font-extrabold ${tier.featured ? "text-[#EEF1FA]" : "text-foreground"}`}>
                     {tier.price}
                   </span>
                   <span className={`text-sm ${tier.featured ? "text-[rgba(238,241,250,0.6)]" : "text-muted-foreground"}`}>
