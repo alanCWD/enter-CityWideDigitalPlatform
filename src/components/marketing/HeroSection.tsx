@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { ArrowRight, CheckCircle, Play } from "lucide-react";
+import { ArrowRight, CheckCircle, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import NetworkBackground from "@/components/marketing/NetworkBackground";
@@ -47,10 +47,10 @@ export default function HeroSection() {
               </Link>
             </Button>
             <Button variant="ghost-dark" size="xl" asChild>
-              <Link to="/contact">
-                <Play className="w-4 h-4" />
-                Watch Demo
-              </Link>
+              <a href="https://meet.google.com/hde-tjen-maf" target="_blank" rel="noopener noreferrer">
+                <Calendar className="w-4 h-4" />
+                Book a Demo
+              </a>
             </Button>
           </div>
 
