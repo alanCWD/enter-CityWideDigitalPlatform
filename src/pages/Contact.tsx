@@ -53,8 +53,8 @@ export default function Contact() {
                 <h2 className="text-2xl font-bold text-secondary mb-4">Contact information</h2>
                 <div className="space-y-4">
                   {[
-                    { icon: Mail, label: "Email", value: "hello@citywideDigital.com", href: "mailto:hello@citywideDigital.com" },
-                    { icon: Phone, label: "Phone", value: "1-800-555-0100", href: "tel:+18005550100" },
+                    { icon: Mail, label: "Email", value: "alan@citywidedigital.ca", href: "mailto:alan@citywidedigital.ca" },
+                    { icon: Phone, label: "Phone", value: "250-882-7378", href: "tel:+12508827378" },
                     { icon: MapPin, label: "Location", value: "Serving businesses nationwide", href: null },
                   ].map(({ icon: Icon, label, value, href }) => (
                     <div key={label} className="flex items-start gap-3">

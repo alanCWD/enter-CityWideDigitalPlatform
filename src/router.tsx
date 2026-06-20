@@ -11,7 +11,6 @@ import { GbpCallback } from "./pages/dashboard/GbpCallback";
 import { RestaurantHub } from "./pages/dashboard/RestaurantHub";
 import { Analytics } from "./pages/dashboard/Analytics";
 import { Leads } from "./pages/dashboard/Leads";
-import { Coaching } from "./pages/dashboard/Coaching";
 import PortalLogin from "./pages/portal/Login";
 import PortalSignup from "./pages/portal/Signup";
 import PortalOverview from "./pages/portal/Overview";
@@ -100,11 +99,6 @@ export const routers = [
     path: "/leads",
     name: "leads",
     element: <Auth><Leads /></Auth>,
-  },
-  {
-    path: "/coaching",
-    name: "coaching",
-    element: <Auth><Coaching /></Auth>,
   },
   // Client Portal — what the agency's clients see
   {
