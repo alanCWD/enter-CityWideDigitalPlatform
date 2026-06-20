@@ -39,8 +39,8 @@ const team = [
 export default function About() {
   return (
     <Layout>
-      {/* Hero */}
-      <section className="bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_100%)] py-20 md:py-28">
+      {/* Hero — extends behind the fixed navbar like the home hero */}
+      <section className="bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_100%)] -mt-[88px] pt-[128px] pb-20 md:pt-[152px] md:pb-28">
         <div className="max-w-[1200px] mx-auto px-6 text-center">
           <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Our Story</p>
           <h1 className="text-4xl md:text-5xl font-extrabold text-[#EEF1FA] mb-5 leading-tight text-balance">

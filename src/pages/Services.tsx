@@ -98,7 +98,7 @@ export default function Services() {
   return (
     <Layout>
       {/* Page Hero */}
-      <section className="bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_100%)] py-20 md:py-28">
+      <section className="bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_100%)] -mt-[88px] pt-[128px] pb-20 md:pt-[152px] md:pb-28">
         <div className="max-w-[1200px] mx-auto px-6 text-center">
           <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Our Products</p>
           <h1 className="text-4xl md:text-5xl font-extrabold text-[#EEF1FA] mb-5 leading-tight">
@@ -115,7 +115,7 @@ export default function Services() {
         <section
           key={service.id}
           id={service.id}
-          className={`py-20 md:py-28 ${index % 2 === 0 ? "bg-background" : "bg-[#F0F5FF]"}`}
+          className={`py-20 md:py-28 ${index % 2 === 0 ? "bg-background" : "section-alt"}`}
         >
           <div className="max-w-[1200px] mx-auto px-6">
             <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
