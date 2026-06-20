@@ -35,10 +35,10 @@ export default function CTABanner() {
             className="border-white/40 text-white hover:bg-white/10"
             asChild
           >
-            <Link to="/contact">
+            <a href="https://meet.google.com/hde-tjen-maf" target="_blank" rel="noopener noreferrer">
               <Calendar className="w-5 h-5" />
               Book a Demo Call
-            </Link>
+            </a>
           </Button>
         </div>
 

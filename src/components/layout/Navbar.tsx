@@ -73,7 +73,7 @@ export default function Navbar() {
           {/* Desktop CTAs */}
           <div className="hidden md:flex items-center gap-3">
             <Button variant="ghost-dark" size="sm" asChild>
-              <Link to="/contact">Book a Demo</Link>
+              <a href="https://meet.google.com/hde-tjen-maf" target="_blank" rel="noopener noreferrer">Book a Demo</a>
             </Button>
             <Button variant="on-dark" size="sm" asChild>
               <Link to="/pricing">Get Started</Link>
@@ -130,7 +130,7 @@ export default function Navbar() {
           ))}
           <div className="mt-4 flex flex-col gap-3 pt-4 border-t border-white/10">
             <Button variant="ghost-dark" asChild>
-              <Link to="/contact">Book a Demo</Link>
+              <a href="https://meet.google.com/hde-tjen-maf" target="_blank" rel="noopener noreferrer">Book a Demo</a>
             </Button>
             <Button variant="on-dark" asChild>
               <Link to="/pricing">Get Started Free</Link>
