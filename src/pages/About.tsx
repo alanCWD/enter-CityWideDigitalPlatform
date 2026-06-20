@@ -12,7 +12,7 @@ const values = [
   },
   {
     icon: Users,
-    title: "SMBs Deserve Enterprise Tools",
+    title: "Small Businesses Deserve Enterprise Tools",
     description: "Large chains have dedicated marketing teams. We level the playing field by giving independent businesses the same digital infrastructure — at a fraction of the cost.",
   },
   {
@@ -30,10 +30,10 @@ const values = [
 const team = [
   { name: "Alex Rivera", role: "Co-Founder & CEO", initials: "AR", bg: "bg-[#0078D7]" },
   { name: "Priya Nair", role: "Co-Founder & CTO", initials: "PN", bg: "bg-[#00447A]" },
-  { name: "Jordan Chase", role: "Head of Product", initials: "JC", bg: "bg-[#1B2A4A]" },
+  { name: "Jordan Chase", role: "Head of Product", initials: "JC", bg: "bg-primary" },
   { name: "Maria Santos", role: "Head of Customer Success", initials: "MS", bg: "bg-[#0078D7]" },
   { name: "Derek Wu", role: "Lead Engineer", initials: "DW", bg: "bg-[#00447A]" },
-  { name: "Tanya Osei", role: "Head of Partnerships", initials: "TO", bg: "bg-[#1B2A4A]" },
+  { name: "Tanya Osei", role: "Head of Partnerships", initials: "TO", bg: "bg-primary" },
 ];
 
 export default function About() {
@@ -57,7 +57,7 @@ export default function About() {
         <div className="max-w-[1200px] mx-auto px-6">
           <div className="grid lg:grid-cols-2 gap-16 items-center">
             <div>
-              <h2 className="text-3xl font-bold text-secondary mb-6">The problem we saw everywhere</h2>
+              <h2 className="text-3xl font-bold text-foreground mb-6">The problem we saw everywhere</h2>
               <div className="space-y-4 text-muted-foreground leading-relaxed">
                 <p>
                   We spent years working with hundreds of small businesses across the country — restaurants, roofers, boutiques, salons. The same story repeated over and over: they had a Google Business Profile that was more or less up to date, but their website was outdated, their directory listings had the wrong phone number, and their social pages went silent for weeks at a time.
@@ -77,7 +77,7 @@ export default function About() {
                 { value: "40+", label: "Directories synced" },
                 { value: "4.9★", label: "Avg. customer rating" },
               ].map((stat) => (
-                <div key={stat.label} className="bg-[#F0F5FF] rounded-2xl p-6 border border-[#0078D7]/10 text-center">
+                <div key={stat.label} className="bg-accent rounded-2xl p-6 border border-border text-center">
                   <div className="text-3xl font-extrabold text-primary mb-1">{stat.value}</div>
                   <div className="text-sm text-muted-foreground">{stat.label}</div>
                 </div>
@@ -88,21 +88,21 @@ export default function About() {
       </section>
 
       {/* Values */}
-      <section className="py-20 md:py-28 bg-[#F0F5FF]">
+      <section className="py-20 md:py-28 section-alt">
         <div className="max-w-[1200px] mx-auto px-6">
           <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold text-secondary mb-4">What we stand for</h2>
+            <h2 className="text-3xl font-bold text-foreground mb-4">What we stand for</h2>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">
               Four principles guide every decision we make.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {values.map((v) => (
-              <div key={v.title} className="bg-white rounded-2xl p-6 border border-border card-shadow">
+              <div key={v.title} className="bg-card rounded-2xl p-6 border border-border card-shadow">
                 <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center mb-5">
                   <v.icon className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="text-lg font-bold text-secondary mb-2">{v.title}</h3>
+                <h3 className="text-lg font-bold text-foreground mb-2">{v.title}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">{v.description}</p>
               </div>
             ))}
@@ -114,19 +114,19 @@ export default function About() {
       <section className="py-20 md:py-28 bg-background">
         <div className="max-w-[1200px] mx-auto px-6">
           <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold text-secondary mb-4">The team behind CityWide</h2>
+            <h2 className="text-3xl font-bold text-foreground mb-4">The team behind CityWide</h2>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">
               A small, focused team that's deeply invested in local business success.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {team.map((member) => (
-              <div key={member.name} className="flex items-center gap-4 bg-white rounded-2xl p-5 border border-border card-shadow">
+              <div key={member.name} className="flex items-center gap-4 bg-card rounded-2xl p-5 border border-border card-shadow">
                 <div className={`w-14 h-14 rounded-2xl ${member.bg} flex items-center justify-center text-white font-bold text-lg flex-shrink-0`}>
                   {member.initials}
                 </div>
                 <div>
-                  <div className="font-bold text-secondary">{member.name}</div>
+                  <div className="font-bold text-foreground">{member.name}</div>
                   <div className="text-sm text-muted-foreground">{member.role}</div>
                 </div>
               </div>

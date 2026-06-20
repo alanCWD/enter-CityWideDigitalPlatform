@@ -135,7 +135,7 @@ const faqs = [
 
 function FeatureValue({ value }: { value: boolean | string }) {
   if (value === false) return <Minus className="w-4 h-4 text-muted-foreground/40 mx-auto" />;
-  if (value === true) return <CheckCircle className="w-4 h-4 text-[#22C55E] mx-auto" />;
+  if (value === true) return <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />;
   return <span className="text-xs font-semibold text-primary">{value}</span>;
 }
 
@@ -145,12 +145,12 @@ export default function Pricing() {
       {/* Hero */}
       <section className="bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_100%)] py-20 md:py-28">
         <div className="max-w-[1200px] mx-auto px-6 text-center">
-          <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Pricing</p>
+          <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Simple Pricing</p>
           <h1 className="text-4xl md:text-5xl font-extrabold text-[#EEF1FA] mb-5 leading-tight">
-            Simple, transparent pricing
+            Transparent plans. No surprises.
           </h1>
           <p className="text-lg text-[rgba(238,241,250,0.7)] max-w-xl mx-auto">
-            No hidden fees. No long-term contracts. Start free, scale as you grow.
+            Start with a 30-day free trial. Cancel anytime. No setup fees.
           </p>
         </div>
       </section>
@@ -165,7 +165,7 @@ export default function Pricing() {
                 className={
                   tier.featured
                     ? "relative rounded-2xl p-8 bg-[#1B2A4A] border-2 border-primary shadow-[0_8px_40px_rgba(0,120,215,0.25)]"
-                    : "relative rounded-2xl p-8 bg-white border border-border card-shadow"
+                    : "relative rounded-2xl p-8 bg-card border border-border card-shadow"
                 }
               >
                 {tier.featured && tier.badge && (
@@ -177,7 +177,7 @@ export default function Pricing() {
                   {tier.name}
                 </div>
                 <div className="flex items-baseline gap-1 mb-2">
-                  <span className={`text-4xl font-extrabold ${tier.featured ? "text-[#EEF1FA]" : "text-secondary"}`}>{tier.price}</span>
+                  <span className={`text-4xl font-extrabold ${tier.featured ? "text-[#EEF1FA]" : "text-foreground"}`}>{tier.price}</span>
                   <span className={`text-sm ${tier.featured ? "text-[rgba(238,241,250,0.6)]" : "text-muted-foreground"}`}>{tier.period}</span>
                 </div>
                 <p className={`text-sm mb-6 ${tier.featured ? "text-[rgba(238,241,250,0.7)]" : "text-muted-foreground"}`}>{tier.tagline}</p>
@@ -234,9 +234,9 @@ export default function Pricing() {
       </section>
 
       {/* Add-ons */}
-      <section className="py-16 bg-[#F0F5FF]">
+      <section className="py-16 section-alt">
         <div className="max-w-[1200px] mx-auto px-6">
-          <h2 className="text-2xl font-bold text-secondary mb-2">Add-ons</h2>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Add-ons</h2>
           <p className="text-muted-foreground mb-8">Optional extras available on any plan.</p>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
@@ -244,9 +244,9 @@ export default function Pricing() {
               { name: "Extra Directories Pack", price: "$29 / mo", desc: "Expand your listing coverage to niche-specific and regional directories beyond the standard 40+." },
               { name: "White-Label License", price: "Contact us", desc: "Resell CityWide Digital under your own brand. Includes sub-account management and commission program." },
             ].map((addon) => (
-              <div key={addon.name} className="bg-white rounded-2xl p-6 border border-border card-shadow">
+              <div key={addon.name} className="bg-card rounded-2xl p-6 border border-border card-shadow">
                 <div className="text-xs font-bold text-primary mb-1 uppercase tracking-wider">{addon.price}</div>
-                <h3 className="text-lg font-bold text-secondary mb-2">{addon.name}</h3>
+                <h3 className="text-lg font-bold text-foreground mb-2">{addon.name}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">{addon.desc}</p>
               </div>
             ))}
@@ -258,13 +258,13 @@ export default function Pricing() {
       <section className="py-20 bg-background">
         <div className="max-w-[800px] mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-secondary mb-3">Frequently Asked Questions</h2>
+            <h2 className="text-3xl font-bold text-foreground mb-3">Frequently Asked Questions</h2>
             <p className="text-muted-foreground">Everything you need to know before getting started.</p>
           </div>
           <Accordion type="single" collapsible className="space-y-3">
             {faqs.map((faq, i) => (
-              <AccordionItem key={i} value={`faq-${i}`} className="bg-white border border-border rounded-xl px-6">
-                <AccordionTrigger className="text-left font-semibold text-secondary hover:no-underline py-5">
+              <AccordionItem key={i} value={`faq-${i}`} className="bg-card border border-border rounded-xl px-6">
+                <AccordionTrigger className="text-left font-semibold text-foreground hover:no-underline py-5">
                   {faq.q}
                 </AccordionTrigger>
                 <AccordionContent className="text-muted-foreground leading-relaxed pb-5">

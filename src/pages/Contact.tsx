@@ -50,7 +50,7 @@ export default function Contact() {
             {/* Info Column */}
             <div className="lg:col-span-2 space-y-8">
               <div>
-                <h2 className="text-2xl font-bold text-secondary mb-4">Contact information</h2>
+                <h2 className="text-2xl font-bold text-foreground mb-4">Contact information</h2>
                 <div className="space-y-4">
                   {[
                     { icon: Mail, label: "Email", value: "alan@citywidedigital.ca", href: "mailto:alan@citywidedigital.ca" },
@@ -99,18 +99,18 @@ export default function Contact() {
             {/* Form Column */}
             <div className="lg:col-span-3">
               {submitted ? (
-                <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-white rounded-2xl border border-border card-shadow">
-                  <div className="w-16 h-16 rounded-full bg-[#22C55E]/15 border border-[#22C55E]/30 flex items-center justify-center mb-5">
-                    <CheckCircle className="w-8 h-8 text-[#22C55E]" />
+                <div className="h-full flex flex-col items-center justify-center text-center p-12 bg-card rounded-2xl border border-border card-shadow">
+                  <div className="w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center mb-5">
+                    <CheckCircle className="w-8 h-8 text-emerald-500" />
                   </div>
-                  <h3 className="text-2xl font-bold text-secondary mb-3">Message received!</h3>
+                  <h3 className="text-2xl font-bold text-foreground mb-3">Message received!</h3>
                   <p className="text-muted-foreground max-w-sm">
                     Thanks for reaching out. A member of our team will get back to you within one business day.
                   </p>
                 </div>
               ) : (
-                <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-8 border border-border card-shadow space-y-5">
-                  <h3 className="text-xl font-bold text-secondary mb-2">Send us a message</h3>
+                <form onSubmit={handleSubmit} className="bg-card rounded-2xl p-8 border border-border card-shadow space-y-5">
+                  <h3 className="text-xl font-bold text-foreground mb-2">Send us a message</h3>
 
                   <div className="grid sm:grid-cols-2 gap-5">
                     <div className="space-y-1.5">
