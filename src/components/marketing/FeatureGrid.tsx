@@ -18,8 +18,8 @@ const features = [
   },
   {
     icon: Video,
-    title: "Video Review Engine",
-    description: "Solicit video testimonials via SMS/email. Approved reviews auto-embed on your testimonials page.",
+    title: "Review Engine",
+    description: "Solicit testimonials via SMS/email. Approved reviews auto-embed on your testimonials page.",
   },
   {
     icon: Settings,

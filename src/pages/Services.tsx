@@ -61,10 +61,10 @@ const services = [
   {
     id: "video-reviews",
     icon: Video,
-    name: "Video Review Engine",
+    name: "Review Engine",
     price: "$37/mo",
     tagline: "Turn happy customers into your best salespeople",
-    description: "Text reviews are easy to fake — video reviews build real trust. Our Video Review Engine makes it simple to request, collect, and display short video testimonials from your customers. Approved reviews are automatically embedded on your website's testimonial page.",
+    description: "Our Review Engine makes it simple to solicit, collect, and display customer testimonials via SMS or email. Approved reviews are automatically embedded on your website's testimonial page.",
     features: [
       "SMS and email review request campaigns",
       "Mobile-friendly video recording interface",
@@ -124,7 +124,7 @@ export default function Services() {
                   <service.icon className="w-7 h-7 text-white" />
                 </div>
                 <div className="text-xs font-bold text-primary uppercase tracking-widest mb-2">{service.price}</div>
-                <h2 className="text-3xl font-extrabold text-secondary mb-3">{service.name}</h2>
+                <h2 className="text-3xl font-extrabold text-foreground mb-3">{service.name}</h2>
                 <p className="text-lg font-medium text-foreground mb-4">{service.tagline}</p>
                 <p className="text-muted-foreground leading-relaxed mb-8">{service.description}</p>
 
@@ -140,7 +140,7 @@ export default function Services() {
 
               <div className={index % 2 !== 0 ? "lg:order-1" : ""}>
                 <div className="bg-white rounded-2xl p-8 border border-border card-shadow">
-                  <h4 className="text-sm font-bold text-secondary uppercase tracking-wider mb-5">What's Included</h4>
+                  <h4 className="text-sm font-bold text-foreground uppercase tracking-wider mb-5">What's Included</h4>
                   <ul className="space-y-3">
                     {service.features.map((f) => (
                       <li key={f} className="flex items-start gap-3">
@@ -152,7 +152,7 @@ export default function Services() {
 
                   {service.niches.length > 0 && (
                     <div className="mt-6 pt-6 border-t border-border">
-                      <h4 className="text-xs font-bold text-secondary uppercase tracking-wider mb-3">Supported Industries</h4>
+                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">Supported Industries</h4>
                       <div className="flex flex-wrap gap-2">
                         {service.niches.map((n) => (
                           <span key={n} className="text-xs bg-accent text-accent-foreground rounded-full px-3 py-1 font-medium">

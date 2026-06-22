@@ -36,12 +36,12 @@ const products = [
   },
   {
     icon: Video,
-    name: "Video Review Engine",
+    name: "Review Engine",
     tagline: "Turn customers into advocates",
     price: "$37/mo",
     badge: null,
     featured: false,
-    description: "Collect video testimonials via SMS/email. Approved videos auto-embed on your site's testimonials page.",
+    description: "Collect customer testimonials via SMS/email. Approved reviews auto-embed on your site's testimonials page.",
     href: "/services#video-reviews",
   },
   {
@@ -127,7 +127,7 @@ export default function ProductCards() {
               <div className="text-sm font-semibold text-[rgba(238,241,250,0.5)] uppercase tracking-wider mb-3">All Inclusive</div>
               <h3 className="text-xl font-bold text-[#EEF1FA] mb-3">Get everything in Pro</h3>
               <p className="text-sm text-[rgba(238,241,250,0.6)] leading-relaxed">
-                Website + Social Sync + Listing Manager + Video Reviews + Site Concierge credits. One price. Maximum impact.
+                Website + Social Sync + Listing Manager + Review Engine + Site Concierge credits. One price. Maximum impact.
               </p>
             </div>
             <Button variant="on-dark" size="sm" className="mt-6" asChild>

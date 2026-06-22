@@ -7,7 +7,7 @@ const footerLinks = {
     { label: "Website Builder", href: "/services#website-builder" },
     { label: "Social Sync Pro", href: "/services#social-sync" },
     { label: "Listing Manager", href: "/services#listing-manager" },
-    { label: "Video Reviews", href: "/services#video-reviews" },
+    { label: "Review Engine", href: "/services#video-reviews" },
     { label: "Site Concierge", href: "/services#site-concierge" },
   ],
   Company: [

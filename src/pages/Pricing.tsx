@@ -73,7 +73,7 @@ const features: Feature[] = [
     ],
   },
   {
-    category: "Video Review Engine",
+    category: "Review Engine",
     items: [
       { name: "Review request campaigns", starter: false, growth: false, pro: true },
       { name: "Video testimonial collection", starter: false, growth: false, pro: true },

@@ -41,7 +41,7 @@ const tiers = [
     featured: false,
     features: [
       "Everything in Growth",
-      "Video Review Engine",
+      "Review Engine",
       "Site Concierge credits (3/mo)",
       "Dedicated account manager",
       "White-label option available",
