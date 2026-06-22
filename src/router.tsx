@@ -16,6 +16,7 @@ import PortalSignup from "./pages/portal/Signup";
 import PortalOverview from "./pages/portal/Overview";
 import PortalGBP from "./pages/portal/PortalGBP";
 import PortalSocial from "./pages/portal/PortalSocial";
+import PortalCrm from "./pages/portal/PortalCrm";
 import PortalCoach from "./pages/portal/PortalCoach";
 import PortalAnalytics from "./pages/portal/PortalAnalytics";
 import PortalConnect from "./pages/portal/PortalConnect";
@@ -155,6 +156,11 @@ export const routers = [
     path: "/portal/:clientId/vault",
     name: "portal-vault",
     element: <PortalVault />,
+  },
+  {
+    path: "/portal/:clientId/crm",
+    name: "portal-crm",
+    element: <PortalCrm />,
   },
   // Admin (require authentication)
   {

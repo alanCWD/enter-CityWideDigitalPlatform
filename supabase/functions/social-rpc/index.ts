@@ -1,4 +1,4 @@
-// Social media gateway for unified API operations.
+// Social media gateway — unified Zernio scheduling + queue management.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -18,26 +18,84 @@ interface ZernioProfile {
   name: string;
 }
 
+// ---------- Zernio helpers ----------
+
+async function getOrCreateZernioProfile(clientId: string, key: string): Promise<string> {
+  try {
+    const res = await fetch("https://zernio.com/api/v1/profiles", {
+      headers: { Authorization: `Bearer ${key}` },
+    });
+    if (res.ok) {
+      const d = await res.json() as { profiles?: ZernioProfile[] };
+      const existing = d.profiles?.find((p) => p.name === `Profile for ${clientId}`);
+      if (existing) return existing._id;
+      const createRes = await fetch("https://zernio.com/api/v1/profiles", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ name: `Profile for ${clientId}`, description: `Auto-generated for ${clientId}` }),
+      });
+      if (createRes.ok) {
+        const created = await createRes.json() as { profile?: ZernioProfile };
+        if (created.profile?._id) return created.profile._id;
+      }
+    }
+  } catch (e) {
+    console.error("getOrCreateZernioProfile error:", e);
+  }
+  return clientId;
+}
+
+async function publishToZernio(
+  key: string,
+  profileId: string,
+  content: string,
+  platforms: string[],
+  scheduledAt?: string,
+): Promise<{ ok: boolean; postId?: string; error?: string }> {
+  try {
+    const body: Record<string, unknown> = {
+      profileId,
+      content,
+      platforms: platforms.map((p) => (p === "google_business" ? "googlebusiness" : p)),
+    };
+    if (scheduledAt) body.scheduledAt = scheduledAt;
+
+    const res = await fetch("https://zernio.com/api/v1/posts", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    let data: unknown;
+    try { data = JSON.parse(text); } catch { data = text; }
+    if (!res.ok) return { ok: false, error: `Zernio ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data)}` };
+    const d = data as { post?: { _id?: string }; _id?: string };
+    return { ok: true, postId: d.post?._id ?? d._id };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+// ---------- Main handler ----------
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error("Missing Supabase environment variables");
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
     const body = await req.json().catch(() => ({}));
     const { action, payload } = body;
+    const zernioKey = (Deno.env.get("ZERNIO_API_KEY") ?? "").trim();
 
     switch (action) {
+
+      // ── OAuth connect ────────────────────────────────
       case "social.connect": {
         const { platform, client_id } = payload as { platform: string; client_id: string };
 
-        // Mandatory Google Business check
         if (platform !== "google_business") {
           const { data: existing } = await supabase
             .from("social_accounts")
@@ -45,141 +103,187 @@ Deno.serve(async (req) => {
             .eq("client_id", client_id)
             .eq("platform", "google_business")
             .maybeSingle();
-
-          if (!existing) {
-            return json({ ok: false, error: "Google Business must be connected first." });
-          }
+          if (!existing) return json({ ok: false, error: "Google Business must be connected first." });
         }
 
-        const zernioKey = Deno.env.get("ZERNIO_API_KEY") ?? "";
-        const cleanKey = zernioKey.trim();
+        const profileId = await getOrCreateZernioProfile(client_id, zernioKey);
         const origin = req.headers.get("origin") ?? "http://localhost:5173";
         const redirectUri = encodeURIComponent(`${origin}/dashboard/social/profiles`);
-
-        console.log("Initiating Zernio OAuth for:", { platform, client_id, hasKey: !!cleanKey });
-
-        // Find or create a Zernio profile for this client
-        let zernioProfileId: string = client_id;
-
-        try {
-          const getRes = await fetch("https://zernio.com/api/v1/profiles", {
-            headers: { Authorization: `Bearer ${cleanKey}` },
-          });
-
-          if (getRes.ok) {
-            const profilesData = await getRes.json() as { profiles?: ZernioProfile[] };
-            const existing = profilesData.profiles?.find(
-              (p) => p.name === `Profile for ${client_id}`
-            );
-            if (existing) {
-              zernioProfileId = existing._id;
-              console.log("Found existing Zernio profile:", zernioProfileId);
-            } else {
-              // Create a new profile
-              const createRes = await fetch("https://zernio.com/api/v1/profiles", {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${cleanKey}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  name: `Profile for ${client_id}`,
-                  description: `Auto-generated profile for ${client_id}`,
-                }),
-              });
-
-              if (createRes.ok) {
-                const created = await createRes.json() as { profile?: ZernioProfile };
-                if (created.profile?._id) {
-                  zernioProfileId = created.profile._id;
-                  console.log("Created Zernio profile:", zernioProfileId);
-                }
-              } else {
-                console.warn("Failed to create Zernio profile:", await createRes.text());
-              }
-            }
-          }
-        } catch (e) {
-          console.error("Error managing Zernio profile:", e);
-        }
-
         const zernioPlatform = platform === "google_business" ? "googlebusiness" : platform;
-        const connectUrl = `https://zernio.com/api/v1/connect/${zernioPlatform}?profileId=${zernioProfileId}&redirectUri=${redirectUri}`;
+        const connectUrl = `https://zernio.com/api/v1/connect/${zernioPlatform}?profileId=${profileId}&redirectUri=${redirectUri}`;
 
-        const response = await fetch(connectUrl, {
-          headers: { Authorization: `Bearer ${cleanKey}` },
-        });
-
-        const responseText = await response.text();
-        let zernioData: unknown;
-        try {
-          zernioData = JSON.parse(responseText);
-        } catch {
-          zernioData = responseText;
-        }
-
-        if (!response.ok) {
-          const errorMsg = `Zernio API error (${response.status}): ${
-            typeof zernioData === "string" ? zernioData : JSON.stringify(zernioData)
-          }`;
-          console.error(errorMsg);
-          return json({ ok: false, error: errorMsg });
-        }
-
-        const data = zernioData as { authUrl?: string; auth_url?: string };
-        return json({ ok: true, authUrl: data.authUrl ?? data.auth_url });
+        const response = await fetch(connectUrl, { headers: { Authorization: `Bearer ${zernioKey}` } });
+        const text = await response.text();
+        let data: unknown;
+        try { data = JSON.parse(text); } catch { data = text; }
+        if (!response.ok) return json({ ok: false, error: `Zernio ${response.status}: ${typeof data === "string" ? data : JSON.stringify(data)}` });
+        const d = data as { authUrl?: string; auth_url?: string };
+        return json({ ok: true, authUrl: d.authUrl ?? d.auth_url });
       }
 
+      // ── Sync ────────────────────────────────────────
       case "social.sync": {
-        const syncKey = (Deno.env.get("ZERNIO_API_KEY") ?? "").trim();
         try {
-          const profilesRes = await fetch("https://zernio.com/api/v1/profiles", {
-            headers: { Authorization: `Bearer ${syncKey}` },
+          const res = await fetch("https://zernio.com/api/v1/profiles", {
+            headers: { Authorization: `Bearer ${zernioKey}` },
           });
-          if (profilesRes.ok) {
-            const profilesData = await profilesRes.json();
-            console.log("Zernio profiles for sync:", JSON.stringify(profilesData));
-          }
-        } catch (e) {
-          console.error("Sync error:", e);
-        }
+          if (res.ok) console.log("Zernio profiles:", JSON.stringify(await res.json()));
+        } catch (e) { console.error("sync error:", e); }
         return json({ ok: true, message: "Connections synced successfully" });
       }
 
+      // ── Direct post (legacy) ─────────────────────────
       case "social.post": {
-        const zernioKeyPost = (Deno.env.get("ZERNIO_API_KEY") ?? "").trim();
-        const postResponse = await fetch("https://zernio.com/api/v1/posts", {
+        const res = await fetch("https://zernio.com/api/v1/posts", {
           method: "POST",
-          headers: {
-            Authorization: `Bearer ${zernioKeyPost}`,
-            "Content-Type": "application/json",
-          },
+          headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        const text = await res.text();
+        let data: unknown;
+        try { data = JSON.parse(text); } catch { data = text; }
+        if (!res.ok) return json({ ok: false, error: `Zernio ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data)}` });
+        return json({ ok: true, message: "Post published", data });
+      }
 
-        const postText = await postResponse.text();
-        let postData: unknown;
-        try {
-          postData = JSON.parse(postText);
-        } catch {
-          postData = postText;
+      // ── Create + schedule post ───────────────────────
+      case "posts.create": {
+        const {
+          client_id,
+          content,
+          platforms = [],
+          scheduled_at,
+          delay_minutes = 0,
+          media_url,
+        } = payload as {
+          client_id: string;
+          content: string;
+          platforms: string[];
+          scheduled_at?: string;
+          delay_minutes?: number;
+          media_url?: string;
+        };
+
+        const id = crypto.randomUUID();
+        const now = new Date();
+
+        // Build per-platform states
+        const platformStates: Record<string, string> = {};
+        platforms.forEach((p) => { platformStates[p] = "queued"; });
+
+        // Insert post record
+        const { error: insertErr } = await supabase.from("scheduled_posts").insert({
+          id,
+          client_id,
+          content,
+          media_url: media_url ?? null,
+          platforms,
+          scheduled_at: scheduled_at ?? null,
+          delay_minutes,
+          status: "queued",
+          platform_states: platformStates,
+        });
+        if (insertErr) return json({ ok: false, error: insertErr.message });
+
+        // Resolve Zernio profile
+        const profileId = await getOrCreateZernioProfile(client_id, zernioKey);
+
+        // GBP-first: post GBP immediately (or at scheduled_at), others with delay offset
+        const gbpPlatforms = platforms.filter((p) => p === "google_business");
+        const otherPlatforms = platforms.filter((p) => p !== "google_business");
+
+        let zernioPostId: string | undefined;
+
+        if (gbpPlatforms.length > 0) {
+          const { ok, postId, error } = await publishToZernio(
+            zernioKey, profileId, content, gbpPlatforms, scheduled_at,
+          );
+          if (ok && postId) zernioPostId = postId;
+          platformStates.google_business = ok ? "published" : "failed";
+          if (!ok) console.error("GBP post failed:", error);
         }
 
-        if (!postResponse.ok) {
-          const errorMsg = `Zernio post error (${postResponse.status}): ${
-            typeof postData === "string" ? postData : JSON.stringify(postData)
-          }`;
-          return json({ ok: false, error: errorMsg });
+        if (otherPlatforms.length > 0) {
+          // Add delay offset to scheduled_at
+          let offsetTime: string | undefined;
+          if (delay_minutes > 0) {
+            const base = scheduled_at ? new Date(scheduled_at) : now;
+            base.setMinutes(base.getMinutes() + delay_minutes);
+            offsetTime = base.toISOString();
+          } else {
+            offsetTime = scheduled_at;
+          }
+          const { ok, postId, error } = await publishToZernio(
+            zernioKey, profileId, content, otherPlatforms, offsetTime,
+          );
+          if (ok && postId && !zernioPostId) zernioPostId = postId;
+          otherPlatforms.forEach((p) => { platformStates[p] = ok ? "queued" : "failed"; });
+          if (!ok) console.error("Other platforms post failed:", error);
         }
 
-        return json({ ok: true, message: "Post published", data: postData });
+        // Update record with Zernio info
+        await supabase.from("scheduled_posts").update({
+          zernio_post_id: zernioPostId ?? null,
+          platform_states: platformStates,
+          status: Object.values(platformStates).some((s) => s === "failed") ? "failed" : "queued",
+          updated_at: new Date().toISOString(),
+        }).eq("id", id);
+
+        return json({ ok: true, id, zernio_post_id: zernioPostId });
+      }
+
+      // ── List posts ───────────────────────────────────
+      case "posts.list": {
+        const { client_id } = payload as { client_id: string };
+        const { data, error } = await supabase
+          .from("scheduled_posts")
+          .select("*")
+          .eq("client_id", client_id)
+          .order("created_at", { ascending: false });
+        if (error) return json({ ok: false, error: error.message });
+        return json({ ok: true, posts: data ?? [] });
+      }
+
+      // ── Cancel post ──────────────────────────────────
+      case "posts.cancel": {
+        const { id, client_id } = payload as { id: string; client_id: string };
+        const { error } = await supabase
+          .from("scheduled_posts")
+          .update({ status: "cancelled", updated_at: new Date().toISOString() })
+          .eq("id", id)
+          .eq("client_id", client_id);
+        if (error) return json({ ok: false, error: error.message });
+        return json({ ok: true });
+      }
+
+      // ── List accounts ────────────────────────────────
+      case "accounts.list": {
+        const { client_id } = payload as { client_id: string };
+        const { data, error } = await supabase
+          .from("social_accounts")
+          .select("*")
+          .eq("client_id", client_id);
+        if (error) return json({ ok: false, error: error.message });
+        return json({ ok: true, accounts: data ?? [] });
+      }
+
+      // ── Disconnect account ───────────────────────────
+      case "accounts.disconnect": {
+        const { id, client_id } = payload as { id: string; client_id: string };
+        const { error } = await supabase
+          .from("social_accounts")
+          .delete()
+          .eq("id", id)
+          .eq("client_id", client_id);
+        if (error) return json({ ok: false, error: error.message });
+        return json({ ok: true });
       }
 
       default:
-        return json({ ok: false, error: "Unknown action" });
+        return json({ ok: false, error: `Unknown action: ${action}` });
     }
   } catch (err) {
     console.error("Unhandled error:", err);
-    return json({ ok: false, error: `Internal Error: ${(err as Error).message}` });
+    return json({ ok: false, error: `Internal Error: ${(err as Error).message}` }, 500);
   }
 });

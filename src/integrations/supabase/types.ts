@@ -3154,6 +3154,48 @@ export type Database = {
         }
         Relationships: []
       }
+      client_leads: {
+        Row: {
+          connection_id: string
+          created_at: string
+          email: string | null
+          id: string
+          message: string | null
+          name: string
+          notes: string | null
+          phone: string | null
+          source: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          message?: string | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          message?: string | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gbp_connections: {
         Row: {
           access_token: string | null
@@ -3401,6 +3443,51 @@ export type Database = {
           social_account_id?: string
           status?: string
           title?: string | null
+        }
+        Relationships: []
+      }
+      scheduled_posts: {
+        Row: {
+          client_id: string
+          content: string
+          created_at: string
+          delay_minutes: number
+          id: string
+          media_url: string | null
+          platform_states: Json
+          platforms: Json
+          scheduled_at: string | null
+          status: string
+          updated_at: string
+          zernio_post_id: string | null
+        }
+        Insert: {
+          client_id: string
+          content: string
+          created_at?: string
+          delay_minutes?: number
+          id: string
+          media_url?: string | null
+          platform_states?: Json
+          platforms?: Json
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+          zernio_post_id?: string | null
+        }
+        Update: {
+          client_id?: string
+          content?: string
+          created_at?: string
+          delay_minutes?: number
+          id?: string
+          media_url?: string | null
+          platform_states?: Json
+          platforms?: Json
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+          zernio_post_id?: string | null
         }
         Relationships: []
       }
