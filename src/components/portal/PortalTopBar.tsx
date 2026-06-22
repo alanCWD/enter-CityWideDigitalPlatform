@@ -89,10 +89,9 @@ export function PortalTopBar({ connection, otherConnections }: PortalSidebarProp
 
       {/* Bottom: theme toggle + user + sign out */}
       <div className="px-4 py-4 border-t border-sidebar-border space-y-2">
-        {/* Theme toggle — appears pressed-in when light mode is active */}
+        {/* Theme toggle — label = target mode; depressed = currently in light mode */}
         <button
           onClick={toggle}
-          title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
           className={cn(
             "flex items-center gap-2 w-full px-3 py-2 rounded-lg text-[11px] font-bold transition-all",
             theme === "light"
@@ -101,7 +100,7 @@ export function PortalTopBar({ connection, otherConnections }: PortalSidebarProp
           )}
         >
           <Sun className="w-3.5 h-3.5 flex-shrink-0" />
-          Light mode
+          {theme === "dark" ? "Light mode" : "Dark mode"}
         </button>
 
         {/* User email */}
