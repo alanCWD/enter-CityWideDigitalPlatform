@@ -117,6 +117,43 @@ export function ClientDetail() {
           </div>
         )}
 
+        {/* Portal setup / link banner */}
+        {!c.gbp_connection_id ? (
+          <div className="flex items-center justify-between bg-amber-500/8 border border-amber-500/25 rounded-xl px-5 py-3.5">
+            <div>
+              <p className="text-sm font-bold text-amber-600 dark:text-amber-400">Client portal not connected</p>
+              <p className="text-xs text-amber-600/70 dark:text-amber-400/60 mt-0.5">
+                Link a business profile from your master account to activate this client's portal.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowLinkZernio(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white transition-colors flex-shrink-0 ml-4"
+            >
+              <Link2 className="w-4 h-4" />
+              Link Profile
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between bg-[#0078D7]/8 border border-[#0078D7]/20 rounded-xl px-5 py-3.5">
+            <div>
+              <p className="text-sm font-bold text-[#0078D7]">Client portal active</p>
+              <p className="text-xs text-[#0078D7]/60 mt-0.5">
+                Business profile is connected. Client can log in to their portal.
+              </p>
+            </div>
+            <a
+              href={`/portal/${c.gbp_connection_id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-[#0078D7] hover:bg-[#005FA3] text-white transition-colors flex-shrink-0 ml-4"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              View Portal
+            </a>
+          </div>
+        )}
+
         {/* Tabs */}
         <div className="flex flex-wrap gap-1 border-b border-border dark:border-white/10">
           {([
