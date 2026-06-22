@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useParams } from "react-router-dom";
-import { LogOut, Store, Share2, BarChart3, Home, Shield, Activity, Users, Sun, Moon } from "lucide-react";
+import { LogOut, Store, Share2, BarChart3, Home, Shield, Activity, Users, Sun } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
@@ -89,16 +89,19 @@ export function PortalTopBar({ connection, otherConnections }: PortalSidebarProp
 
       {/* Bottom: theme toggle + user + sign out */}
       <div className="px-4 py-4 border-t border-sidebar-border space-y-2">
-        {/* Theme toggle */}
+        {/* Theme toggle — appears pressed-in when light mode is active */}
         <button
           onClick={toggle}
-          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-[11px] font-bold text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-        >
-          {theme === "dark" ? (
-            <><Sun className="w-3.5 h-3.5" /> Light mode</>
-          ) : (
-            <><Moon className="w-3.5 h-3.5" /> Dark mode</>
+          title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+          className={cn(
+            "flex items-center gap-2 w-full px-3 py-2 rounded-lg text-[11px] font-bold transition-all",
+            theme === "light"
+              ? "bg-primary/15 text-primary shadow-[inset_0_1px_3px_rgba(0,0,0,0.15)] border border-primary/20"
+              : "text-sidebar-foreground/55 hover:text-sidebar-foreground hover:bg-sidebar-accent border border-transparent"
           )}
+        >
+          <Sun className="w-3.5 h-3.5 flex-shrink-0" />
+          Light mode
         </button>
 
         {/* User email */}
