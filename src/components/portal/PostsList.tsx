@@ -45,9 +45,9 @@ export function PostsList({ posts }: { posts: PostItem[] }) {
             </span>
           </div>
           {p.summary && (
-            <p className="text-[10px] text-[rgba(238,241,250,0.65)] leading-relaxed">{p.summary}</p>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">{p.summary}</p>
           )}
-          <p className="text-[10px] text-[rgba(238,241,250,0.3)] mt-1.5">{formatDate(p.post_time)}</p>
+          <p className="text-[10px] text-muted-foreground/50 mt-1.5">{formatDate(p.post_time)}</p>
         </div>
       ))}
     </div>

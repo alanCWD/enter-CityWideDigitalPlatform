@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
@@ -12,12 +12,13 @@ import { LinkZernioProfileDialog } from "@/components/dashboard/crm/LinkZernioPr
 import { InviteClientDialog } from "@/components/dashboard/InviteClientDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { detail, loading, error, reload } = useCrmClient(id);
-  const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments">("overview");
+  const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp">("overview");
   const [deleting, setDeleting] = useState(false);
   const [editingHeader, setEditingHeader] = useState(false);
   const [showLinkZernio, setShowLinkZernio] = useState(false);
@@ -195,29 +196,35 @@ export function ClientDetail() {
         )}
 
         {/* Tabs */}
-        <div className="flex flex-wrap gap-1 border-b border-border dark:border-white/10">
-          {([
-            ["overview", "Overview"],
-            ["health", "Health"],
-            ["vault", "Vault"],
-            ["subscriptions", "Subscriptions"],
-            ["invoices", "Invoices"],
-            ["payments", "Payments"],
-          ] as const).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setTab(key)}
-              className={cn(
-                "px-4 py-2 text-sm font-semibold transition-colors -mb-px border-b-2",
-                tab === key
-                  ? "text-[#0078D7] border-[#0078D7]"
-                  : "text-muted-foreground border-transparent hover:text-foreground dark:text-[#EEF1FA]",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {(() => {
+          const tabs: { key: typeof tab; label: string }[] = [
+            { key: "overview", label: "Overview" },
+            { key: "health", label: "Health" },
+            { key: "vault", label: "Vault" },
+            ...(c.gbp_connection_id ? [{ key: "gbp" as const, label: "GBP / NAP" }] : []),
+            { key: "subscriptions", label: "Subscriptions" },
+            { key: "invoices", label: "Invoices" },
+            { key: "payments", label: "Payments" },
+          ];
+          return (
+            <div className="flex flex-wrap gap-1 border-b border-border dark:border-white/10">
+              {tabs.map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className={cn(
+                    "px-4 py-2 text-sm font-semibold transition-colors -mb-px border-b-2",
+                    tab === key
+                      ? "text-[#0078D7] border-[#0078D7]"
+                      : "text-muted-foreground border-transparent hover:text-foreground dark:text-[#EEF1FA]",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          );
+        })()}
 
         {tab === "overview" && (
           <ContactsPanel detail={detail} reload={reload} />
@@ -227,6 +234,9 @@ export function ClientDetail() {
         )}
         {tab === "vault" && (
           <VaultPanel clientId={detail.client.id} />
+        )}
+        {tab === "gbp" && c.gbp_connection_id && (
+          <GbpPanel connectionId={c.gbp_connection_id} />
         )}
         {tab === "subscriptions" && (
           <SubscriptionsPanel detail={detail} reload={reload} />
@@ -846,6 +856,196 @@ function ErrorDebug({ id, error }: { id?: string; error?: string | null }) {
         <pre className="text-[10px] font-mono text-muted-foreground bg-muted/40 rounded p-3 overflow-x-auto max-h-48">{raw}</pre>
       )}
       <p className="text-xs text-muted-foreground">Client ID: <code className="font-mono">{id}</code></p>
+    </div>
+  );
+}
+
+// ─── GBP / NAP Editor ────────────────────────────────────────────────────
+interface GbpRecord {
+  id: string;
+  business_name: string | null;
+  address: string | null;
+  phone: string | null;
+  website: string | null;
+  category: string | null;
+  rating: number | null;
+  review_count: number | null;
+  last_synced_at: string | null;
+  zernio_profile_id: string | null;
+}
+
+function GbpPanel({ connectionId }: { connectionId: string }) {
+  const { toast } = useToast();
+  const [record, setRecord] = useState<GbpRecord | null>(null);
+  const [form, setForm] = useState<Record<string, string>>({});
+  const [editing, setEditing] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const load = async () => {
+    setLoading(true);
+    const { data } = await supabase
+      .from("gbp_connections")
+      .select("id,business_name,address,phone,website,category,rating,review_count,last_synced_at,zernio_profile_id")
+      .eq("id", connectionId)
+      .maybeSingle();
+    if (data) {
+      setRecord(data as GbpRecord);
+      setForm({
+        business_name: data.business_name ?? "",
+        address: data.address ?? "",
+        phone: data.phone ?? "",
+        website: data.website ?? "",
+        category: data.category ?? "",
+        rating: data.rating != null ? String(data.rating) : "",
+      });
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, [connectionId]);
+
+  const save = async () => {
+    setBusy(true);
+    const { error } = await supabase.from("gbp_connections").update({
+      business_name: form.business_name || null,
+      address: form.address || null,
+      phone: form.phone || null,
+      website: form.website || null,
+      category: form.category || null,
+      rating: form.rating ? parseFloat(form.rating) : null,
+    }).eq("id", connectionId);
+    if (error) {
+      toast({ title: "Save failed", description: error.message, variant: "destructive" });
+    } else {
+      toast({ title: "NAP saved" });
+      setEditing(false);
+      await load();
+    }
+    setBusy(false);
+  };
+
+  const sync = async () => {
+    if (!record?.zernio_profile_id) return;
+    setSyncing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("social-rpc", {
+        body: { action: "zernio.syncProfile", payload: { connection_id: connectionId, zernio_profile_id: record.zernio_profile_id } },
+      });
+      if (error || !data?.ok) throw new Error(data?.error ?? error?.message ?? "Sync failed");
+      toast({ title: "Synced from Zernio", description: (data.log as string[]).join(" · ") });
+      await load();
+    } catch (e) {
+      toast({ title: "Sync failed", description: (e as Error).message, variant: "destructive" });
+    }
+    setSyncing(false);
+  };
+
+  if (loading) return <div className="py-10 text-center text-sm text-muted-foreground">Loading…</div>;
+  if (!record) return <div className="py-10 text-center text-sm text-muted-foreground">No GBP data found.</div>;
+
+  const napFields: { key: keyof typeof form; label: string; icon: React.ElementType; placeholder: string; type?: string }[] = [
+    { key: "business_name", label: "Business Name", icon: Store, placeholder: "The Finer Details" },
+    { key: "address", label: "Address", icon: MapPin, placeholder: "123 Main St, Vancouver, BC" },
+    { key: "phone", label: "Phone", icon: Phone, placeholder: "+1 (778) 555-0000", type: "tel" },
+    { key: "website", label: "Website", icon: Globe, placeholder: "https://thefinerdetails.ca" },
+    { key: "category", label: "Category", icon: MessageCircle, placeholder: "Auto Detailing" },
+    { key: "rating", label: "Rating", icon: Star, placeholder: "4.8", type: "number" },
+  ];
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="bg-card border border-border rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">NAP Details</h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Name, Address & Phone — shown in the client portal.
+              {record.last_synced_at && ` Last synced ${new Date(record.last_synced_at).toLocaleDateString()}.`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {record.zernio_profile_id && (
+              <button
+                onClick={sync}
+                disabled={syncing}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+                {syncing ? "Syncing…" : "Sync from Zernio"}
+              </button>
+            )}
+            {!editing ? (
+              <button
+                onClick={() => setEditing(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors"
+              >
+                <Pencil className="w-3.5 h-3.5" /> Edit NAP
+              </button>
+            ) : (
+              <div className="flex gap-2">
+                <button onClick={() => setEditing(false)} className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg transition-colors">
+                  Cancel
+                </button>
+                <button
+                  onClick={save}
+                  disabled={busy}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
+                >
+                  <Save className="w-3.5 h-3.5" /> {busy ? "Saving…" : "Save"}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {editing ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {napFields.map(({ key, label, icon: Icon, placeholder, type }) => (
+              <label key={key} className="block space-y-1">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <Icon className="w-3 h-3" /> {label}
+                </span>
+                <input
+                  type={type ?? "text"}
+                  value={form[key]}
+                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                  placeholder={placeholder}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </label>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {napFields.map(({ key, label, icon: Icon }) => (
+              <div key={key} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg border border-border/50">
+                <Icon className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+                  <div className="text-sm text-foreground mt-0.5">
+                    {form[key] || <span className="text-muted-foreground/50 italic text-xs">Not set — click Edit NAP to add</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-card border border-border rounded-xl p-4 text-center">
+          <div className="text-2xl font-extrabold text-foreground">{record.rating ?? "—"}</div>
+          <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mt-1">Avg Rating</div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4 text-center">
+          <div className="text-2xl font-extrabold text-foreground">{record.review_count ?? 0}</div>
+          <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mt-1">Reviews</div>
+        </div>
+      </div>
     </div>
   );
 }

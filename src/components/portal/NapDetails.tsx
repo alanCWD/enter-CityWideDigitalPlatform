@@ -33,7 +33,7 @@ export function NapDetails({ nap }: { nap: NapData }) {
             </div>
             <div className="text-xs text-foreground mt-0.5">
               {value || (
-                <span className="text-[rgba(238,241,250,0.3)]">Not available</span>
+                <span className="text-muted-foreground/40 italic">Not available</span>
               )}
             </div>
           </div>
