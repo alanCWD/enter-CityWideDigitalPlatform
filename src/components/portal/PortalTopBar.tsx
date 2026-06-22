@@ -6,22 +6,21 @@ import type { PortalConnection } from "@/hooks/usePortalConnections";
 import { LogoOnDark } from "@/components/branding/Logo";
 
 const TABS = [
-  { name: "Overview", path: "", icon: Home, end: true },
-  { name: "Health", path: "health", icon: Activity, end: false },
-  { name: "GBP", path: "gbp", icon: Store, end: false },
-  { name: "Social", path: "social", icon: Share2, end: false },
-  { name: "CRM", path: "crm", icon: Users, end: false },
-  { name: "Analytics", path: "analytics", icon: BarChart3, end: false },
-  { name: "Vault", path: "vault", icon: Shield, end: false },
+  { name: "Overview",  path: "",          icon: Home,     end: true  },
+  { name: "Health",    path: "health",    icon: Activity, end: false },
+  { name: "GBP",       path: "gbp",       icon: Store,    end: false },
+  { name: "Social",    path: "social",    icon: Share2,   end: false },
+  { name: "CRM",       path: "crm",       icon: Users,    end: false },
+  { name: "Analytics", path: "analytics", icon: BarChart3,end: false },
+  { name: "Vault",     path: "vault",     icon: Shield,   end: false },
 ];
 
-interface PortalTopBarProps {
+interface PortalSidebarProps {
   connection: PortalConnection;
-  /** Other connections this user can switch to. */
   otherConnections: PortalConnection[];
 }
 
-export function PortalTopBar({ connection, otherConnections }: PortalTopBarProps) {
+export function PortalTopBar({ connection, otherConnections }: PortalSidebarProps) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { clientId } = useParams();
@@ -31,57 +30,38 @@ export function PortalTopBar({ connection, otherConnections }: PortalTopBarProps
     navigate("/portal/login");
   };
 
-  const handleSwitch = (id: string) => {
-    navigate(`/portal/${id}`);
-  };
-
   return (
-    <header className="sticky top-0 z-30 bg-[#0D1526]/90 backdrop-blur-xl border-b border-white/8">
-      <div className="px-6 py-3.5 flex items-center justify-between gap-4">
-        {/* Brand + business name */}
-        <div className="flex items-center gap-3 min-w-0">
-          <LogoOnDark size="sm" className="flex-shrink-0" />
-          <div className="hidden sm:block w-px h-6 bg-white/10 flex-shrink-0" />
-          <div className="min-w-0">
-            <div className="text-[10px] font-bold text-[#0078D7] uppercase tracking-wider">Client Portal</div>
-            <div className="text-[#EEF1FA] font-bold text-sm truncate">
-              {connection.business_name || connection.client_label}
-            </div>
+    <aside className="fixed inset-y-0 left-0 z-30 w-56 flex flex-col bg-[#0D1526] border-r border-white/8">
+      {/* Brand */}
+      <div className="px-5 py-5 border-b border-white/8">
+        <LogoOnDark size="sm" />
+        <div className="mt-3">
+          <div className="text-[9px] font-bold text-[#0078D7] uppercase tracking-widest mb-0.5">Client Portal</div>
+          <div className="text-[#EEF1FA] font-bold text-sm leading-tight truncate">
+            {connection.business_name || connection.client_label}
           </div>
-
-          {otherConnections.length > 0 && (
-            <select
-              value={clientId}
-              onChange={(e) => handleSwitch(e.target.value)}
-              className="ml-3 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]"
-            >
-              <option value={connection.id} className="bg-[#0D1526]">
-                {connection.business_name || connection.client_label}
-              </option>
-              {otherConnections.map((c) => (
-                <option key={c.id} value={c.id} className="bg-[#0D1526]">
-                  {c.business_name || c.client_label}
-                </option>
-              ))}
-            </select>
-          )}
         </div>
 
-        {/* Account menu */}
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] text-[rgba(238,241,250,0.5)] hidden sm:block">{user?.email}</span>
-          <button
-            onClick={handleSignOut}
-            className="flex items-center gap-1.5 bg-white/5 border border-white/10 text-[rgba(238,241,250,0.6)] hover:text-[#EEF1FA] hover:bg-white/10 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors"
+        {otherConnections.length > 0 && (
+          <select
+            value={clientId}
+            onChange={(e) => navigate(`/portal/${e.target.value}`)}
+            className="mt-2 w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]"
           >
-            <LogOut className="w-3 h-3" />
-            Sign out
-          </button>
-        </div>
+            <option value={connection.id} className="bg-[#0D1526]">
+              {connection.business_name || connection.client_label}
+            </option>
+            {otherConnections.map((c) => (
+              <option key={c.id} value={c.id} className="bg-[#0D1526]">
+                {c.business_name || c.client_label}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
-      {/* Tabs */}
-      <nav className="px-6 flex items-center gap-1 overflow-x-auto">
+      {/* Nav items */}
+      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {TABS.map((tab) => (
           <NavLink
             key={tab.path}
@@ -89,18 +69,30 @@ export function PortalTopBar({ connection, otherConnections }: PortalTopBarProps
             end={tab.end}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-1.5 px-3 py-2.5 text-xs font-bold border-b-2 transition-colors flex-shrink-0",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all w-full",
                 isActive
-                  ? "text-[#0078D7] border-[#0078D7]"
-                  : "text-[rgba(238,241,250,0.5)] border-transparent hover:text-[#EEF1FA]"
+                  ? "bg-[#0078D7]/20 text-[#0078D7] shadow-[inset_0_0_0_1px_rgba(0,120,215,0.25)]"
+                  : "text-[rgba(238,241,250,0.55)] hover:text-[#EEF1FA] hover:bg-white/5"
               )
             }
           >
-            <tab.icon className="w-3.5 h-3.5" />
+            <tab.icon className="w-4 h-4 flex-shrink-0" />
             {tab.name}
           </NavLink>
         ))}
       </nav>
-    </header>
+
+      {/* User + sign out */}
+      <div className="px-4 py-4 border-t border-white/8">
+        <div className="text-[10px] text-[rgba(238,241,250,0.4)] truncate mb-2">{user?.email}</div>
+        <button
+          onClick={handleSignOut}
+          className="flex items-center gap-2 w-full text-[11px] font-bold text-[rgba(238,241,250,0.5)] hover:text-[#EEF1FA] hover:bg-white/5 px-3 py-2 rounded-lg transition-colors"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          Sign out
+        </button>
+      </div>
+    </aside>
   );
 }

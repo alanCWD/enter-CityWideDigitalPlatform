@@ -85,7 +85,9 @@ function PortalLayoutInner({ children }: PortalLayoutProps) {
   return (
     <div className="min-h-screen bg-[#0A1120]">
       <PortalTopBar connection={current} otherConnections={others} />
-      <main className="px-6 py-6 max-w-7xl mx-auto">{children(current)}</main>
+      <main className="pl-56 min-h-screen">
+        <div className="px-8 py-8 max-w-5xl">{children(current)}</div>
+      </main>
     </div>
   );
 }
