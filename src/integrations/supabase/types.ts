@@ -3214,6 +3214,7 @@ export type Database = {
           review_count: number | null
           token_expires_at: string | null
           website: string | null
+          zernio_profile_id: string | null
         }
         Insert: {
           access_token?: string | null
@@ -3232,6 +3233,7 @@ export type Database = {
           review_count?: number | null
           token_expires_at?: string | null
           website?: string | null
+          zernio_profile_id?: string | null
         }
         Update: {
           access_token?: string | null
@@ -3250,6 +3252,7 @@ export type Database = {
           review_count?: number | null
           token_expires_at?: string | null
           website?: string | null
+          zernio_profile_id?: string | null
         }
         Relationships: []
       }

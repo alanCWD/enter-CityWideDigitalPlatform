@@ -18,8 +18,6 @@ interface ZernioProfile {
   name: string;
 }
 
-// ---------- Zernio helpers ----------
-
 async function getOrCreateZernioProfile(clientId: string, key: string): Promise<string> {
   try {
     const res = await fetch("https://zernio.com/api/v1/profiles", {
@@ -59,7 +57,6 @@ async function publishToZernio(
       platforms: platforms.map((p) => (p === "google_business" ? "googlebusiness" : p)),
     };
     if (scheduledAt) body.scheduledAt = scheduledAt;
-
     const res = await fetch("https://zernio.com/api/v1/posts", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
@@ -76,8 +73,6 @@ async function publishToZernio(
   }
 }
 
-// ---------- Main handler ----------
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
@@ -92,26 +87,19 @@ Deno.serve(async (req) => {
 
     switch (action) {
 
-      // ── OAuth connect ────────────────────────────────
       case "social.connect": {
         const { platform, client_id } = payload as { platform: string; client_id: string };
-
         if (platform !== "google_business") {
           const { data: existing } = await supabase
-            .from("social_accounts")
-            .select("id")
-            .eq("client_id", client_id)
-            .eq("platform", "google_business")
-            .maybeSingle();
+            .from("social_accounts").select("id")
+            .eq("client_id", client_id).eq("platform", "google_business").maybeSingle();
           if (!existing) return json({ ok: false, error: "Google Business must be connected first." });
         }
-
         const profileId = await getOrCreateZernioProfile(client_id, zernioKey);
         const origin = req.headers.get("origin") ?? "http://localhost:5173";
         const redirectUri = encodeURIComponent(`${origin}/dashboard/social/profiles`);
         const zernioPlatform = platform === "google_business" ? "googlebusiness" : platform;
         const connectUrl = `https://zernio.com/api/v1/connect/${zernioPlatform}?profileId=${profileId}&redirectUri=${redirectUri}`;
-
         const response = await fetch(connectUrl, { headers: { Authorization: `Bearer ${zernioKey}` } });
         const text = await response.text();
         let data: unknown;
@@ -121,18 +109,14 @@ Deno.serve(async (req) => {
         return json({ ok: true, authUrl: d.authUrl ?? d.auth_url });
       }
 
-      // ── Sync ────────────────────────────────────────
       case "social.sync": {
         try {
-          const res = await fetch("https://zernio.com/api/v1/profiles", {
-            headers: { Authorization: `Bearer ${zernioKey}` },
-          });
+          const res = await fetch("https://zernio.com/api/v1/profiles", { headers: { Authorization: `Bearer ${zernioKey}` } });
           if (res.ok) console.log("Zernio profiles:", JSON.stringify(await res.json()));
         } catch (e) { console.error("sync error:", e); }
         return json({ ok: true, message: "Connections synced successfully" });
       }
 
-      // ── Direct post (legacy) ─────────────────────────
       case "social.post": {
         const res = await fetch("https://zernio.com/api/v1/posts", {
           method: "POST",
@@ -146,137 +130,125 @@ Deno.serve(async (req) => {
         return json({ ok: true, message: "Post published", data });
       }
 
-      // ── Create + schedule post ───────────────────────
       case "posts.create": {
-        const {
-          client_id,
-          content,
-          platforms = [],
-          scheduled_at,
-          delay_minutes = 0,
-          media_url,
-        } = payload as {
-          client_id: string;
-          content: string;
-          platforms: string[];
-          scheduled_at?: string;
-          delay_minutes?: number;
-          media_url?: string;
+        const { client_id, content, platforms = [], scheduled_at, delay_minutes = 0, media_url } = payload as {
+          client_id: string; content: string; platforms: string[];
+          scheduled_at?: string; delay_minutes?: number; media_url?: string;
         };
-
         const id = crypto.randomUUID();
         const now = new Date();
-
-        // Build per-platform states
         const platformStates: Record<string, string> = {};
         platforms.forEach((p) => { platformStates[p] = "queued"; });
-
-        // Insert post record
         const { error: insertErr } = await supabase.from("scheduled_posts").insert({
-          id,
-          client_id,
-          content,
-          media_url: media_url ?? null,
-          platforms,
-          scheduled_at: scheduled_at ?? null,
-          delay_minutes,
-          status: "queued",
-          platform_states: platformStates,
+          id, client_id, content, media_url: media_url ?? null,
+          platforms, scheduled_at: scheduled_at ?? null, delay_minutes,
+          status: "queued", platform_states: platformStates,
         });
         if (insertErr) return json({ ok: false, error: insertErr.message });
-
-        // Resolve Zernio profile
         const profileId = await getOrCreateZernioProfile(client_id, zernioKey);
-
-        // GBP-first: post GBP immediately (or at scheduled_at), others with delay offset
         const gbpPlatforms = platforms.filter((p) => p === "google_business");
         const otherPlatforms = platforms.filter((p) => p !== "google_business");
-
         let zernioPostId: string | undefined;
-
         if (gbpPlatforms.length > 0) {
-          const { ok, postId, error } = await publishToZernio(
-            zernioKey, profileId, content, gbpPlatforms, scheduled_at,
-          );
+          const { ok, postId, error } = await publishToZernio(zernioKey, profileId, content, gbpPlatforms, scheduled_at);
           if (ok && postId) zernioPostId = postId;
           platformStates.google_business = ok ? "published" : "failed";
           if (!ok) console.error("GBP post failed:", error);
         }
-
         if (otherPlatforms.length > 0) {
-          // Add delay offset to scheduled_at
           let offsetTime: string | undefined;
           if (delay_minutes > 0) {
             const base = scheduled_at ? new Date(scheduled_at) : now;
             base.setMinutes(base.getMinutes() + delay_minutes);
             offsetTime = base.toISOString();
-          } else {
-            offsetTime = scheduled_at;
-          }
-          const { ok, postId, error } = await publishToZernio(
-            zernioKey, profileId, content, otherPlatforms, offsetTime,
-          );
+          } else { offsetTime = scheduled_at; }
+          const { ok, postId, error } = await publishToZernio(zernioKey, profileId, content, otherPlatforms, offsetTime);
           if (ok && postId && !zernioPostId) zernioPostId = postId;
           otherPlatforms.forEach((p) => { platformStates[p] = ok ? "queued" : "failed"; });
           if (!ok) console.error("Other platforms post failed:", error);
         }
-
-        // Update record with Zernio info
         await supabase.from("scheduled_posts").update({
-          zernio_post_id: zernioPostId ?? null,
-          platform_states: platformStates,
+          zernio_post_id: zernioPostId ?? null, platform_states: platformStates,
           status: Object.values(platformStates).some((s) => s === "failed") ? "failed" : "queued",
           updated_at: new Date().toISOString(),
         }).eq("id", id);
-
         return json({ ok: true, id, zernio_post_id: zernioPostId });
       }
 
-      // ── List posts ───────────────────────────────────
       case "posts.list": {
         const { client_id } = payload as { client_id: string };
-        const { data, error } = await supabase
-          .from("scheduled_posts")
-          .select("*")
-          .eq("client_id", client_id)
-          .order("created_at", { ascending: false });
+        const { data, error } = await supabase.from("scheduled_posts").select("*")
+          .eq("client_id", client_id).order("created_at", { ascending: false });
         if (error) return json({ ok: false, error: error.message });
         return json({ ok: true, posts: data ?? [] });
       }
 
-      // ── Cancel post ──────────────────────────────────
       case "posts.cancel": {
         const { id, client_id } = payload as { id: string; client_id: string };
-        const { error } = await supabase
-          .from("scheduled_posts")
+        const { error } = await supabase.from("scheduled_posts")
           .update({ status: "cancelled", updated_at: new Date().toISOString() })
-          .eq("id", id)
-          .eq("client_id", client_id);
+          .eq("id", id).eq("client_id", client_id);
         if (error) return json({ ok: false, error: error.message });
         return json({ ok: true });
       }
 
-      // ── List accounts ────────────────────────────────
       case "accounts.list": {
         const { client_id } = payload as { client_id: string };
-        const { data, error } = await supabase
-          .from("social_accounts")
-          .select("*")
-          .eq("client_id", client_id);
+        const { data, error } = await supabase.from("social_accounts").select("*").eq("client_id", client_id);
         if (error) return json({ ok: false, error: error.message });
         return json({ ok: true, accounts: data ?? [] });
       }
 
-      // ── Disconnect account ───────────────────────────
       case "accounts.disconnect": {
         const { id, client_id } = payload as { id: string; client_id: string };
-        const { error } = await supabase
-          .from("social_accounts")
-          .delete()
-          .eq("id", id)
-          .eq("client_id", client_id);
+        const { error } = await supabase.from("social_accounts").delete().eq("id", id).eq("client_id", client_id);
         if (error) return json({ ok: false, error: error.message });
         return json({ ok: true });
+      }
+
+      // ── List Zernio profiles from master account ──────
+      case "zernio.profiles": {
+        const res = await fetch("https://zernio.com/api/v1/profiles", {
+          headers: { Authorization: `Bearer ${zernioKey}` },
+        });
+        const text = await res.text();
+        let data: unknown;
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        if (!res.ok) return json({ ok: false, error: `Zernio ${res.status}: ${text.slice(0, 200)}` });
+        return json({ ok: true, profiles: (data as { profiles?: unknown[] }).profiles ?? [] });
+      }
+
+      // ── Link Zernio profile → CRM client ─────────────
+      case "zernio.linkProfile": {
+        const { crm_client_id: _crmId, zernio_profile_id, profile_name, category, address, phone, website, rating, review_count } = payload as {
+          crm_client_id: string; zernio_profile_id: string; profile_name: string;
+          category?: string; address?: string; phone?: string; website?: string;
+          rating?: number; review_count?: number;
+        };
+        const { data: existing } = await supabase.from("gbp_connections").select("id")
+          .eq("zernio_profile_id", zernio_profile_id).maybeSingle();
+        let connectionId: string;
+        if (existing?.id) {
+          connectionId = existing.id as string;
+          await supabase.from("gbp_connections").update({
+            client_label: profile_name, business_name: profile_name,
+            category: category ?? null, address: address ?? null,
+            phone: phone ?? null, website: website ?? null,
+            rating: rating ?? null, review_count: review_count ?? 0,
+            last_synced_at: new Date().toISOString(),
+          }).eq("id", connectionId);
+        } else {
+          const { data: inserted, error: insertErr } = await supabase.from("gbp_connections").insert({
+            client_label: profile_name, business_name: profile_name,
+            zernio_profile_id, category: category ?? null,
+            address: address ?? null, phone: phone ?? null,
+            website: website ?? null, rating: rating ?? null,
+            review_count: review_count ?? 0, last_synced_at: new Date().toISOString(),
+          }).select("id").single();
+          if (insertErr) return json({ ok: false, error: insertErr.message });
+          connectionId = (inserted as { id: string }).id;
+        }
+        return json({ ok: true, connection_id: connectionId });
       }
 
       default:

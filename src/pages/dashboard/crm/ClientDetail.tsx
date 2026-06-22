@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
@@ -8,6 +8,7 @@ import { crm, fmtMoney, CrmClient, CrmInvoice } from "@/lib/crm";
 import { StatusPill } from "@/components/crm/StatusPill";
 import { VaultPanel } from "@/components/crm/vault/VaultPanel";
 import { HealthPanel } from "@/components/crm/health/HealthPanel";
+import { LinkZernioProfileDialog } from "@/components/dashboard/crm/LinkZernioProfileDialog";
 import { cn } from "@/lib/utils";
 
 export function ClientDetail() {
@@ -17,6 +18,7 @@ export function ClientDetail() {
   const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments">("overview");
   const [deleting, setDeleting] = useState(false);
   const [editingHeader, setEditingHeader] = useState(false);
+  const [showLinkZernio, setShowLinkZernio] = useState(false);
 
   if (loading) {
     return <DashboardLayout><TopBar title="Loading…" /></DashboardLayout>;
@@ -63,7 +65,7 @@ export function ClientDetail() {
                 <h2 className="text-xl font-extrabold text-foreground dark:text-[#EEF1FA]">{c.name}</h2>
                 <StatusSelectPill clientId={c.id} status={c.status} onUpdated={reload} />
                 <div className="ml-auto flex items-center gap-1">
-                  {c.gbp_connection_id && (
+                  {c.gbp_connection_id ? (
                     <a
                       href={`/portal/${c.gbp_connection_id}`}
                       target="_blank"
@@ -74,6 +76,15 @@ export function ClientDetail() {
                       <LayoutDashboard className="w-3.5 h-3.5" />
                       View Portal
                     </a>
+                  ) : (
+                    <button
+                      onClick={() => setShowLinkZernio(true)}
+                      title="Link a Zernio profile to activate portal"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-colors"
+                    >
+                      <Link2 className="w-3.5 h-3.5" />
+                      Link Zernio Profile
+                    </button>
                   )}
                   <button
                     onClick={() => setEditingHeader(true)}
@@ -150,6 +161,20 @@ export function ClientDetail() {
           <PaymentsPanel detail={detail} />
         )}
       </div>
+
+      {showLinkZernio && (
+        <LinkZernioProfileDialog
+          crmClientId={c.id}
+          clientName={c.name}
+          onLinked={(connectionId) => {
+            setShowLinkZernio(false);
+            reload();
+            // Auto-open the portal after linking
+            window.open(`/portal/${connectionId}`, "_blank");
+          }}
+          onClose={() => setShowLinkZernio(false)}
+        />
+      )}
     </DashboardLayout>
   );
 }
