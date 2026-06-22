@@ -1,0 +1,8 @@
+-- Composite unique constraints for gbp upsert
+ALTER TABLE gbp_reviews
+  DROP CONSTRAINT IF EXISTS gbp_reviews_review_id_key,
+  ADD CONSTRAINT gbp_reviews_connection_review_uq UNIQUE (connection_id, review_id);
+
+ALTER TABLE gbp_posts
+  DROP CONSTRAINT IF EXISTS gbp_posts_post_id_key,
+  ADD CONSTRAINT gbp_posts_connection_post_uq UNIQUE (connection_id, post_id);

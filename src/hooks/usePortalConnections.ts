@@ -12,6 +12,7 @@ export interface PortalConnection {
   rating: number | null;
   review_count: number | null;
   last_synced_at: string | null;
+  zernio_profile_id: string | null;
 }
 
 /**
@@ -41,7 +42,7 @@ export function usePortalConnections(userId: string | undefined) {
     const ids = links.map((l) => l.connection_id);
     const { data: conns } = await supabase
       .from("gbp_connections")
-      .select("id,client_label,business_name,address,phone,website,category,rating,review_count,last_synced_at")
+      .select("id,client_label,business_name,address,phone,website,category,rating,review_count,last_synced_at,zernio_profile_id")
       .in("id", ids);
     setConnections((conns ?? []) as PortalConnection[]);
     setLoading(false);

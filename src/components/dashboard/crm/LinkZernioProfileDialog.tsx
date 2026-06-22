@@ -74,7 +74,15 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
 
       const connectionId = data.connection_id as string;
 
-      // 2. Update CRM client record with connection ID
+      // 3. Sync GBP data (NAP, reviews, posts) from Zernio
+      await supabase.functions.invoke("social-rpc", {
+        body: {
+          action: "zernio.syncProfile",
+          payload: { connection_id: connectionId, zernio_profile_id: profile._id },
+        },
+      });
+
+      // 4. Update CRM client record with connection ID
       await crm("clients.update", { id: crmClientId, gbp_connection_id: connectionId });
 
       toast({ title: `"${profile.name}" linked to ${clientName}` });
