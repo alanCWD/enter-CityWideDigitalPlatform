@@ -16,7 +16,7 @@ const formatDate = (d: string | null) =>
 export function ReviewsList({ reviews }: { reviews: ReviewItem[] }) {
   if (reviews.length === 0) {
     return (
-      <p className="text-xs text-[rgba(238,241,250,0.4)] text-center py-6">
+      <p className="text-xs text-muted-foreground text-center py-6">
         No reviews synced yet.
       </p>
     );
@@ -24,9 +24,9 @@ export function ReviewsList({ reviews }: { reviews: ReviewItem[] }) {
   return (
     <div className="space-y-3">
       {reviews.map((r) => (
-        <div key={r.id} className="bg-white/3 rounded-lg p-3 border border-white/5">
+        <div key={r.id} className="bg-white/3 rounded-lg p-3 border border-border/50">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-semibold text-[#EEF1FA]">{r.reviewer_name}</span>
+            <span className="text-xs font-semibold text-foreground">{r.reviewer_name}</span>
             <div className="flex gap-0.5">
               {[1, 2, 3, 4, 5].map((i) => (
                 <Star
@@ -42,12 +42,12 @@ export function ReviewsList({ reviews }: { reviews: ReviewItem[] }) {
             </div>
           </div>
           {r.comment && (
-            <p className="text-[10px] text-[rgba(238,241,250,0.6)] leading-relaxed">{r.comment}</p>
+            <p className="text-[10px] text-muted-foreground leading-relaxed">{r.comment}</p>
           )}
           {r.reply && (
-            <div className="mt-2 pl-2 border-l-2 border-[#0078D7]/40">
-              <p className="text-[10px] text-[#0078D7] font-semibold mb-0.5">Owner reply:</p>
-              <p className="text-[10px] text-[rgba(238,241,250,0.5)]">{r.reply}</p>
+            <div className="mt-2 pl-2 border-l-2 border-primary/40">
+              <p className="text-[10px] text-primary font-semibold mb-0.5">Owner reply:</p>
+              <p className="text-[10px] text-muted-foreground">{r.reply}</p>
             </div>
           )}
           <p className="text-[10px] text-[rgba(238,241,250,0.3)] mt-1.5">{formatDate(r.review_time)}</p>

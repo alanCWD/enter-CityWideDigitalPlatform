@@ -118,6 +118,14 @@ body,
     background: linear-gradient(135deg, #0A1120 0%, #1B2A4A 55%, #00447A 100%);
   }
 
+  /* Portal auth pages: dark gradient in dark mode, clean light bg in light mode */
+  .portal-auth-bg {
+    @apply bg-gradient-to-br from-primary/10 via-background to-primary/5;
+  }
+  .dark .portal-auth-bg {
+    background: linear-gradient(135deg, #0A1120 0%, #1B2A4A 55%, #00447A 100%);
+  }
+
   .cta-gradient {
     background: linear-gradient(90deg, #00447A 0%, #0078D7 100%);
   }

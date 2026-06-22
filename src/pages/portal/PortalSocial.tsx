@@ -28,14 +28,14 @@ export default function PortalSocial() {
         <div className="space-y-5">
           {/* Header */}
           <div>
-            <h1 className="text-xl font-bold text-[#EEF1FA]">Social Sync Pro</h1>
-            <p className="text-sm text-[rgba(238,241,250,0.55)] mt-1">
+            <h1 className="text-xl font-bold text-foreground">Social Sync Pro</h1>
+            <p className="text-sm text-muted-foreground mt-1">
               Compose, schedule, and track posts across all your channels — GBP first.
             </p>
           </div>
 
           {/* Tab bar */}
-          <div className="flex items-center gap-1 bg-[#0D1526] rounded-xl p-1 w-fit border border-white/8">
+          <div className="flex items-center gap-1 bg-muted rounded-xl p-1 w-fit border border-border">
             {TABS.map((tab) => {
               const Icon = tab.icon;
               const active = activeTab === tab.id;
@@ -45,8 +45,8 @@ export default function PortalSocial() {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                     active
-                      ? "bg-[#0078D7] text-white shadow-[0_2px_8px_rgba(0,120,215,0.4)]"
-                      : "text-[rgba(238,241,250,0.4)] hover:text-[rgba(238,241,250,0.7)]"
+                      ? "bg-primary text-white shadow-[0_2px_8px_rgba(0,120,215,0.4)]"
+                      : "text-muted-foreground hover:text-muted-foreground"
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5" />

@@ -45,7 +45,7 @@ function HealthContent({ connection }: { connection: PortalConnection }) {
   }, [connection.id]);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-16 text-[rgba(238,241,250,0.6)]"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading health profile…</div>;
+    return <div className="flex items-center justify-center py-16 text-muted-foreground"><Loader2 className="w-5 h-5 animate-spin mr-2" /> Loading health profile…</div>;
   }
   if (error) {
     return (
@@ -68,19 +68,19 @@ function HealthContent({ connection }: { connection: PortalConnection }) {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-[#EEF1FA] flex items-center gap-2">
-          <Activity className="w-5 h-5 text-[#0078D7]" /> Digital Health
+        <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+          <Activity className="w-5 h-5 text-primary" /> Digital Health
         </h1>
-        <p className="text-sm text-[rgba(238,241,250,0.55)] mt-1">
+        <p className="text-sm text-muted-foreground mt-1">
           A live snapshot of your business's online presence — what's working and what we're improving for you.
         </p>
       </div>
 
       {empty ? (
-        <div className="bg-[#111E33] border border-white/8 rounded-xl px-5 py-10 text-center">
+        <div className="bg-card border border-border rounded-xl px-5 py-10 text-center">
           <Activity className="w-10 h-10 mx-auto text-[rgba(238,241,250,0.3)] mb-3" />
-          <p className="text-sm text-[rgba(238,241,250,0.6)]">Your digital health snapshot is being prepared.</p>
-          <p className="text-xs text-[rgba(238,241,250,0.45)] mt-1">Check back shortly — your agency is putting it together.</p>
+          <p className="text-sm text-muted-foreground">Your digital health snapshot is being prepared.</p>
+          <p className="text-xs text-muted-foreground mt-1">Check back shortly — your agency is putting it together.</p>
         </div>
       ) : (
         <>

@@ -51,7 +51,7 @@ function AnalyticsContent({ connection }: { connection: PortalConnection }) {
 
   if (loading || !agg) {
     return (
-      <div className="flex items-center gap-2 text-xs text-[rgba(238,241,250,0.5)] py-6">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground py-6">
         <Loader2 className="w-4 h-4 animate-spin" /> Crunching numbers...
       </div>
     );
@@ -60,7 +60,7 @@ function AnalyticsContent({ connection }: { connection: PortalConnection }) {
   const cards = [
     { label: "Avg Rating", value: agg.avgRating ? agg.avgRating.toFixed(2) : "—", icon: Star, color: "text-yellow-400" },
     { label: "Total Reviews", value: agg.totalReviews, icon: MessageSquare, color: "text-[#22C55E]" },
-    { label: "5-star %", value: `${agg.fiveStarPct}%`, icon: TrendingUp, color: "text-[#0078D7]" },
+    { label: "5-star %", value: `${agg.fiveStarPct}%`, icon: TrendingUp, color: "text-primary" },
     { label: "Posts (all-time)", value: agg.totalPosts, icon: FileText, color: "text-[#A855F7]" },
     { label: "Reviews (30d)", value: agg.reviewsLast30, icon: MessageSquare, color: "text-[#22C55E]" },
     { label: "Posts (30d)", value: agg.postsLast30, icon: FileText, color: "text-[#A855F7]" },
@@ -69,25 +69,25 @@ function AnalyticsContent({ connection }: { connection: PortalConnection }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-[#EEF1FA]">Analytics</h1>
-        <p className="text-sm text-[rgba(238,241,250,0.55)] mt-1">
+        <h1 className="text-xl font-bold text-foreground">Analytics</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Performance metrics for {connection.business_name || connection.client_label}.
         </p>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {cards.map((c) => (
-          <div key={c.label} className="bg-[#111E33] rounded-xl p-4 border border-white/8">
+          <div key={c.label} className="bg-card rounded-xl p-4 border border-border">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold text-[rgba(238,241,250,0.4)] uppercase tracking-wide">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
                 {c.label}
               </span>
               <c.icon className={`w-3.5 h-3.5 ${c.color}`} />
             </div>
-            <div className="text-xl font-bold text-[#EEF1FA]">{c.value}</div>
+            <div className="text-xl font-bold text-foreground">{c.value}</div>
           </div>
         ))}
       </div>
-      <p className="text-[10px] text-[rgba(238,241,250,0.35)]">
+      <p className="text-[10px] text-muted-foreground/70">
         Live analytics integrations (search impressions, GBP views, click-throughs) coming soon.
       </p>
     </div>

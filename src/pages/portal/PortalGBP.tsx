@@ -44,29 +44,29 @@ function GBPContent({ connection }: { connection: PortalConnection }) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-[#EEF1FA]">Google Business Profile</h1>
-        <p className="text-sm text-[rgba(238,241,250,0.55)] mt-1">
+        <h1 className="text-xl font-bold text-foreground">Google Business Profile</h1>
+        <p className="text-sm text-muted-foreground mt-1">
           Your live Google data, managed by CityWide Digital.
         </p>
       </div>
       {loading ? (
-        <div className="flex items-center gap-2 text-xs text-[rgba(238,241,250,0.5)] py-6">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground py-6">
           <Loader2 className="w-4 h-4 animate-spin" /> Loading...
         </div>
       ) : (
         <div className="grid md:grid-cols-3 gap-4">
-          <section className="bg-[#111E33] rounded-xl border border-white/8 p-4">
-            <h2 className="text-xs font-bold text-[#EEF1FA] uppercase tracking-wide mb-3">NAP Details</h2>
+          <section className="bg-card rounded-xl border border-border p-4">
+            <h2 className="text-xs font-bold text-foreground uppercase tracking-wide mb-3">NAP Details</h2>
             <NapDetails nap={connection} />
           </section>
-          <section className="bg-[#111E33] rounded-xl border border-white/8 p-4">
-            <h2 className="text-xs font-bold text-[#EEF1FA] uppercase tracking-wide mb-3">
+          <section className="bg-card rounded-xl border border-border p-4">
+            <h2 className="text-xs font-bold text-foreground uppercase tracking-wide mb-3">
               Recent Reviews ({reviews.length})
             </h2>
             <ReviewsList reviews={reviews} />
           </section>
-          <section className="bg-[#111E33] rounded-xl border border-white/8 p-4">
-            <h2 className="text-xs font-bold text-[#EEF1FA] uppercase tracking-wide mb-3">
+          <section className="bg-card rounded-xl border border-border p-4">
+            <h2 className="text-xs font-bold text-foreground uppercase tracking-wide mb-3">
               Recent Posts ({posts.length})
             </h2>
             <PostsList posts={posts} />

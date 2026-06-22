@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Loader2, LogIn, AlertCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
-import { LogoOnDark } from "@/components/branding/Logo";
+import { Logo, LogoOnDark } from "@/components/branding/Logo";
 
 export default function Login() {
   const { signIn, session, user, loading: authLoading } = useAuth();
@@ -45,22 +45,22 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_55%,#00447A_100%)] flex items-center justify-center p-6">
+    <div className="min-h-screen portal-auth-bg flex items-center justify-center p-6">
       <div className="w-full max-w-md">
         <div className="text-center mb-6">
           <Link to="/" className="inline-flex items-center justify-center mb-5" aria-label="CityWide Digital — home">
-            <LogoOnDark size="lg" />
+            <><Logo size="lg" className="dark:hidden" /><LogoOnDark size="lg" className="hidden dark:block" /></>
           </Link>
-          <h1 className="text-2xl font-bold text-[#EEF1FA]">Client Portal</h1>
-          <p className="text-sm text-[rgba(238,241,250,0.55)] mt-1">Sign in to your business workspace</p>
+          <h1 className="text-2xl font-bold text-foreground">Client Portal</h1>
+          <p className="text-sm text-muted-foreground mt-1">Sign in to your business workspace</p>
         </div>
 
         <form
           onSubmit={handleSubmit}
-          className="bg-[#111E33] rounded-2xl border border-white/8 p-6 space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+          className="bg-card rounded-2xl border border-border p-6 space-y-4 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
         >
           <div>
-            <label className="text-[10px] font-bold text-[rgba(238,241,250,0.5)] uppercase tracking-wider">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
               Email
             </label>
             <input
@@ -68,12 +68,12 @@ export default function Login() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]"
+              className="w-full mt-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
               placeholder="you@yourbusiness.com"
             />
           </div>
           <div>
-            <label className="text-[10px] font-bold text-[rgba(238,241,250,0.5)] uppercase tracking-wider">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
               Password
             </label>
             <input
@@ -81,7 +81,7 @@ export default function Login() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full mt-1 bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]"
+              className="w-full mt-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary"
               placeholder="••••••••"
             />
           </div>
@@ -96,15 +96,15 @@ export default function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full flex items-center justify-center gap-2 bg-[#0078D7] hover:bg-[#0088EE] disabled:opacity-60 text-white text-sm font-bold py-2.5 rounded-lg transition-colors"
+            className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 disabled:opacity-60 text-white text-sm font-bold py-2.5 rounded-lg transition-colors"
           >
             {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />}
             Sign in
           </button>
 
-          <p className="text-[11px] text-center text-[rgba(238,241,250,0.5)]">
+          <p className="text-[11px] text-center text-muted-foreground">
             Need an account?{" "}
-            <Link to="/portal/signup" className="text-[#0078D7] hover:underline">
+            <Link to="/portal/signup" className="text-primary hover:underline">
               Sign up
             </Link>
           </p>

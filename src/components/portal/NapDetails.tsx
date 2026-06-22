@@ -24,14 +24,14 @@ export function NapDetails({ nap }: { nap: NapData }) {
       {fields.map(({ icon: Icon, label, value }) => (
         <div
           key={label}
-          className="flex items-start gap-3 py-2 border-b border-white/5 last:border-b-0"
+          className="flex items-start gap-3 py-2 border-b border-border/50 last:border-b-0"
         >
-          <Icon className="w-3.5 h-3.5 text-[#0078D7] mt-0.5 flex-shrink-0" />
+          <Icon className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
           <div>
-            <div className="text-[10px] font-bold text-[rgba(238,241,250,0.4)] uppercase tracking-wide">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
               {label}
             </div>
-            <div className="text-xs text-[#EEF1FA] mt-0.5">
+            <div className="text-xs text-foreground mt-0.5">
               {value || (
                 <span className="text-[rgba(238,241,250,0.3)]">Not available</span>
               )}

@@ -81,11 +81,11 @@ export function PostComposer({ clientId, onPostCreated }: Props) {
   const isTwitterSelected = selectedPlatforms.includes("twitter");
 
   return (
-    <div className="bg-[#111E33] rounded-xl border border-white/8 overflow-hidden">
+    <div className="bg-card rounded-xl border border-border overflow-hidden">
       <div className="p-5">
         <div className="flex items-center gap-2 mb-4">
-          <Globe className="w-4 h-4 text-[#0078D7]" />
-          <span className="text-sm font-bold text-[#EEF1FA]">Compose Post</span>
+          <Globe className="w-4 h-4 text-primary" />
+          <span className="text-sm font-bold text-foreground">Compose Post</span>
         </div>
 
         {/* Platform toggles */}
@@ -99,7 +99,7 @@ export function PostComposer({ clientId, onPostCreated }: Props) {
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all ${
                   selected
                     ? "border-transparent text-white"
-                    : "border-white/15 text-[rgba(238,241,250,0.4)] hover:border-white/30"
+                    : "border-white/15 text-muted-foreground hover:border-white/30"
                 } ${p.required ? "cursor-default" : "cursor-pointer"}`}
                 style={selected ? { backgroundColor: p.color } : {}}
                 title={p.required ? "Google Business is always included" : undefined}
@@ -117,7 +117,7 @@ export function PostComposer({ clientId, onPostCreated }: Props) {
           onChange={(e) => setContent(e.target.value)}
           placeholder="Write your post here…"
           rows={4}
-          className="w-full bg-[#0D1526] border border-white/10 rounded-xl px-4 py-3 text-sm text-[#EEF1FA] placeholder:text-[rgba(238,241,250,0.25)] focus:outline-none focus:border-[#0078D7]/60 resize-none"
+          className="w-full bg-muted border border-border rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/60 resize-none"
         />
 
         {/* Char counter */}
@@ -129,13 +129,13 @@ export function PostComposer({ clientId, onPostCreated }: Props) {
         <div className="flex items-center gap-2 mt-4">
           <button
             onClick={() => setMode("now")}
-            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${mode === "now" ? "bg-[#0078D7] border-[#0078D7] text-white" : "border-white/15 text-[rgba(238,241,250,0.5)] hover:border-white/30"}`}
+            className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${mode === "now" ? "bg-primary border-[#0078D7] text-white" : "border-white/15 text-muted-foreground hover:border-white/30"}`}
           >
             Post Now
           </button>
           <button
             onClick={() => setMode("schedule")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${mode === "schedule" ? "bg-[#0078D7] border-[#0078D7] text-white" : "border-white/15 text-[rgba(238,241,250,0.5)] hover:border-white/30"}`}
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${mode === "schedule" ? "bg-primary border-[#0078D7] text-white" : "border-white/15 text-muted-foreground hover:border-white/30"}`}
           >
             <Clock className="w-3 h-3" />
             Schedule
@@ -146,7 +146,7 @@ export function PostComposer({ clientId, onPostCreated }: Props) {
               type="datetime-local"
               value={scheduledAt}
               onChange={(e) => setScheduledAt(e.target.value)}
-              className="bg-[#0D1526] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]/60"
+              className="bg-muted border border-border rounded-lg px-3 py-1.5 text-xs text-foreground focus:outline-none focus:border-primary/60"
             />
           )}
         </div>
@@ -156,19 +156,19 @@ export function PostComposer({ clientId, onPostCreated }: Props) {
           <div className="mt-4">
             <button
               onClick={() => setShowAdvanced((v) => !v)}
-              className="flex items-center gap-1.5 text-xs text-[rgba(238,241,250,0.4)] hover:text-[rgba(238,241,250,0.7)] transition-colors"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-muted-foreground transition-colors"
             >
               {showAdvanced ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               Advanced — Platform Delay
             </button>
 
             {showAdvanced && (
-              <div className="mt-3 bg-[#0D1526] rounded-xl p-4 border border-white/8">
-                <div className="text-[11px] text-[rgba(238,241,250,0.4)] mb-3">
+              <div className="mt-3 bg-muted rounded-xl p-4 border border-border">
+                <div className="text-[11px] text-muted-foreground mb-3">
                   GBP posts first. Set a delay before syndicating to other platforms.
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-xs text-[rgba(238,241,250,0.55)] w-24">Other platforms</span>
+                  <span className="text-xs text-muted-foreground w-24">Other platforms</span>
                   <input
                     type="range"
                     min={0}
@@ -178,7 +178,7 @@ export function PostComposer({ clientId, onPostCreated }: Props) {
                     onChange={(e) => setDelayMinutes(Number(e.target.value))}
                     className="flex-1 accent-[#0078D7]"
                   />
-                  <span className="text-xs font-bold text-[#0078D7] w-16 text-right">
+                  <span className="text-xs font-bold text-primary w-16 text-right">
                     {delayMinutes === 0 ? "No delay" : `+${delayMinutes} min`}
                   </span>
                 </div>
@@ -189,14 +189,14 @@ export function PostComposer({ clientId, onPostCreated }: Props) {
       </div>
 
       {/* Footer */}
-      <div className="px-5 py-3.5 bg-[#0D1526] border-t border-white/8 flex items-center justify-between">
-        <div className="text-[11px] text-[rgba(238,241,250,0.35)]">
+      <div className="px-5 py-3.5 bg-muted border-t border-border flex items-center justify-between">
+        <div className="text-[11px] text-muted-foreground/70">
           {selectedPlatforms.length} platform{selectedPlatforms.length !== 1 ? "s" : ""} selected
         </div>
         <button
           onClick={handleSubmit}
           disabled={loading || !content.trim() || overLimit}
-          className="flex items-center gap-2 bg-[#0078D7] hover:bg-[#005FA3] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-2 bg-primary hover:bg-[#005FA3] disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors"
         >
           <Send className="w-3.5 h-3.5" />
           {loading ? "Publishing…" : mode === "schedule" ? "Schedule Post" : "Publish Now"}

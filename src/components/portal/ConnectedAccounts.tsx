@@ -85,7 +85,7 @@ export function ConnectedAccounts({ clientId }: Props) {
 
   return (
     <div className="space-y-3">
-      <div className="text-xs font-bold text-[rgba(238,241,250,0.4)] uppercase tracking-wider mb-4">
+      <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-4">
         Connected Platforms
       </div>
       {PLATFORMS.map((p) => {
@@ -97,15 +97,15 @@ export function ConnectedAccounts({ clientId }: Props) {
         return (
           <div
             key={p.id}
-            className="flex items-center justify-between bg-[#111E33] rounded-xl px-5 py-4 border border-white/8"
+            className="flex items-center justify-between bg-card rounded-xl px-5 py-4 border border-border"
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: color + "25" }}>
                 <span className="text-[10px] font-extrabold" style={{ color }}>{p.label[0]}</span>
               </div>
               <div>
-                <div className="text-sm font-bold text-[#EEF1FA]">{p.label}</div>
-                <div className="text-[11px] text-[rgba(238,241,250,0.35)]">
+                <div className="text-sm font-bold text-foreground">{p.label}</div>
+                <div className="text-[11px] text-muted-foreground/70">
                   {isConnected ? (account.account_name ?? "Connected") : p.note}
                 </div>
               </div>
@@ -117,7 +117,7 @@ export function ConnectedAccounts({ clientId }: Props) {
                   <CheckCircle className="w-4 h-4 text-[#22C55E]" />
                   <button
                     onClick={() => disconnect(account)}
-                    className="text-[rgba(238,241,250,0.25)] hover:text-red-400 transition-colors ml-1"
+                    className="text-muted-foreground/50 hover:text-red-400 transition-colors ml-1"
                     title="Disconnect"
                   >
                     <Unlink className="w-3.5 h-3.5" />
@@ -127,7 +127,7 @@ export function ConnectedAccounts({ clientId }: Props) {
                 <button
                   onClick={() => connect(p.id)}
                   disabled={isDisabled || connecting === p.id}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors disabled:opacity-35 disabled:cursor-not-allowed border-white/15 text-[rgba(238,241,250,0.55)] hover:enabled:border-[#0078D7] hover:enabled:text-[#0078D7]"
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors disabled:opacity-35 disabled:cursor-not-allowed border-white/15 text-muted-foreground hover:enabled:border-[#0078D7] hover:enabled:text-primary"
                   title={isDisabled ? "Connect Google Business first" : undefined}
                 >
                   <Link2 className="w-3 h-3" />
@@ -140,7 +140,7 @@ export function ConnectedAccounts({ clientId }: Props) {
       })}
 
       {!gbpConnected && (
-        <p className="text-[11px] text-[rgba(238,241,250,0.35)] text-center pt-2">
+        <p className="text-[11px] text-muted-foreground/70 text-center pt-2">
           Connect Google Business first to unlock other platforms.
         </p>
       )}

@@ -1,9 +1,10 @@
 import { NavLink, useNavigate, useParams } from "react-router-dom";
-import { LogOut, Store, Share2, BarChart3, Home, Shield, Activity, Users } from "lucide-react";
+import { LogOut, Store, Share2, BarChart3, Home, Shield, Activity, Users, Sun, Moon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 import type { PortalConnection } from "@/hooks/usePortalConnections";
-import { LogoOnDark } from "@/components/branding/Logo";
+import { Logo, LogoOnDark } from "@/components/branding/Logo";
 
 const TABS = [
   { name: "Overview",  path: "",          icon: Home,     end: true  },
@@ -22,6 +23,7 @@ interface PortalSidebarProps {
 
 export function PortalTopBar({ connection, otherConnections }: PortalSidebarProps) {
   const { user, signOut } = useAuth();
+  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const { clientId } = useParams();
 
@@ -31,13 +33,16 @@ export function PortalTopBar({ connection, otherConnections }: PortalSidebarProp
   };
 
   return (
-    <aside className="fixed inset-y-0 left-0 z-30 w-56 flex flex-col bg-[#0D1526] border-r border-white/8">
+    <aside className="fixed inset-y-0 left-0 z-30 w-56 flex flex-col bg-sidebar border-r border-sidebar-border">
       {/* Brand */}
-      <div className="px-5 py-5 border-b border-white/8">
-        <LogoOnDark size="sm" />
+      <div className="px-5 py-5 border-b border-sidebar-border">
+        {/* Adaptive logo */}
+        <Logo size="sm" className="dark:hidden" />
+        <LogoOnDark size="sm" className="hidden dark:block" />
+
         <div className="mt-3">
-          <div className="text-[9px] font-bold text-[#0078D7] uppercase tracking-widest mb-0.5">Client Portal</div>
-          <div className="text-[#EEF1FA] font-bold text-sm leading-tight truncate">
+          <div className="text-[9px] font-bold text-primary uppercase tracking-widest mb-0.5">Client Portal</div>
+          <div className="text-sidebar-foreground font-bold text-sm leading-tight truncate">
             {connection.business_name || connection.client_label}
           </div>
         </div>
@@ -46,13 +51,13 @@ export function PortalTopBar({ connection, otherConnections }: PortalSidebarProp
           <select
             value={clientId}
             onChange={(e) => navigate(`/portal/${e.target.value}`)}
-            className="mt-2 w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-[#EEF1FA] focus:outline-none focus:border-[#0078D7]"
+            className="mt-2 w-full bg-muted/50 border border-sidebar-border rounded-lg px-2 py-1.5 text-[11px] text-sidebar-foreground focus:outline-none focus:border-primary"
           >
-            <option value={connection.id} className="bg-[#0D1526]">
+            <option value={connection.id}>
               {connection.business_name || connection.client_label}
             </option>
             {otherConnections.map((c) => (
-              <option key={c.id} value={c.id} className="bg-[#0D1526]">
+              <option key={c.id} value={c.id}>
                 {c.business_name || c.client_label}
               </option>
             ))}
@@ -71,8 +76,8 @@ export function PortalTopBar({ connection, otherConnections }: PortalSidebarProp
               cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all w-full",
                 isActive
-                  ? "bg-[#0078D7]/20 text-[#0078D7] shadow-[inset_0_0_0_1px_rgba(0,120,215,0.25)]"
-                  : "text-[rgba(238,241,250,0.55)] hover:text-[#EEF1FA] hover:bg-white/5"
+                  ? "bg-primary/15 text-primary"
+                  : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent"
               )
             }
           >
@@ -82,12 +87,27 @@ export function PortalTopBar({ connection, otherConnections }: PortalSidebarProp
         ))}
       </nav>
 
-      {/* User + sign out */}
-      <div className="px-4 py-4 border-t border-white/8">
-        <div className="text-[10px] text-[rgba(238,241,250,0.4)] truncate mb-2">{user?.email}</div>
+      {/* Bottom: theme toggle + user + sign out */}
+      <div className="px-4 py-4 border-t border-sidebar-border space-y-2">
+        {/* Theme toggle */}
+        <button
+          onClick={toggle}
+          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-[11px] font-bold text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
+        >
+          {theme === "dark" ? (
+            <><Sun className="w-3.5 h-3.5" /> Light mode</>
+          ) : (
+            <><Moon className="w-3.5 h-3.5" /> Dark mode</>
+          )}
+        </button>
+
+        {/* User email */}
+        <div className="text-[10px] text-sidebar-foreground/40 truncate px-3">{user?.email}</div>
+
+        {/* Sign out */}
         <button
           onClick={handleSignOut}
-          className="flex items-center gap-2 w-full text-[11px] font-bold text-[rgba(238,241,250,0.5)] hover:text-[#EEF1FA] hover:bg-white/5 px-3 py-2 rounded-lg transition-colors"
+          className="flex items-center gap-2 w-full text-[11px] font-bold text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent px-3 py-2 rounded-lg transition-colors"
         >
           <LogOut className="w-3.5 h-3.5" />
           Sign out
