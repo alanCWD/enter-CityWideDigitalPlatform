@@ -246,7 +246,7 @@ Deno.serve(async (req) => {
         return json({ ok: true, profiles: (data as { profiles?: unknown[] }).profiles ?? [] });
       }
 
-      // ── Debug: inspect raw Zernio data for a specific profile ──
+      // ── Debug: probe all Zernio endpoint patterns ──────
       case "zernio.debug": {
         const { zernio_profile_id } = payload as { zernio_profile_id?: string };
         const results: Record<string, unknown> = {};
@@ -256,23 +256,34 @@ Deno.serve(async (req) => {
         results.profiles_list = { status: profilesRes.status, data: profilesRes.data };
 
         if (zernio_profile_id) {
-          // Try single profile endpoint
-          const profileRes = await zernioGet(`https://zernio.com/api/v1/profiles/${zernio_profile_id}`, zernioKey);
-          results.single_profile = { status: profileRes.status, data: profileRes.data };
+          const id = zernio_profile_id;
 
-          // Try reviews endpoint variants
-          const rev1 = await zernioGet(`https://zernio.com/api/v1/profiles/${zernio_profile_id}/reviews`, zernioKey);
-          results.reviews_nested = { status: rev1.status, raw: rev1.raw.slice(0, 500) };
+          // Profile variants
+          for (const path of [
+            `/api/v1/profiles/${id}`,
+            `/api/v1/profiles/${id}/gbp`,
+            `/api/v1/profiles/${id}/location`,
+            `/api/v1/profiles/${id}/details`,
+            `/api/v1/gbp?profileId=${id}`,
+            `/api/v1/locations?profileId=${id}`,
+          ]) {
+            const r = await zernioGet(`https://zernio.com${path}`, zernioKey);
+            results[`profile__${path.replace(/[/?=]/g,"_")}`] = { status: r.status, raw: r.raw.slice(0, 300) };
+          }
 
-          const rev2 = await zernioGet(`https://zernio.com/api/v1/reviews?profileId=${zernio_profile_id}`, zernioKey);
-          results.reviews_query = { status: rev2.status, raw: rev2.raw.slice(0, 500) };
-
-          // Try posts endpoint variants
-          const posts1 = await zernioGet(`https://zernio.com/api/v1/profiles/${zernio_profile_id}/posts`, zernioKey);
-          results.posts_nested = { status: posts1.status, raw: posts1.raw.slice(0, 500) };
-
-          const posts2 = await zernioGet(`https://zernio.com/api/v1/posts?profileId=${zernio_profile_id}`, zernioKey);
-          results.posts_query = { status: posts2.status, raw: posts2.raw.slice(0, 500) };
+          // Review variants
+          for (const path of [
+            `/api/v1/profiles/${id}/reviews`,
+            `/api/v1/reviews?profileId=${id}`,
+            `/api/v1/google-reviews?profileId=${id}`,
+            `/api/v1/reputation?profileId=${id}`,
+            `/api/v1/gbp/reviews?profileId=${id}`,
+            `/api/v1/reviews/google?profileId=${id}`,
+            `/api/v1/listings/${id}/reviews`,
+          ]) {
+            const r = await zernioGet(`https://zernio.com${path}`, zernioKey);
+            results[`reviews__${path.replace(/[/?=]/g,"_")}`] = { status: r.status, raw: r.raw.slice(0, 300) };
+          }
         }
 
         return json({ ok: true, debug: results });
@@ -287,43 +298,61 @@ Deno.serve(async (req) => {
 
         const syncLog: string[] = [];
 
-        // 1. Fetch detailed profile info
-        const profileRes = await zernioGet(`https://zernio.com/api/v1/profiles/${zernio_profile_id}`, zernioKey);
-        if (profileRes.ok && profileRes.data) {
-          const p = profileRes.data as Record<string, unknown>;
-          // Handle both { profile: {...} } and flat response shapes
-          const pd = (p.profile ?? p) as Record<string, unknown>;
-          const updateFields: Record<string, unknown> = { last_synced_at: new Date().toISOString() };
-          if (pd.name) updateFields.business_name = pd.name;
-          if (pd.address) updateFields.address = pd.address;
-          if (pd.phone) updateFields.phone = pd.phone;
-          if (pd.website) updateFields.website = pd.website;
-          if (pd.category) updateFields.category = pd.category;
-          if (pd.rating != null) updateFields.rating = pd.rating;
-          if (pd.reviewCount != null) updateFields.review_count = pd.reviewCount;
-          if (pd.review_count != null) updateFields.review_count = pd.review_count;
-          await supabase.from("gbp_connections").update(updateFields).eq("id", connection_id);
-          syncLog.push(`profile: updated ${Object.keys(updateFields).length} fields`);
-        } else {
-          syncLog.push(`profile: ${profileRes.status} - ${profileRes.raw.slice(0, 100)}`);
+        // 1. Fetch profile info — try single profile, then gbp/location sub-paths
+        const profilePaths = [
+          `https://zernio.com/api/v1/profiles/${zernio_profile_id}`,
+          `https://zernio.com/api/v1/profiles/${zernio_profile_id}/gbp`,
+          `https://zernio.com/api/v1/profiles/${zernio_profile_id}/location`,
+          `https://zernio.com/api/v1/gbp?profileId=${zernio_profile_id}`,
+          `https://zernio.com/api/v1/locations?profileId=${zernio_profile_id}`,
+        ];
+        for (const url of profilePaths) {
+          const res = await zernioGet(url, zernioKey);
+          if (res.ok && res.data) {
+            const p = res.data as Record<string, unknown>;
+            const pd = (p.profile ?? p.location ?? p.gbp ?? p.data ?? p) as Record<string, unknown>;
+            const updateFields: Record<string, unknown> = { last_synced_at: new Date().toISOString() };
+            if (pd.name) updateFields.business_name = pd.name;
+            if (pd.address) updateFields.address = pd.address;
+            if (pd.phone) updateFields.phone = pd.phone;
+            if (pd.website) updateFields.website = pd.website;
+            if (pd.category) updateFields.category = pd.category;
+            if (pd.rating != null) updateFields.rating = pd.rating;
+            if (pd.reviewCount != null) updateFields.review_count = pd.reviewCount;
+            if (pd.review_count != null) updateFields.review_count = pd.review_count;
+            if (pd.averageRating != null) updateFields.rating = pd.averageRating;
+            if (pd.totalReviews != null) updateFields.review_count = pd.totalReviews;
+            await supabase.from("gbp_connections").update(updateFields).eq("id", connection_id);
+            syncLog.push(`profile (${url.split("/api/v1/")[1].split("?")[0]}): updated ${Object.keys(updateFields).length} fields`);
+            break;
+          }
         }
 
-        // 2. Fetch reviews — try nested path first, then query param
+        // 2. Fetch reviews — try multiple endpoint patterns
         let reviewsData: unknown[] = [];
-        const rev1 = await zernioGet(`https://zernio.com/api/v1/profiles/${zernio_profile_id}/reviews`, zernioKey);
-        if (rev1.ok && rev1.data) {
-          const rd = rev1.data as Record<string, unknown>;
-          reviewsData = (rd.reviews ?? rd.data ?? (Array.isArray(rev1.data) ? rev1.data : [])) as unknown[];
-          syncLog.push(`reviews (nested): ${reviewsData.length} found`);
-        } else {
-          const rev2 = await zernioGet(`https://zernio.com/api/v1/reviews?profileId=${zernio_profile_id}`, zernioKey);
-          if (rev2.ok && rev2.data) {
-            const rd = rev2.data as Record<string, unknown>;
-            reviewsData = (rd.reviews ?? rd.data ?? (Array.isArray(rev2.data) ? rev2.data : [])) as unknown[];
-            syncLog.push(`reviews (query): ${reviewsData.length} found`);
-          } else {
-            syncLog.push(`reviews: not available (${rev1.status}/${rev2.status})`);
+        const reviewPaths = [
+          `https://zernio.com/api/v1/google-reviews?profileId=${zernio_profile_id}`,
+          `https://zernio.com/api/v1/reputation?profileId=${zernio_profile_id}`,
+          `https://zernio.com/api/v1/gbp/reviews?profileId=${zernio_profile_id}`,
+          `https://zernio.com/api/v1/reviews/google?profileId=${zernio_profile_id}`,
+          `https://zernio.com/api/v1/listings/${zernio_profile_id}/reviews`,
+          `https://zernio.com/api/v1/profiles/${zernio_profile_id}/reviews`,
+          `https://zernio.com/api/v1/reviews?profileId=${zernio_profile_id}`,
+        ];
+        for (const url of reviewPaths) {
+          const res = await zernioGet(url, zernioKey);
+          if (res.ok && res.data) {
+            const rd = res.data as Record<string, unknown>;
+            const arr = rd.reviews ?? rd.data ?? rd.items ?? rd.results ?? (Array.isArray(res.data) ? res.data : null);
+            if (arr && Array.isArray(arr)) {
+              reviewsData = arr as unknown[];
+              syncLog.push(`reviews (${url.split("/api/v1/")[1].split("?")[0]}): ${reviewsData.length} found`);
+              break;
+            }
           }
+        }
+        if (reviewsData.length === 0) {
+          syncLog.push(`reviews: not available on any endpoint`);
         }
 
         if (reviewsData.length > 0) {
@@ -332,38 +361,40 @@ Deno.serve(async (req) => {
             return {
               connection_id,
               review_id: (rv._id ?? rv.id ?? crypto.randomUUID()) as string,
-              reviewer_name: (rv.reviewer_name ?? rv.reviewerName ?? rv.author ?? "Anonymous") as string,
-              rating: (rv.rating ?? rv.starRating ?? 0) as number,
-              comment: (rv.comment ?? rv.text ?? rv.body ?? null) as string | null,
-              reply: (rv.reply ?? rv.response ?? null) as string | null,
-              review_time: (rv.review_time ?? rv.createdAt ?? rv.created_at ?? new Date().toISOString()) as string,
+              reviewer_name: (rv.reviewer_name ?? rv.reviewerName ?? rv.author ?? rv.name ?? "Anonymous") as string,
+              rating: (rv.rating ?? rv.starRating ?? rv.score ?? 0) as number,
+              comment: (rv.comment ?? rv.text ?? rv.body ?? rv.content ?? null) as string | null,
+              reply: (rv.reply ?? rv.response ?? rv.replyText ?? null) as string | null,
+              review_time: (rv.review_time ?? rv.reviewTime ?? rv.createdAt ?? rv.created_at ?? new Date().toISOString()) as string,
             };
           });
           await supabase.from("gbp_reviews")
             .upsert(rows, { onConflict: "connection_id,review_id" });
-          // Update review_count on connection
           await supabase.from("gbp_connections")
             .update({ review_count: rows.length })
             .eq("id", connection_id);
         }
 
-        // 3. Fetch posts — try nested path first, then query param
+        // 3. Fetch posts
         let postsData: unknown[] = [];
-        const posts1 = await zernioGet(`https://zernio.com/api/v1/profiles/${zernio_profile_id}/posts`, zernioKey);
-        if (posts1.ok && posts1.data) {
-          const pd2 = posts1.data as Record<string, unknown>;
-          postsData = (pd2.posts ?? pd2.data ?? (Array.isArray(posts1.data) ? posts1.data : [])) as unknown[];
-          syncLog.push(`posts (nested): ${postsData.length} found`);
-        } else {
-          const posts2 = await zernioGet(`https://zernio.com/api/v1/posts?profileId=${zernio_profile_id}`, zernioKey);
-          if (posts2.ok && posts2.data) {
-            const pd2 = posts2.data as Record<string, unknown>;
-            postsData = (pd2.posts ?? pd2.data ?? (Array.isArray(posts2.data) ? posts2.data : [])) as unknown[];
-            syncLog.push(`posts (query): ${postsData.length} found`);
-          } else {
-            syncLog.push(`posts: not available (${posts1.status}/${posts2.status})`);
+        const postsPaths = [
+          `https://zernio.com/api/v1/posts?profileId=${zernio_profile_id}`,
+          `https://zernio.com/api/v1/profiles/${zernio_profile_id}/posts`,
+          `https://zernio.com/api/v1/gbp/posts?profileId=${zernio_profile_id}`,
+        ];
+        for (const url of postsPaths) {
+          const res = await zernioGet(url, zernioKey);
+          if (res.ok && res.data) {
+            const pd2 = res.data as Record<string, unknown>;
+            const arr = pd2.posts ?? pd2.data ?? pd2.items ?? (Array.isArray(res.data) ? res.data : null);
+            if (arr && Array.isArray(arr)) {
+              postsData = arr as unknown[];
+              syncLog.push(`posts (${url.split("/api/v1/")[1].split("?")[0]}): ${postsData.length} found`);
+              break;
+            }
           }
         }
+        if (postsData.length === 0) syncLog.push(`posts: not available`);
 
         if (postsData.length > 0) {
           const rows = postsData.map((p) => {
