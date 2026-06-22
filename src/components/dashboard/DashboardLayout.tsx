@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
-import { ThemeProvider, useTheme } from "@/hooks/useTheme";
+import { useTheme } from "@/hooks/useTheme";
 import { cn } from "@/lib/utils";
 
 interface DashboardLayoutProps {
@@ -26,9 +26,5 @@ function DashboardShell({ children }: DashboardLayoutProps) {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  return (
-    <ThemeProvider>
-      <DashboardShell>{children}</DashboardShell>
-    </ThemeProvider>
-  );
+  return <DashboardShell>{children}</DashboardShell>;
 }
