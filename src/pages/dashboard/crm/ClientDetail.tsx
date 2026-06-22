@@ -79,11 +79,11 @@ export function ClientDetail() {
                   ) : (
                     <button
                       onClick={() => setShowLinkZernio(true)}
-                      title="Link a Zernio profile to activate portal"
+                      title="Link a business profile to activate portal"
                       className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-colors"
                     >
                       <Link2 className="w-3.5 h-3.5" />
-                      Link Zernio Profile
+                      Link Profile
                     </button>
                   )}
                   <button
@@ -123,7 +123,7 @@ export function ClientDetail() {
             <div>
               <p className="text-sm font-bold text-amber-600 dark:text-amber-400">Client portal not connected</p>
               <p className="text-xs text-amber-600/70 dark:text-amber-400/60 mt-0.5">
-                Link a business profile from your master account to activate this client's portal.
+                Link a business profile to activate this client's portal.
               </p>
             </div>
             <button
@@ -131,7 +131,7 @@ export function ClientDetail() {
               className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-amber-500 hover:bg-amber-600 text-white transition-colors flex-shrink-0 ml-4"
             >
               <Link2 className="w-4 h-4" />
-              Link Profile
+              Link Business Profile
             </button>
           </div>
         ) : (
@@ -142,15 +142,24 @@ export function ClientDetail() {
                 Business profile is connected. Client can log in to their portal.
               </p>
             </div>
-            <a
-              href={`/portal/${c.gbp_connection_id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-[#0078D7] hover:bg-[#005FA3] text-white transition-colors flex-shrink-0 ml-4"
-            >
-              <LayoutDashboard className="w-4 h-4" />
-              View Portal
-            </a>
+            <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+              <button
+                onClick={() => setShowLinkZernio(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold bg-[#0078D7]/10 text-[#0078D7] hover:bg-[#0078D7]/20 border border-[#0078D7]/25 transition-colors"
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                Change
+              </button>
+              <a
+                href={`/portal/${c.gbp_connection_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-[#0078D7] hover:bg-[#005FA3] text-white transition-colors"
+              >
+                <LayoutDashboard className="w-4 h-4" />
+                View Portal
+              </a>
+            </div>
           </div>
         )}
 

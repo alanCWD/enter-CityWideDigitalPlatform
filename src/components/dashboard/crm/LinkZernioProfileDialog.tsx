@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
-import { X, RefreshCw, Link2, CheckCircle, AlertCircle } from "lucide-react";
+import { X, RefreshCw, Link2, CheckCircle, AlertCircle, Store } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { crm } from "@/lib/crm";
 import { useToast } from "@/hooks/use-toast";
 
-interface ZernioProfile {
+interface BusinessProfile {
   _id: string;
   name: string;
   description?: string;
@@ -27,7 +27,7 @@ interface Props {
 
 export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onClose }: Props) {
   const { toast } = useToast();
-  const [profiles, setProfiles] = useState<ZernioProfile[]>([]);
+  const [profiles, setProfiles] = useState<BusinessProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [linking, setLinking] = useState<string | null>(null);
@@ -39,8 +39,8 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
       const { data, error: fnError } = await supabase.functions.invoke("social-rpc", {
         body: { action: "zernio.profiles", payload: {} },
       });
-      if (fnError || !data?.ok) throw new Error(data?.error ?? fnError?.message ?? "Failed to load profiles");
-      setProfiles((data.profiles as ZernioProfile[]) ?? []);
+      if (fnError || !data?.ok) throw new Error(data?.error ?? fnError?.message ?? "Failed to load business profiles");
+      setProfiles((data.profiles as BusinessProfile[]) ?? []);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -50,10 +50,10 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
 
   useEffect(() => { fetchProfiles(); }, []);
 
-  const linkProfile = async (profile: ZernioProfile) => {
+  const linkProfile = async (profile: BusinessProfile) => {
     setLinking(profile._id);
     try {
-      // 1. Create/update gbp_connections record via social-rpc
+      // 1. Create/update connection record
       const { data, error: fnError } = await supabase.functions.invoke("social-rpc", {
         body: {
           action: "zernio.linkProfile",
@@ -74,7 +74,7 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
 
       const connectionId = data.connection_id as string;
 
-      // 2. Update BunnyDB CRM client with the connection ID
+      // 2. Update CRM client record with connection ID
       await crm("clients.update", { id: crmClientId, gbp_connection_id: connectionId });
 
       toast({ title: `"${profile.name}" linked to ${clientName}` });
@@ -97,9 +97,9 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border dark:border-white/10">
           <div>
-            <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Link Zernio Profile</h3>
+            <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Select Business Profile</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Select a Zernio profile to link to <strong>{clientName}</strong>
+              Choose the profile to link to <strong>{clientName}</strong>
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -121,7 +121,7 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
         <div className="p-4 max-h-[400px] overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground text-sm">
-              <RefreshCw className="w-4 h-4 animate-spin" /> Loading Zernio profiles…
+              <RefreshCw className="w-4 h-4 animate-spin" /> Loading business profiles…
             </div>
           ) : error ? (
             <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/20 rounded-xl p-4">
@@ -129,11 +129,21 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
               <div>
                 <div className="text-sm font-bold text-red-400">Could not load profiles</div>
                 <div className="text-xs text-red-400/70 mt-0.5">{error}</div>
+                <button
+                  onClick={fetchProfiles}
+                  className="text-xs text-red-400 underline mt-1"
+                >
+                  Try again
+                </button>
               </div>
             </div>
           ) : profiles.length === 0 ? (
-            <div className="text-center py-12 text-sm text-muted-foreground">
-              No Zernio profiles found in your master account.
+            <div className="text-center py-12">
+              <Store className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-40" />
+              <p className="text-sm text-muted-foreground">No business profiles found.</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">
+                Make sure your master account has connected business profiles.
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -144,14 +154,12 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
                 >
                   <div className="flex-1 min-w-0">
                     <div className="text-sm font-bold text-foreground dark:text-[#EEF1FA] truncate">{profile.name}</div>
-                    <div className="flex items-center gap-2 mt-0.5">
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       {profile.category && (
                         <span className="text-[10px] text-muted-foreground">{profile.category}</span>
                       )}
-                      {profile.platforms && profile.platforms.length > 0 && (
-                        <span className="text-[10px] text-[#0078D7]">
-                          {profile.platforms.join(", ")}
-                        </span>
+                      {profile.address && (
+                        <span className="text-[10px] text-muted-foreground truncate">{profile.address}</span>
                       )}
                     </div>
                   </div>
@@ -173,12 +181,12 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
           )}
         </div>
 
-        {/* Footer note */}
+        {/* Footer */}
         <div className="px-6 py-3 border-t border-border dark:border-white/8 bg-muted/30 dark:bg-[#0D1526]">
           <div className="flex items-center gap-2">
             <CheckCircle className="w-3.5 h-3.5 text-[#22C55E] flex-shrink-0" />
             <p className="text-[11px] text-muted-foreground dark:text-[rgba(238,241,250,0.45)]">
-              These profiles come from your Zernio master account (alan@citywidedigital.ca). No Google OAuth required.
+              Profiles are pulled from your agency's connected master account. No client action required.
             </p>
           </div>
         </div>
