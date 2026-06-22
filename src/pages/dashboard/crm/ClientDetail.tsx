@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
@@ -63,6 +63,18 @@ export function ClientDetail() {
                 <h2 className="text-xl font-extrabold text-foreground dark:text-[#EEF1FA]">{c.name}</h2>
                 <StatusSelectPill clientId={c.id} status={c.status} onUpdated={reload} />
                 <div className="ml-auto flex items-center gap-1">
+                  {c.gbp_connection_id && (
+                    <a
+                      href={`/portal/${c.gbp_connection_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title="Open client portal"
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#0078D7]/10 text-[#0078D7] hover:bg-[#0078D7]/20 border border-[#0078D7]/20 transition-colors"
+                    >
+                      <LayoutDashboard className="w-3.5 h-3.5" />
+                      View Portal
+                    </a>
+                  )}
                   <button
                     onClick={() => setEditingHeader(true)}
                     title="Edit company details"
