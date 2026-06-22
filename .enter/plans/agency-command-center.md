@@ -1,45 +1,153 @@
-# Fix: "Invalid token" on /dashboard/crm
+# Client Dashboard: Social Sync Pro + Digital CRM
 
-## Root Cause (step-by-step)
+## Context
+The existing `/portal/*` client portal needs three major upgrades:
+1. **Sector-aware Overview** — widget layout adapts to GBP category (Restaurant / Retailer / Service Provider)
+2. **Social Sync Pro** — replace the current iframe placeholder with a full native UI backed by Zernio; includes post composer, queue manager, and platform account management
+3. **Digital CRM** — new portal tab for clients to view incoming leads/contacts and add follow-up notes
 
-1. Page loads → `useCrmMetrics` + `useCrmClients` fire immediately.
-2. Both call `crm("metrics.summary")` / `crm("clients.list")` from `src/lib/crm.ts`.
-3. `crm.ts` invokes the `bunny-rpc` edge function via `supabase.functions.invoke(...)`.
-4. The edge function's `resolveAuth()` creates a **user-scoped** Supabase client using only `ANON_KEY` and sets the user's JWT as an `Authorization` header, then calls `userClient.auth.getUser()` **without passing the token as an argument**.
-5. This pattern is unreliable — `getUser()` without a token argument tries to use a stored session (there is none in an edge function context), causing it to fail and return `{ error: "Invalid token" }`.
-6. **Secondary issue**: Even if auth passed, the code calls `userClient.rpc("is_admin")` and `userClient.rpc("has_role", ...)` — but neither function exists in the database (no migration creates them). Both RPCs return null → `!isAdmin && !isAgency` → `"Forbidden: requires admin or agency role"`.
+The `social-rpc` edge function already handles Zernio `connect`, `sync`, and `post` actions. The `ZERNIO_API_KEY` secret is configured. A `social_accounts` table already exists.
 
-## Fix
+---
 
-**File:** `supabase/functions/bunny-rpc/index.ts`
+## Database Migrations (2 new tables)
 
-Change `resolveAuth` to use the Supabase-recommended edge function pattern:
-- Use the **service role admin client** (`createClient(SUPABASE_URL, SERVICE_KEY)`) and call `adminClient.auth.getUser(token)` **passing the token explicitly**.
-- Remove the `is_admin` / `has_role` RPC calls (functions don't exist in DB). Any authenticated user with a valid JWT is allowed — the tenant scoping via `agency_members` table already provides the necessary access control.
-
-```typescript
-async function resolveAuth(token: string): Promise<AuthCtx | { error: string }> {
-  const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
-  const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
-  if (userErr || !userData?.user) return { error: "Invalid token" };
-  const userId = userData.user.id;
-  // No is_admin/has_role RPC (functions don't exist). Any authenticated user allowed.
-  // Super-admin: email matches ADMIN_EMAIL env var (optional, falls back to false).
-  const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "";
-  const isSuperAdmin = !!ADMIN_EMAIL && userData.user.email === ADMIN_EMAIL;
-  let agencyId = "citywide";
-  try {
-    const { rows } = await exec({ sql: `SELECT agency_id FROM agency_members WHERE user_id = ? LIMIT 1`, args: [userId] });
-    if (rows[0]?.agency_id) agencyId = rows[0].agency_id as string;
-  } catch { /* default to citywide */ }
-  return { userId, isSuperAdmin, agencyId };
-}
+### `scheduled_posts`
+```sql
+CREATE TABLE IF NOT EXISTS scheduled_posts (
+  id TEXT PRIMARY KEY,
+  client_id TEXT NOT NULL,
+  content TEXT NOT NULL,
+  media_url TEXT,
+  platforms JSONB NOT NULL DEFAULT '[]',
+  scheduled_at TIMESTAMPTZ,
+  delay_minutes INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'queued',     -- draft | queued | published | failed | cancelled
+  platform_states JSONB NOT NULL DEFAULT '{}',
+  zernio_post_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE scheduled_posts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all" ON scheduled_posts USING (true);
 ```
 
-## Files to change
-- `supabase/functions/bunny-rpc/index.ts` — update `resolveAuth` only (lines ~130–145)
+### `client_leads`
+```sql
+CREATE TABLE IF NOT EXISTS client_leads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  connection_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT,
+  phone TEXT,
+  source TEXT DEFAULT 'manual',
+  message TEXT,
+  status TEXT NOT NULL DEFAULT 'new',    -- new | contacted | qualified | closed
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE client_leads ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all" ON client_leads USING (true);
+```
+
+---
+
+## Edge Function: `social-rpc` additions
+
+Add these actions to `/workspace/thread/supabase/functions/social-rpc/index.ts`:
+
+| Action | What it does |
+|---|---|
+| `posts.create` | Insert to `scheduled_posts`; if platforms include GBP post immediately via Zernio; schedule others with `delay_minutes` offset |
+| `posts.list` | SELECT from `scheduled_posts` WHERE `client_id = ?` ORDER BY `created_at DESC` |
+| `posts.cancel` | UPDATE `status = 'cancelled'` WHERE `id = ?` |
+| `accounts.list` | SELECT from `social_accounts` WHERE `client_id = ?` |
+| `accounts.disconnect` | DELETE from `social_accounts` WHERE `id = ?` AND `client_id = ?` |
+
+**GBP-first workflow in `posts.create`:**
+1. Post to GBP via Zernio immediately
+2. For each other platform: compute `scheduled_at + delay_minutes` and pass that timestamp to Zernio's `scheduled_at` field in `POST /api/v1/posts`
+3. Store `zernio_post_id` + per-platform state in `platform_states` JSONB
+
+---
+
+## New Components
+
+### `src/components/portal/PostComposer.tsx`
+- Textarea for post content (280 char counter for Twitter)
+- Platform toggle row: **GBP** (always first, locked on), then Facebook / Twitter / LinkedIn toggles
+- "Schedule" vs "Post Now" toggle → date-time picker when scheduling
+- Per-platform delay sliders (0–60 min) shown in expanded "Advanced" section
+- Submit button calls `social-rpc` `posts.create`
+
+### `src/components/portal/QueueManager.tsx`
+- Table/card list of `scheduled_posts` for this client
+- Columns: content preview, platforms (badge row), scheduled time, status chip per platform
+- Cancel button on queued items
+- Auto-refreshes every 30s
+
+### `src/components/portal/ConnectedAccounts.tsx`
+- Grid of platform cards (GBP, Facebook, Twitter, LinkedIn)
+- Each shows: connected / not connected, connect button (triggers `social.connect`)
+- Disconnect button on connected platforms
+
+### `src/components/portal/SectorOverview.tsx`
+- Receives `sector: 'restaurant' | 'retail' | 'service' | 'generic'`
+- **Restaurant**: review score, covers estimate, top dishes CTA, reservation link
+- **Retail**: star rating, inventory sync CTA, promo post CTA
+- **Service**: star rating, booking link, response rate, review reply CTA
+- **Generic**: existing 4-card layout (rating, reviews, last sync, category)
+
+---
+
+## Modified Files
+
+### `src/pages/portal/Overview.tsx`
+- Import `SectorOverview`
+- Add `getSector(category: string | null)` util: maps GBP category string → `'restaurant' | 'retail' | 'service' | 'generic'`
+- Replace hardcoded cards grid with `<SectorOverview sector={getSector(connection.category)} connection={connection} />`
+- Keep the quick-action links row below
+
+### `src/pages/portal/PortalSocial.tsx`
+- Remove `SocialSyncEmbed` import
+- Add local tab state: `'compose' | 'queue' | 'accounts'`
+- Render `<PostComposer>`, `<QueueManager>`, `<ConnectedAccounts>` based on active tab
+
+### `src/components/portal/PortalTopBar.tsx`
+- Add `{ name: "CRM", path: "crm", icon: Users, end: false }` to `TABS` array
+
+### `src/router.tsx`
+- Add `/portal/:clientId/crm` route → `PortalCrm` page
+
+---
+
+## New Pages
+
+### `src/pages/portal/PortalCrm.tsx`
+- Uses `PortalLayout` render-prop pattern (matches all other portal pages)
+- Fetches `client_leads` via Supabase where `connection_id = connection.id`
+- **Lead list view**: card per lead showing name, email/phone, source badge, status chip, date
+- **Lead detail panel**: slide-in or expand showing full message + notes textarea
+- Status dropdown: new → contacted → qualified → closed
+- "Add Lead" button: small form modal (name, email, phone, source, message)
+- All DB ops go directly via `supabase.from('client_leads')`
+
+---
+
+## Implementation Order
+1. DB migrations (scheduled_posts + client_leads)
+2. Update `social-rpc` edge function (posts.create, posts.list, posts.cancel, accounts.list, accounts.disconnect)
+3. Build `SectorOverview.tsx` + update `Overview.tsx`
+4. Build `ConnectedAccounts.tsx` + `PostComposer.tsx` + `QueueManager.tsx`
+5. Rewrite `PortalSocial.tsx` with native tabs
+6. Build `PortalCrm.tsx`
+7. Update `PortalTopBar.tsx` (add CRM tab) + `router.tsx` (add CRM route)
+
+---
 
 ## Verification
-- Navigate to `/dashboard/crm` — the "Invalid token" error should be gone.
-- Metrics/client tiles should load (may show empty data if Bunny DB is not yet populated).
-- The "Test connection" button should return `Connection OK`.
+- Connect a GBP account → Overview shows sector-specific widgets
+- Social tab: Compose → Post Now → appears in Queue with status
+- Social tab: Accounts → Connect Facebook → OAuth redirect via Zernio
+- CRM tab: Add lead → appears in list → change status → add notes
