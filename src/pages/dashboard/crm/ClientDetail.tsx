@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
@@ -9,6 +9,8 @@ import { StatusPill } from "@/components/crm/StatusPill";
 import { VaultPanel } from "@/components/crm/vault/VaultPanel";
 import { HealthPanel } from "@/components/crm/health/HealthPanel";
 import { LinkZernioProfileDialog } from "@/components/dashboard/crm/LinkZernioProfileDialog";
+import { InviteClientDialog } from "@/components/dashboard/InviteClientDialog";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 export function ClientDetail() {
@@ -19,6 +21,20 @@ export function ClientDetail() {
   const [deleting, setDeleting] = useState(false);
   const [editingHeader, setEditingHeader] = useState(false);
   const [showLinkZernio, setShowLinkZernio] = useState(false);
+  const [showInvite, setShowInvite] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+
+  const previewPortal = async (connectionId: string) => {
+    setPreviewing(true);
+    try {
+      const { data } = await supabase.functions.invoke("social-rpc", {
+        body: { action: "portal.preview", payload: { connection_id: connectionId } },
+      });
+      if (data?.ok) window.open(`/portal/${connectionId}`, "_blank");
+    } finally {
+      setPreviewing(false);
+    }
+  };
 
   if (loading) {
     return <DashboardLayout><TopBar title="Loading…" /></DashboardLayout>;
@@ -139,24 +155,39 @@ export function ClientDetail() {
             <div>
               <p className="text-sm font-bold text-[#0078D7]">Client portal active</p>
               <p className="text-xs text-[#0078D7]/60 mt-0.5">
-                Business profile is connected. Client can log in to their portal.
+                Business profile is connected. Invite the client to give them access.
               </p>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+            <div className="flex items-center gap-2 flex-shrink-0 ml-4 flex-wrap justify-end">
               <button
                 onClick={() => setShowLinkZernio(true)}
-                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold bg-[#0078D7]/10 text-[#0078D7] hover:bg-[#0078D7]/20 border border-[#0078D7]/25 transition-colors"
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-white/5 text-muted-foreground hover:text-foreground border border-border transition-colors"
               >
                 <Link2 className="w-3.5 h-3.5" />
-                Change
+                Change Profile
+              </button>
+              <button
+                onClick={() => setShowInvite(true)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-[#22C55E]/10 text-[#22C55E] hover:bg-[#22C55E]/20 border border-[#22C55E]/25 transition-colors"
+              >
+                <UserPlus className="w-3.5 h-3.5" />
+                Invite Client
+              </button>
+              <button
+                onClick={() => previewPortal(c.gbp_connection_id!)}
+                disabled={previewing}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 border border-purple-500/25 transition-colors disabled:opacity-50"
+              >
+                <Eye className="w-3.5 h-3.5" />
+                {previewing ? "Opening…" : "Preview as Admin"}
               </button>
               <a
                 href={`/portal/${c.gbp_connection_id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold bg-[#0078D7] hover:bg-[#005FA3] text-white transition-colors"
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-[#0078D7] hover:bg-[#005FA3] text-white transition-colors"
               >
-                <LayoutDashboard className="w-4 h-4" />
+                <LayoutDashboard className="w-3.5 h-3.5" />
                 View Portal
               </a>
             </div>
@@ -215,10 +246,17 @@ export function ClientDetail() {
           onLinked={(connectionId) => {
             setShowLinkZernio(false);
             reload();
-            // Auto-open the portal after linking
             window.open(`/portal/${connectionId}`, "_blank");
           }}
           onClose={() => setShowLinkZernio(false)}
+        />
+      )}
+
+      {showInvite && c.gbp_connection_id && (
+        <InviteClientDialog
+          connectionId={c.gbp_connection_id}
+          businessName={c.name}
+          onClose={() => setShowInvite(false)}
         />
       )}
     </DashboardLayout>

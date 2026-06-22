@@ -120,7 +120,7 @@ Deno.serve(async (req) => {
       case "social.post": {
         const res = await fetch("https://zernio.com/api/v1/posts", {
           method: "POST",
-          headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
+          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
         const text = await res.text();
@@ -203,6 +203,21 @@ Deno.serve(async (req) => {
         const { id, client_id } = payload as { id: string; client_id: string };
         const { error } = await supabase.from("social_accounts").delete().eq("id", id).eq("client_id", client_id);
         if (error) return json({ ok: false, error: error.message });
+        return json({ ok: true });
+      }
+
+      // ── Grant admin preview access to a portal connection ──
+      case "portal.preview": {
+        const { connection_id } = payload as { connection_id: string };
+        const authHeader = req.headers.get("Authorization") ?? "";
+        const token = authHeader.replace("Bearer ", "").trim();
+        const { data: { user }, error: userErr } = await supabase.auth.getUser(token);
+        if (userErr || !user) return json({ ok: false, error: "Not authenticated" });
+        const { error: upsertErr } = await supabase.from("portal_users").upsert(
+          { user_id: user.id, connection_id, role: "owner" },
+          { onConflict: "user_id,connection_id" },
+        );
+        if (upsertErr) return json({ ok: false, error: upsertErr.message });
         return json({ ok: true });
       }
 
