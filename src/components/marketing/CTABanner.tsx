@@ -14,7 +14,7 @@ export default function CTABanner() {
           Ready to run your business online — on autopilot?
         </h2>
         <p className="text-lg text-[rgba(255,255,255,0.8)] mb-10 max-w-xl mx-auto">
-          Join 2,400+ local businesses. Start your free 30-day trial today. No credit card required.
+          Start your free 30-day trial today. No credit card required.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

@@ -12,7 +12,7 @@ const solutions = [
   "Your website auto-updates from your Google Business Profile",
   "One GMB post instantly publishes to all social platforms",
   "All 40+ directories stay accurate and synced automatically",
-  "Video reviews are collected and displayed on your site",
+  "Reviews are collected and displayed on your site",
   "Customers always find fresh, accurate information",
 ];
 
