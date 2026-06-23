@@ -139,7 +139,7 @@ export default function Services() {
               </div>
 
               <div className={index % 2 !== 0 ? "lg:order-1" : ""}>
-                <div className="bg-white rounded-2xl p-8 border border-border card-shadow">
+                <div className="bg-card rounded-2xl p-8 border border-border card-shadow">
                   <h4 className="text-sm font-bold text-foreground uppercase tracking-wider mb-5">What's Included</h4>
                   <ul className="space-y-3">
                     {service.features.map((f) => (
