@@ -130,7 +130,7 @@ function ConnectDialog({ onClose }: { onClose: () => void }) {
         />
         {error && <p className="text-[10px] text-red-400 mb-3">{error}</p>}
         <p className="text-[10px] text-muted-foreground mb-4">
-          You'll be redirected to Google to authorize CityWide Digital to access this business's GBP data.
+          The business <strong className="text-foreground dark:text-[#EEF1FA]">owner</strong> must sign in with the Google account that manages their GBP listing — not a CityWide Digital account.
         </p>
         <button
           onClick={handleConnect}
@@ -389,6 +389,7 @@ export function GBPIntegration() {
   const [loading, setLoading] = useState(true);
   const [showDialog, setShowDialog] = useState(false);
   const [toast, setToast] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [oauthDiag, setOauthDiag] = useState<{ error: string; diag: string; desc?: string } | null>(null);
 
   const showToast = (msg: string, type: "success" | "error" = "success") => {
     setToast({ msg, type });
@@ -412,12 +413,18 @@ export function GBPIntegration() {
     const status = searchParams.get("status");
     const business = searchParams.get("business");
     const error = searchParams.get("error");
+    const diag = searchParams.get("diag");
+    const desc = searchParams.get("desc");
+    const reviews = searchParams.get("reviews");
+    const posts = searchParams.get("posts");
+
     if (status === "connected") {
-      showToast(`${business || "Business"} connected successfully!`, "success");
+      showToast(`${business || "Business"} connected! ${reviews ? `${reviews} reviews` : ""} ${posts ? `${posts} posts` : ""}`.trim(), "success");
       loadConnections();
+      setOauthDiag(null);
       setSearchParams({});
     } else if (error) {
-      showToast(`Connection failed: ${error.replace(/_/g, " ")}`, "error");
+      setOauthDiag({ error, diag: diag || error, desc: desc || undefined });
       setSearchParams({});
     }
   }, [searchParams, setSearchParams, loadConnections]);
@@ -471,6 +478,49 @@ export function GBPIntegration() {
             </p>
           </div>
         </motion.div>
+
+        {/* OAuth Diagnostic Error Banner */}
+        {oauthDiag && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-red-500/10 border border-red-500/30 rounded-xl p-4"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 text-red-400 mt-0.5 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-bold text-red-400 mb-1">
+                    {oauthDiag.error === "no_accounts"
+                      ? "Wrong Google Account — No GBP Found"
+                      : oauthDiag.error === "no_locations"
+                      ? "Account Connected But No Locations Found"
+                      : oauthDiag.error === "token_exchange_failed"
+                      ? "Authorization Failed — Token Error"
+                      : oauthDiag.error === "google_rejected"
+                      ? "Google Rejected the Authorization Request"
+                      : `Connection Error: ${oauthDiag.error.replace(/_/g, " ")}`}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground leading-relaxed">{oauthDiag.diag}</p>
+                  {oauthDiag.desc && <p className="text-[10px] text-red-400/70 mt-1">{oauthDiag.desc}</p>}
+                  {oauthDiag.error === "no_accounts" && (
+                    <p className="text-[10px] text-amber-400 mt-2 font-semibold">
+                      Fix: The client must sign in with the Google account that OWNS the GBP listing, not any Google account.
+                    </p>
+                  )}
+                  {oauthDiag.error === "token_exchange_failed" && (
+                    <p className="text-[10px] text-amber-400 mt-2 font-semibold">
+                      Fix: The OAuth credentials (Client ID/Secret) may be incorrect or expired. Verify in Google Cloud Console.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button onClick={() => setOauthDiag(null)} className="text-muted-foreground hover:text-foreground transition-colors flex-shrink-0">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Loading */}
         {loading && (
