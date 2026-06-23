@@ -22,7 +22,7 @@ const services = [
       "Custom domain support",
       "Monthly traffic & ranking reports",
     ],
-    niches: ["Restaurants", "Contractors", "Retail Stores", "Healthcare", "Salons & Spas", "Auto Services"],
+    niches: ["Restaurants", "Contractors", "Retail Stores", "Salons & Spas", "Auto Services"],
   },
   {
     id: "social-sync",
