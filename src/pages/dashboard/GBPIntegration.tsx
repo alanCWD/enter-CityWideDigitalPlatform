@@ -82,8 +82,7 @@ function ConnectDialog({ onClose }: { onClose: () => void }) {
         },
         body: JSON.stringify({
           clientLabel: label.trim(),
-          // Build exact redirect URI: strip /gbp... from current path, append /gbp/callback
-          redirectUri: window.location.origin + window.location.pathname.replace(/\/gbp(\/.*)?$/, "") + "/gbp/callback",
+          frontendOrigin: window.location.origin,
         }),
       });
       const data = await res.json();

@@ -1,223 +1,255 @@
-// Updated callback: also auto-links the newly connected GBP to a portal user
-// when `linkUserId` is provided (used by the client self-connect flow).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+function starRatingToNumber(rating: string | undefined): number {
+  const map: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, STAR_RATING_UNSPECIFIED: 0 };
+  return map[String(rating)] ?? 0;
+}
+
+function formatAddress(addr: Record<string, unknown>): string {
+  const lines = (addr.addressLines as string[]) || [];
+  const locality = (addr.locality as string) || "";
+  const region = (addr.administrativeArea as string) || "";
+  const postal = (addr.postalCode as string) || "";
+  return [lines.join(" "), locality, region, postal].filter(Boolean).join(", ");
+}
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+  const requestUrl = new URL(req.url);
+  const code = requestUrl.searchParams.get("code");
+  const state = requestUrl.searchParams.get("state");
+  const oauthError = requestUrl.searchParams.get("error");
+
+  // Parse state
+  let clientLabel = "New Client";
+  let frontendOrigin = "";
+  let linkUserId: string | null = null;
+  try {
+    const parsed = JSON.parse(atob(state || ""));
+    clientLabel = parsed.clientLabel || clientLabel;
+    frontendOrigin = parsed.frontendOrigin || "";
+    linkUserId = parsed.linkUserId || null;
+  } catch { /* use defaults */ }
+
+  const redirectTo = (path: string) => {
+    const base = frontendOrigin || "https://app.enter.pro";
+    return new Response(null, { status: 302, headers: { Location: `${base}${path}` } });
+  };
+
+  if (oauthError || !code) {
+    return redirectTo(`/gbp?error=${encodeURIComponent(oauthError || "no_code")}`);
   }
 
+  const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
+  const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const redirectUri = `${supabaseUrl}/functions/v1/gbp-auth-callback`;
+
+  const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+  const diagnostics: Record<string, unknown> = {};
+
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
-    const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
-
-    const { code, clientLabel, redirectUri, linkUserId } = await req.json();
-
-    if (!code || !redirectUri) {
-      return new Response(JSON.stringify({ error: "code and redirectUri required" }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
+    // 1. Exchange authorization code for tokens
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
-        code, client_id: clientId, client_secret: clientSecret,
-        redirect_uri: redirectUri, grant_type: "authorization_code",
+        code,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: "authorization_code",
       }),
     });
-    const tokens = await tokenRes.json();
+    const tokens = await tokenRes.json() as {
+      access_token?: string; refresh_token?: string;
+      expires_in?: number; error?: string;
+    };
+    diagnostics.tokenStatus = tokenRes.status;
 
     if (!tokens.access_token) {
-      return new Response(JSON.stringify({ error: "Token exchange failed", detail: tokens.error_description || tokens.error }), {
-        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("Token exchange failed:", tokens);
+      return redirectTo(`/gbp?error=${encodeURIComponent("token_exchange_failed: " + (tokens.error || "unknown"))}`);
     }
 
     const accessToken = tokens.access_token;
-    const refreshToken = tokens.refresh_token;
-    const expiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString();
+    const refreshToken = tokens.refresh_token || null;
+    const tokenExpiry = new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString();
+    const h = { Authorization: `Bearer ${accessToken}` };
 
-    const accountsRes = await fetch(
-      "https://mybusinessaccountmanagement.googleapis.com/v1/accounts?pageSize=20",
-      { headers: { Authorization: `Bearer ${accessToken}` } }
+    // 2. Get accounts list
+    const accountsRes = await fetch("https://mybusinessaccountmanagement.googleapis.com/v1/accounts", { headers: h });
+    const accountsData = await accountsRes.json() as { accounts?: Array<{ name: string; accountName: string }> };
+    diagnostics.accountsStatus = accountsRes.status;
+    diagnostics.accountCount = accountsData.accounts?.length ?? 0;
+
+    const account = accountsData.accounts?.[0];
+    if (!account) {
+      // No accounts — store with tokens only
+      const { data: conn } = await supabase.from("gbp_connections").insert({
+        client_label: clientLabel,
+        business_name: clientLabel,
+        google_access_token: accessToken,
+        google_refresh_token: refreshToken,
+        google_token_expiry: tokenExpiry,
+        last_synced_at: new Date().toISOString(),
+      }).select("id").single();
+      if (linkUserId && conn?.id) {
+        await supabase.from("portal_users").upsert(
+          { user_id: linkUserId, connection_id: conn.id, role: "owner" },
+          { onConflict: "user_id,connection_id" },
+        );
+        return redirectTo(`/portal/${conn.id}?status=connected`);
+      }
+      return redirectTo(`/gbp?status=connected&business=${encodeURIComponent(clientLabel)}&noLocation=1`);
+    }
+
+    const accountName = account.name; // "accounts/123456789"
+
+    // 3. Get locations under this account
+    const locListRes = await fetch(
+      `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations` +
+      `?readMask=name,title,phoneNumbers,storefrontAddress,websiteUri,categories`,
+      { headers: h },
     );
-    const accountsData = await accountsRes.json();
-    const accounts = accountsData.accounts || [];
-    const diagnostics: Record<string, unknown> = {
-      accountsStatus: accountsRes.status,
-      accountsCount: accounts.length,
-      accountTypes: accounts.map((a: { name: string; accountName?: string; type?: string }) => ({ name: a.name, accountName: a.accountName, type: a.type })),
+    const locListData = await locListRes.json() as { locations?: Array<Record<string, unknown>> };
+    diagnostics.locationsStatus = locListRes.status;
+    diagnostics.locationCount = locListData.locations?.length ?? 0;
+
+    const location = locListData.locations?.[0];
+    if (!location) {
+      const { data: conn } = await supabase.from("gbp_connections").insert({
+        client_label: clientLabel,
+        business_name: account.accountName || clientLabel,
+        google_access_token: accessToken,
+        google_refresh_token: refreshToken,
+        google_token_expiry: tokenExpiry,
+        google_account_name: accountName,
+        last_synced_at: new Date().toISOString(),
+      }).select("id").single();
+      diagnostics.resolvedLocationId = null;
+      if (linkUserId && conn?.id) {
+        await supabase.from("portal_users").upsert(
+          { user_id: linkUserId, connection_id: conn.id, role: "owner" },
+          { onConflict: "user_id,connection_id" },
+        );
+        return redirectTo(`/portal/${conn.id}?status=connected`);
+      }
+      return redirectTo(`/gbp?status=connected&business=${encodeURIComponent(account.accountName || clientLabel)}&noLocation=1`);
+    }
+
+    // Extract resource names
+    const locationName = location.name as string; // "locations/12345678"
+    const fullName = `${accountName}/${locationName}`; // "accounts/xxx/locations/yyy"
+    diagnostics.resolvedLocationId = locationName;
+
+    // Extract NAP
+    const businessName = (location.title as string) || clientLabel;
+    const phones = location.phoneNumbers as { primaryPhone?: string } | undefined;
+    const phone = phones?.primaryPhone || null;
+    const addr = location.storefrontAddress as Record<string, unknown> | undefined;
+    const address = addr ? formatAddress(addr) : null;
+    const website = (location.websiteUri as string) || null;
+    const cats = location.categories as { primaryCategory?: { displayName?: string } } | undefined;
+    const category = cats?.primaryCategory?.displayName || null;
+
+    // 4. Fetch reviews
+    const rvRes = await fetch(
+      `https://mybusinessreviews.googleapis.com/v1/${fullName}/reviews?pageSize=200`,
+      { headers: h },
+    );
+    const rvData = await rvRes.json() as {
+      reviews?: Array<Record<string, unknown>>;
+      totalReviewCount?: number;
+      averageRating?: number;
+    };
+    diagnostics.reviewsStatus = rvRes.status;
+    const reviews = rvData.reviews || [];
+    const avgRating = rvData.averageRating ??
+      (reviews.length > 0
+        ? reviews.reduce((s, r) => s + starRatingToNumber(r.starRating as string), 0) / reviews.length
+        : null);
+
+    // 5. Upsert connection record (match on google_location_name to avoid duplicates)
+    const { data: existingConn } = await supabase.from("gbp_connections")
+      .select("id").eq("google_location_name", locationName).maybeSingle();
+
+    let connectionId: string;
+    const napPayload = {
+      client_label: clientLabel,
+      business_name: businessName,
+      address, phone, website, category,
+      rating: avgRating,
+      review_count: rvData.totalReviewCount ?? reviews.length,
+      google_access_token: accessToken,
+      google_refresh_token: refreshToken,
+      google_token_expiry: tokenExpiry,
+      google_location_name: locationName,
+      google_account_name: accountName,
+      last_synced_at: new Date().toISOString(),
     };
 
-    let googleAccountId = null;
-    let locationId = null;
-    let businessName = clientLabel || "New Client";
-    let address = null;
-    let phone = null;
-    let website = null;
-    let category = null;
-
-    if (accounts.length > 0) {
-      const account = accounts[0];
-      const accountName = account.name;
-      googleAccountId = accountName.split("/")[1];
-
-      const locRes = await fetch(
-        `https://mybusinessbusinessinformation.googleapis.com/v1/${accountName}/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri,categories&pageSize=20`,
-        { headers: { Authorization: `Bearer ${accessToken}` } }
-      );
-      const locData = await locRes.json();
-      diagnostics.locationsStatus = locRes.status;
-      diagnostics.locationsCount = locData.locations?.length || 0;
-      diagnostics.locationsError = locData.error || null;
-
-      const locations = locData.locations || [];
-
-      if (locations.length > 0) {
-        const loc = locations[0];
-        locationId = loc.name;
-        businessName = loc.title || clientLabel;
-        address = [
-          loc.storefrontAddress?.addressLines?.[0],
-          loc.storefrontAddress?.locality,
-          loc.storefrontAddress?.administrativeArea,
-        ].filter(Boolean).join(", ") || null;
-        phone = loc.phoneNumbers?.primaryPhone || null;
-        website = loc.websiteUri || null;
-        category = loc.categories?.primaryCategory?.displayName || null;
-      } else {
-        for (const acc of accounts.slice(1)) {
-          const r = await fetch(
-            `https://mybusinessbusinessinformation.googleapis.com/v1/${acc.name}/locations?readMask=name,title,storefrontAddress,phoneNumbers,websiteUri,categories&pageSize=20`,
-            { headers: { Authorization: `Bearer ${accessToken}` } }
-          );
-          const d = await r.json();
-          if (d.locations?.length > 0) {
-            const loc = d.locations[0];
-            googleAccountId = acc.name.split("/")[1];
-            locationId = loc.name;
-            businessName = loc.title || clientLabel;
-            address = [
-              loc.storefrontAddress?.addressLines?.[0],
-              loc.storefrontAddress?.locality,
-              loc.storefrontAddress?.administrativeArea,
-            ].filter(Boolean).join(", ") || null;
-            phone = loc.phoneNumbers?.primaryPhone || null;
-            website = loc.websiteUri || null;
-            category = loc.categories?.primaryCategory?.displayName || null;
-            diagnostics.foundLocationOnAccountIndex = accounts.indexOf(acc);
-            break;
-          }
-        }
+    if (existingConn?.id) {
+      connectionId = existingConn.id;
+      await supabase.from("gbp_connections").update(napPayload).eq("id", connectionId);
+    } else {
+      const { data: newConn, error: insertErr } = await supabase
+        .from("gbp_connections").insert(napPayload).select("id").single();
+      if (insertErr || !newConn) {
+        console.error("Insert failed:", insertErr);
+        return redirectTo(`/gbp?error=${encodeURIComponent("db_insert_failed")}`);
       }
+      connectionId = newConn.id;
     }
 
-    diagnostics.resolvedLocationId = locationId;
-    diagnostics.resolvedAccountId = googleAccountId;
-
-    const supabase = createClient(supabaseUrl, supabaseKey);
-    const { data: connection, error: dbError } = await supabase
-      .from("gbp_connections")
-      .insert({
-        client_label: clientLabel || businessName || "New Client",
-        google_account_id: googleAccountId,
-        location_id: locationId,
-        business_name: businessName,
-        address, phone, website, category,
-        access_token: accessToken,
-        refresh_token: refreshToken,
-        token_expires_at: expiresAt,
-        last_synced_at: new Date().toISOString(),
-      })
-      .select().single();
-
-    if (dbError) {
-      return new Response(JSON.stringify({ error: "Database error", detail: dbError.message }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // 6. Upsert reviews
+    if (reviews.length > 0) {
+      const rows = reviews.map((r) => ({
+        connection_id: connectionId,
+        review_id: (r.reviewId as string) || (r.name as string)?.split("/").pop() || crypto.randomUUID(),
+        reviewer_name: ((r.reviewer as Record<string, unknown>)?.displayName as string) || "Anonymous",
+        rating: starRatingToNumber(r.starRating as string),
+        comment: (r.comment as string) || null,
+        reply: ((r.reviewReply as Record<string, unknown>)?.comment as string) || null,
+        review_time: (r.createTime as string) || new Date().toISOString(),
+      }));
+      await supabase.from("gbp_reviews").upsert(rows, { onConflict: "connection_id,review_id" });
     }
 
-    // Link to portal user if requested (client self-connect flow)
+    // 7. Fetch posts (v4 API — deprecated but functional)
+    const ptRes = await fetch(
+      `https://mybusiness.googleapis.com/v4/${fullName}/localPosts?pageSize=20`,
+      { headers: h },
+    );
+    const ptData = await ptRes.json() as { localPosts?: Array<Record<string, unknown>> };
+    diagnostics.postsStatus = ptRes.status;
+    const posts = ptData.localPosts || [];
+
+    if (posts.length > 0) {
+      const rows = posts.map((p) => ({
+        connection_id: connectionId,
+        post_id: (p.name as string)?.split("/").pop() || crypto.randomUUID(),
+        summary: (p.summary as string) || null,
+        topic_type: (p.topicType as string) || "STANDARD",
+        media_url: ((p.media as Array<Record<string, unknown>>)?.[0]?.googleUrl as string) || null,
+        post_time: (p.createTime as string) || new Date().toISOString(),
+      }));
+      await supabase.from("gbp_posts").upsert(rows, { onConflict: "connection_id,post_id" });
+    }
+
+    // 8. Link to portal user if self-connect flow
     if (linkUserId) {
-      const { error: linkErr } = await supabase
-        .from("portal_users")
-        .insert({ user_id: linkUserId, connection_id: connection.id, role: "owner" });
-      diagnostics.portalLinkError = linkErr?.message || null;
-      diagnostics.linkedToUser = linkUserId;
+      await supabase.from("portal_users").upsert(
+        { user_id: linkUserId, connection_id: connectionId, role: "owner" },
+        { onConflict: "user_id,connection_id" },
+      );
+      return redirectTo(`/portal/${connectionId}?status=connected`);
     }
 
-    // Sync reviews + posts
-    let reviewCount = 0;
-    let postCount = 0;
-    if (locationId) {
-      try {
-        const rvRes = await fetch(`https://mybusiness.googleapis.com/v4/${locationId}/reviews`, { headers: { Authorization: `Bearer ${accessToken}` } });
-        const rvData = await rvRes.json();
-        diagnostics.reviewsStatus = rvRes.status;
-        diagnostics.reviewsCount = rvData.reviews?.length || 0;
-        diagnostics.reviewsError = rvData.error || null;
-        const reviews = rvData.reviews || [];
-        if (reviews.length > 0) {
-          await supabase.from("gbp_reviews").insert(
-            reviews.slice(0, 20).map((r: { reviewId: string; reviewer?: { displayName?: string }; starRating?: string; comment?: string; reviewReply?: { comment?: string }; createTime?: string }) => ({
-              connection_id: connection.id,
-              review_id: r.reviewId,
-              reviewer_name: r.reviewer?.displayName || "Anonymous",
-              rating: { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5 }[r.starRating as string] || 0,
-              comment: r.comment || "",
-              reply: r.reviewReply?.comment || null,
-              review_time: r.createTime,
-            }))
-          );
-          reviewCount = reviews.length;
-        }
-      } catch (e) { diagnostics.reviewsError = String(e); }
-
-      try {
-        const ptRes = await fetch(`https://mybusiness.googleapis.com/v4/${locationId}/localPosts`, { headers: { Authorization: `Bearer ${accessToken}` } });
-        const ptData = await ptRes.json();
-        diagnostics.postsStatus = ptRes.status;
-        diagnostics.postsCount = ptData.localPosts?.length || 0;
-        diagnostics.postsError = ptData.error || null;
-        const posts = ptData.localPosts || [];
-        if (posts.length > 0) {
-          await supabase.from("gbp_posts").insert(
-            posts.slice(0, 10).map((p: { name: string; summary?: string; topicType?: string; media?: Array<{ googleUrl?: string }>; createTime?: string }) => ({
-              connection_id: connection.id,
-              post_id: p.name,
-              summary: p.summary || "",
-              topic_type: p.topicType || "STANDARD",
-              media_url: p.media?.[0]?.googleUrl || null,
-              post_time: p.createTime,
-            }))
-          );
-          postCount = posts.length;
-        }
-      } catch (e) { diagnostics.postsError = String(e); }
-    }
-
-    return new Response(JSON.stringify({
-      success: true,
-      connectionId: connection.id,
-      businessName,
-      reviewCount,
-      postCount,
-      diagnostics,
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return redirectTo(
+      `/gbp?status=connected&business=${encodeURIComponent(businessName)}&noLocation=0`,
+    );
   } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("gbp-auth-callback error:", err, diagnostics);
+    return redirectTo(`/gbp?error=${encodeURIComponent((err as Error).message)}`);
   }
 });

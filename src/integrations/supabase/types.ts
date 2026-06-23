@@ -3204,7 +3204,12 @@ export type Database = {
           category: string | null
           client_label: string
           created_at: string | null
+          google_access_token: string | null
           google_account_id: string | null
+          google_account_name: string | null
+          google_location_name: string | null
+          google_refresh_token: string | null
+          google_token_expiry: string | null
           id: string
           last_synced_at: string | null
           location_id: string | null
@@ -3223,7 +3228,12 @@ export type Database = {
           category?: string | null
           client_label: string
           created_at?: string | null
+          google_access_token?: string | null
           google_account_id?: string | null
+          google_account_name?: string | null
+          google_location_name?: string | null
+          google_refresh_token?: string | null
+          google_token_expiry?: string | null
           id?: string
           last_synced_at?: string | null
           location_id?: string | null
@@ -3242,7 +3252,12 @@ export type Database = {
           category?: string | null
           client_label?: string
           created_at?: string | null
+          google_access_token?: string | null
           google_account_id?: string | null
+          google_account_name?: string | null
+          google_location_name?: string | null
+          google_refresh_token?: string | null
+          google_token_expiry?: string | null
           id?: string
           last_synced_at?: string | null
           location_id?: string | null

@@ -1,0 +1,10 @@
+ALTER TABLE gbp_connections
+  ADD COLUMN IF NOT EXISTS google_access_token  text,
+  ADD COLUMN IF NOT EXISTS google_refresh_token text,
+  ADD COLUMN IF NOT EXISTS google_token_expiry  timestamptz,
+  ADD COLUMN IF NOT EXISTS google_location_name text,
+  ADD COLUMN IF NOT EXISTS google_account_name  text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS gbp_connections_location_name_uq
+  ON gbp_connections (google_location_name)
+  WHERE google_location_name IS NOT NULL;
