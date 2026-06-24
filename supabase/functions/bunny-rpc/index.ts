@@ -194,14 +194,28 @@ async function ensureStripeCustomer(clientId: string): Promise<string> {
   const { rows } = await exec({ sql: `SELECT stripe_customer_id, name, billing_email FROM clients WHERE id = ? LIMIT 1`, args: [clientId] });
   const client = rows[0];
   if (!client) throw new Error("Client not found");
-  if (client.stripe_customer_id) return client.stripe_customer_id as string;
-  const customer = await stripe.customers.create({
-    name: client.name as string || undefined,
-    email: (client.billing_email as string) || undefined,
-    metadata: { crm_client_id: clientId },
-  });
-  await exec({ sql: `UPDATE clients SET stripe_customer_id = ? WHERE id = ?`, args: [customer.id, clientId] });
-  return customer.id;
+
+  const createFresh = async () => {
+    const customer = await stripe!.customers.create({
+      name: (client.name as string) || undefined,
+      email: (client.billing_email as string) || undefined,
+      metadata: { crm_client_id: clientId },
+    });
+    await exec({ sql: `UPDATE clients SET stripe_customer_id = ? WHERE id = ?`, args: [customer.id, clientId] });
+    return customer.id;
+  };
+
+  if (!client.stripe_customer_id) return createFresh();
+
+  // Verify the stored customer ID is valid in the current mode (test vs live)
+  try {
+    await stripe.customers.retrieve(client.stripe_customer_id as string);
+    return client.stripe_customer_id as string;
+  } catch {
+    // Customer not found (likely a test→live switch) — create fresh
+    console.warn(`Stripe customer ${client.stripe_customer_id} not found, creating fresh (mode switch?)`);
+    return createFresh();
+  }
 }
 
 const adminStorage = createClient(SUPABASE_URL, SERVICE_KEY).storage;
@@ -298,7 +312,6 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const currency = ((payload.currency as string) ?? "CAD").toLowerCase();
       const active = (payload.active as number) ?? 1;
 
-      // Fetch existing record to check if it already has Stripe IDs
       const { rows: existing } = await exec({ sql: `SELECT stripe_product_id, stripe_price_id, unit_amount_cents, interval FROM products WHERE id = ? LIMIT 1`, args: [id] });
       const ex = existing[0];
 
@@ -307,26 +320,29 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
 
       if (stripe) {
         try {
-          // Create or update Stripe Product
           if (!stripeProductId) {
             const sp = await stripe.products.create({ name: productName, description: (payload.description as string) || undefined, metadata: { crm_product_id: id } });
             stripeProductId = sp.id;
           } else {
-            await stripe.products.update(stripeProductId, { name: productName, description: (payload.description as string) || undefined, active: !!active });
+            try {
+              await stripe.products.update(stripeProductId, { name: productName, description: (payload.description as string) || undefined, active: !!active });
+            } catch {
+              // Stale test-mode ID — create fresh in live mode
+              console.warn(`Stripe product ${stripeProductId} not found, creating fresh (mode switch?)`);
+              stripeProductId = null;
+              stripePriceId = null;
+              const sp = await stripe.products.create({ name: productName, description: (payload.description as string) || undefined, metadata: { crm_product_id: id } });
+              stripeProductId = sp.id;
+            }
           }
 
-          // Create new Price if amount or interval changed (Stripe prices are immutable)
-          const priceChanged = !ex || ex.unit_amount_cents !== cents || ex.interval !== interval;
+          // Create new Price if amount/interval changed, or if IDs were just cleared
+          const priceChanged = !ex || ex.unit_amount_cents !== cents || ex.interval !== interval || !stripePriceId;
           if (priceChanged && stripeProductId) {
-            // Archive old price if it exists
             if (stripePriceId) {
-              try { await stripe.prices.update(stripePriceId, { active: false }); } catch { /* ignore */ }
+              try { await stripe.prices.update(stripePriceId, { active: false }); } catch { /* stale test ID — ignore */ }
             }
-            const priceParams: Stripe.PriceCreateParams = {
-              product: stripeProductId,
-              unit_amount: cents,
-              currency,
-            };
+            const priceParams: Stripe.PriceCreateParams = { product: stripeProductId, unit_amount: cents, currency };
             if (productType === "subscription" && interval) {
               priceParams.recurring = { interval: interval as "month" | "year" };
             }
@@ -335,7 +351,6 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
           }
         } catch (stripeErr) {
           console.error("Stripe product sync failed:", stripeErr);
-          // Don't fail the whole operation — save locally anyway
         }
       }
 
@@ -421,8 +436,6 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await assertClientAccess(ctx, payload.client_id as string);
       const id = uuid();
       await exec({ sql: `INSERT INTO subscriptions (id, client_id, product_id, quantity, status, start_date) VALUES (?,?,?,?,?,?)`, args: [id, payload.client_id as string, payload.product_id as string, (payload.quantity as number) ?? 1, "active", now()] });
-
-      // Push to Stripe if the product has a stripe_price_id
       if (stripe && payload.product_id) {
         try {
           const { rows: prodRows } = await exec({ sql: `SELECT stripe_price_id FROM products WHERE id = ? LIMIT 1`, args: [payload.product_id as string] });
@@ -436,11 +449,8 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
             });
             await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, id] });
           }
-        } catch (stripeErr) {
-          console.error("Stripe subscription create failed:", stripeErr);
-        }
+        } catch (stripeErr) { console.error("Stripe subscription create failed:", stripeErr); }
       }
-
       return { id };
     }
     case "subscriptions.cancel": {
@@ -453,8 +463,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       type LineItem = { description: string; quantity: number; unit_amount_cents: number; product_id?: string };
       const items = (payload.items as LineItem[]) ?? [];
       const subtotal = items.reduce((s, i) => s + (i.unit_amount_cents * (i.quantity || 1)), 0);
-      const tax = 0;
-      const total = subtotal + tax;
+      const total = subtotal;
       const dueDays = (payload.due_days as number) ?? 14;
       const issuedAt = now();
       const dueAt = new Date(Date.now() + dueDays * 86400000).toISOString();
@@ -462,54 +471,33 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const seq = Number(countRows[0]?.n ?? 0) + 1;
       const invoiceNum = `INV-${new Date().getFullYear()}-${String(seq).padStart(4, "0")}`;
       const id = uuid();
-      await exec({ sql: `INSERT INTO invoices (id, client_id, agency_id, number, subtotal_cents, tax_cents, total_cents, amount_cents, amount_paid_cents, line_items, currency, status, issued_at, due_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.client_id as string, ctx.agencyId, invoiceNum, subtotal, tax, total, total, 0, JSON.stringify(items), "CAD", "draft", issuedAt, dueAt] });
+      await exec({ sql: `INSERT INTO invoices (id, client_id, agency_id, number, subtotal_cents, tax_cents, total_cents, amount_cents, amount_paid_cents, line_items, currency, status, issued_at, due_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.client_id as string, ctx.agencyId, invoiceNum, subtotal, 0, total, total, 0, JSON.stringify(items), "CAD", "draft", issuedAt, dueAt] });
       return { id, number: invoiceNum };
     }
     case "invoices.send": {
       const { rows } = await exec({ sql: `SELECT * FROM invoices WHERE id = ? LIMIT 1`, args: [payload.id as string] });
       const inv = rows[0];
       if (!inv) throw new Error("Invoice not found");
-
       let hostedUrl = inv.hosted_invoice_url as string | null;
       let pdfUrl = inv.pdf_url as string | null;
       let stripeInvoiceId = inv.stripe_invoice_id as string | null;
-
       if (stripe) {
         try {
           const customerId = await ensureStripeCustomer(inv.client_id as string);
           type LineItem = { description: string; quantity: number; unit_amount_cents: number };
           const lineItems: LineItem[] = JSON.parse((inv.line_items as string) || "[]");
           const dueDays = Math.max(1, Math.round((new Date(inv.due_at as string).getTime() - Date.now()) / 86400000)) || 14;
-
-          // Create invoice items
           for (const item of lineItems) {
-            await stripe.invoiceItems.create({
-              customer: customerId,
-              amount: Math.round((item.unit_amount_cents ?? 0) * (item.quantity ?? 1)),
-              currency: ((inv.currency as string) || "CAD").toLowerCase(),
-              description: item.description || "Service",
-            });
+            await stripe.invoiceItems.create({ customer: customerId, amount: Math.round((item.unit_amount_cents ?? 0) * (item.quantity ?? 1)), currency: ((inv.currency as string) || "CAD").toLowerCase(), description: item.description || "Service" });
           }
-
-          // Create and finalize the Stripe invoice
-          const stripeInv = await stripe.invoices.create({
-            customer: customerId,
-            collection_method: "send_invoice",
-            days_until_due: dueDays,
-            metadata: { crm_invoice_id: inv.id as string },
-          });
+          const stripeInv = await stripe.invoices.create({ customer: customerId, collection_method: "send_invoice", days_until_due: dueDays, metadata: { crm_invoice_id: inv.id as string } });
           stripeInvoiceId = stripeInv.id;
           const finalized = await stripe.invoices.finalizeInvoice(stripeInv.id);
           hostedUrl = finalized.hosted_invoice_url ?? null;
           pdfUrl = finalized.invoice_pdf ?? null;
-          // Send the invoice email via Stripe
           await stripe.invoices.sendInvoice(stripeInv.id);
-        } catch (stripeErr) {
-          console.error("Stripe invoice send failed:", stripeErr);
-          // Fall through — still mark as sent locally
-        }
+        } catch (stripeErr) { console.error("Stripe invoice send failed:", stripeErr); }
       }
-
       await exec({ sql: `UPDATE invoices SET status = 'open', sent_at = ?, stripe_invoice_id = ?, hosted_invoice_url = ?, pdf_url = ? WHERE id = ?`, args: [now(), stripeInvoiceId, hostedUrl, pdfUrl, payload.id as string] });
       return { ok: true, hosted_invoice_url: hostedUrl, pdf_url: pdfUrl, stripe_invoice_id: stripeInvoiceId };
     }
@@ -518,8 +506,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       return { ok: true };
     }
     case "invoices.list": {
-      const invWhere: string[] = ["1=1"];
-      const invArgs: SqlValue[] = [];
+      const invWhere: string[] = ["1=1"]; const invArgs: SqlValue[] = [];
       if (payload.client_id) { invWhere.push("i.client_id = ?"); invArgs.push(payload.client_id as string); }
       if (payload.status) { invWhere.push("i.status = ?"); invArgs.push(payload.status as string); }
       const { rows } = await exec({ sql: `SELECT i.id, i.client_id, c.name as client_name, i.number, i.status, i.subtotal_cents, i.tax_cents, i.total_cents, i.amount_cents, i.amount_paid_cents, i.currency, i.line_items, i.issued_at, i.due_at as due_date, i.paid_at, i.sent_at, i.hosted_invoice_url, i.pdf_url, i.stripe_invoice_id, i.created_at FROM invoices i JOIN clients c ON c.id = i.client_id WHERE ${invWhere.join(" AND ")} ORDER BY i.issued_at DESC LIMIT 200`, args: invArgs });
@@ -541,20 +528,14 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await exec({ sql: `INSERT INTO vault_notes (id, client_id, agency_id, title, body, visibility, pinned, created_by) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET title=excluded.title, body=excluded.body, visibility=excluded.visibility, pinned=excluded.pinned, updated_at=CURRENT_TIMESTAMP`, args: [id, payload.client_id as string, ctx.agencyId, payload.title as string, (payload.body as string) ?? null, (payload.visibility as string) ?? "agency_only", (payload.pinned as number) ?? 0, ctx.userId] });
       return { id };
     }
-    case "vault.notes.delete": {
-      await exec({ sql: `DELETE FROM vault_notes WHERE id = ?`, args: [payload.id as string] });
-      return { ok: true };
-    }
+    case "vault.notes.delete": { await exec({ sql: `DELETE FROM vault_notes WHERE id = ?`, args: [payload.id as string] }); return { ok: true }; }
     case "vault.creds.upsert": {
       const id = (payload.id as string) || uuid();
       await assertClientAccess(ctx, payload.client_id as string);
       await exec({ sql: `INSERT INTO vault_credentials (id, client_id, agency_id, label, category, username, password, url, mfa_codes, notes, visibility, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET label=excluded.label, category=excluded.category, username=excluded.username, password=excluded.password, url=excluded.url, mfa_codes=excluded.mfa_codes, notes=excluded.notes, visibility=excluded.visibility, updated_at=CURRENT_TIMESTAMP`, args: [id, payload.client_id as string, ctx.agencyId, payload.label as string, (payload.category as string) ?? null, (payload.username as string) ?? null, (payload.password as string) ?? null, (payload.url as string) ?? null, (payload.mfa_notes as string) ?? null, (payload.notes as string) ?? null, (payload.visibility as string) ?? "agency_only", ctx.userId] });
       return { id };
     }
-    case "vault.creds.delete": {
-      await exec({ sql: `DELETE FROM vault_credentials WHERE id = ?`, args: [payload.id as string] });
-      return { ok: true };
-    }
+    case "vault.creds.delete": { await exec({ sql: `DELETE FROM vault_credentials WHERE id = ?`, args: [payload.id as string] }); return { ok: true }; }
     case "vault.files.uploadUrl": {
       const clientId = payload.client_id as string; await assertClientAccess(ctx, clientId);
       try { await adminStorage.createBucket("vault", { public: false }); } catch { /* already exists */ }
@@ -579,10 +560,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     }
     case "vault.files.delete": {
       const { rows } = await exec({ sql: `SELECT storage_path FROM vault_files WHERE id = ? LIMIT 1`, args: [payload.id as string] });
-      if (rows[0]) {
-        await adminStorage.from("vault").remove([rows[0].storage_path as string]);
-        await exec({ sql: `DELETE FROM vault_files WHERE id = ?`, args: [payload.id as string] });
-      }
+      if (rows[0]) { await adminStorage.from("vault").remove([rows[0].storage_path as string]); await exec({ sql: `DELETE FROM vault_files WHERE id = ?`, args: [payload.id as string] }); }
       return { ok: true };
     }
     case "vault.files.update": {
