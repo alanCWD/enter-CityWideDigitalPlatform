@@ -1144,12 +1144,20 @@ function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
               <h1 className="text-3xl font-black text-foreground tracking-tight">INVOICE</h1>
               <p className="text-lg font-bold text-primary mt-0.5">{invoice.number ?? invoice.id.slice(0, 8)}</p>
             </div>
-            <span className={cn(
-              "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border",
-              statusColors[invoice.status] ?? statusColors.draft,
-            )}>
-              {invoice.status}
-            </span>
+            <div className="flex flex-col items-end gap-2">
+              <img
+                src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100027458/citywide_logo_3f1986ed.png"
+                crossOrigin="anonymous"
+                alt="Citywide Digital"
+                className="h-12 w-auto object-contain"
+              />
+              <span className={cn(
+                "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border",
+                statusColors[invoice.status] ?? statusColors.draft,
+              )}>
+                {invoice.status}
+              </span>
+            </div>
           </div>
 
           {/* Agency + Client */}
