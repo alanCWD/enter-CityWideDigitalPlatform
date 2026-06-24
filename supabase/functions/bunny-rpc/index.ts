@@ -208,7 +208,6 @@ async function ensureStripeCustomer(clientId: string): Promise<string> {
 
   if (!client.stripe_customer_id) return createFresh();
 
-  // Verify the stored customer ID is valid in the current mode (test vs live)
   try {
     await stripe.customers.retrieve(client.stripe_customer_id as string);
     return client.stripe_customer_id as string;
@@ -455,6 +454,15 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await exec({ sql: `UPDATE subscriptions SET status = ?, cancel_at_period_end = ?, updated_at = ? WHERE id = ?`, args: [payload.at_period_end ? "active" : "canceled", payload.at_period_end ? 1 : 0, now(), payload.id as string] });
       return { ok: true };
     }
+    case "subscriptions.delete": {
+      const { rows: subRows } = await exec({ sql: `SELECT stripe_subscription_id FROM subscriptions WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      const stripeSub = subRows[0]?.stripe_subscription_id as string | null;
+      if (stripe && stripeSub) {
+        try { await stripe.subscriptions.cancel(stripeSub); } catch (e) { console.warn("Stripe subscription cancel failed:", e); }
+      }
+      await exec({ sql: `DELETE FROM subscriptions WHERE id = ?`, args: [payload.id as string] });
+      return { ok: true };
+    }
 
     case "invoices.create": {
       await assertClientAccess(ctx, payload.client_id as string);
@@ -501,6 +509,10 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     }
     case "invoices.markPaid": {
       await exec({ sql: `UPDATE invoices SET status = 'paid', paid_at = ?, amount_paid_cents = total_cents WHERE id = ?`, args: [now(), payload.id as string] });
+      return { ok: true };
+    }
+    case "invoices.markUnpaid": {
+      await exec({ sql: `UPDATE invoices SET status = 'open', paid_at = NULL, amount_paid_cents = 0 WHERE id = ?`, args: [payload.id as string] });
       return { ok: true };
     }
     case "invoices.list": {

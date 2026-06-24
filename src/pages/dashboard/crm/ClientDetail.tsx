@@ -14,10 +14,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
+const ADMIN_EMAIL = "alan@citywidedigital.ca";
+function useIsAdmin() {
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      setIsAdmin(data.user?.email === ADMIN_EMAIL);
+    });
+  }, []);
+  return isAdmin;
+}
+
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { detail, loading, error, reload } = useCrmClient(id);
+  const isAdmin = useIsAdmin();
   const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp">("overview");
   const [deleting, setDeleting] = useState(false);
   const [editingHeader, setEditingHeader] = useState(false);
@@ -239,10 +251,10 @@ export function ClientDetail() {
           <GbpPanel connectionId={c.gbp_connection_id} />
         )}
         {tab === "subscriptions" && (
-          <SubscriptionsPanel detail={detail} reload={reload} />
+          <SubscriptionsPanel detail={detail} reload={reload} isAdmin={isAdmin} />
         )}
         {tab === "invoices" && (
-          <InvoicesPanel detail={detail} reload={reload} />
+          <InvoicesPanel detail={detail} reload={reload} isAdmin={isAdmin} />
         )}
         {tab === "payments" && (
           <PaymentsPanel detail={detail} />
@@ -679,7 +691,7 @@ function ContactsPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
 }
 
 // ─── Tab: Subscriptions ──────────────────────────────────────────────────
-function SubscriptionsPanel({ detail, reload }: { detail: NonNullable<ReturnType<typeof useCrmClient>["detail"]>; reload: () => void }) {
+function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<ReturnType<typeof useCrmClient>["detail"]>; reload: () => void; isAdmin: boolean }) {
   const { products } = useCrmProducts();
   const [pid, setPid] = useState("");
   const [busy, setBusy] = useState(false);
@@ -703,6 +715,20 @@ function SubscriptionsPanel({ detail, reload }: { detail: NonNullable<ReturnType
     reload();
   };
 
+  const deleteNow = async (id: string) => {
+    if (!confirm("Delete this subscription immediately? This will cancel it in Stripe right now.")) return;
+    await crm("subscriptions.delete", { id });
+    reload();
+  };
+
+  const fmtDateRange = (start: string | null, end: string | null) => {
+    const fmt = (d: string) => new Date(d).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
+    if (start && end) return `${fmt(start)} – ${fmt(end)}`;
+    if (start) return `Since ${fmt(start)}`;
+    if (end) return `Until ${fmt(end)}`;
+    return null;
+  };
+
   return (
     <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-5">
       <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA] uppercase tracking-wider mb-4">Subscriptions</h3>
@@ -721,26 +747,40 @@ function SubscriptionsPanel({ detail, reload }: { detail: NonNullable<ReturnType
       {detail.subscriptions.length === 0 ? (
         <p className="text-xs text-muted-foreground py-3">No active subscriptions.</p>
       ) : (
-        <ul className="divide-y divide-white/5">
-          {detail.subscriptions.map((s) => (
-            <li key={s.id} className="flex items-center justify-between py-3">
-              <div className="flex items-center gap-3">
-                <span className="w-7 h-7 rounded-lg bg-[#22C55E]/15 text-[#22C55E] flex items-center justify-center"><Repeat className="w-3.5 h-3.5" /></span>
-                <div>
-                  <div className="text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{s.product_name}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {fmtMoney((s.unit_amount_cents ?? 0) * s.quantity, s.currency)} / {s.interval ?? "month"}
-                    {s.current_period_end && ` · renews ${new Date(s.current_period_end).toLocaleDateString()}`}
-                    {s.cancel_at_period_end ? " · cancels at period end" : ""}
+        <ul className="divide-y divide-border/50 dark:divide-white/5">
+          {detail.subscriptions.map((s) => {
+            const dateRange = fmtDateRange(s.start_date as string | null, s.current_period_end as string | null);
+            return (
+              <li key={s.id} className="flex items-center justify-between py-3 gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className="w-7 h-7 shrink-0 rounded-lg bg-[#22C55E]/15 text-[#22C55E] flex items-center justify-center"><Repeat className="w-3.5 h-3.5" /></span>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{s.product_name as string}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {fmtMoney((s.unit_amount_cents as number ?? 0) * (s.quantity as number), s.product_currency as string)} / {s.product_interval as string ?? "month"}
+                      {s.cancel_at_period_end ? " · cancels at period end" : ""}
+                    </div>
+                    {dateRange && (
+                      <div className="text-[11px] text-muted-foreground/70 mt-0.5 font-mono">{dateRange}</div>
+                    )}
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <StatusPill status={s.status} />
-                {s.status !== "canceled" && <button onClick={() => cancel(s.id)} className="text-xs text-muted-foreground hover:text-red-400">Cancel</button>}
-              </div>
-            </li>
-          ))}
+                <div className="flex items-center gap-2 shrink-0">
+                  <StatusPill status={s.status as string} />
+                  {s.status !== "canceled" && (
+                    <>
+                      <button onClick={() => cancel(s.id as string)} className="text-xs text-muted-foreground hover:text-amber-400 transition-colors">Cancel</button>
+                      {isAdmin && (
+                        <button onClick={() => deleteNow(s.id as string)} className="text-xs text-red-400 hover:text-red-300 transition-colors inline-flex items-center gap-1 font-semibold">
+                          <Trash2 className="w-3 h-3" /> Delete Now
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
@@ -748,7 +788,7 @@ function SubscriptionsPanel({ detail, reload }: { detail: NonNullable<ReturnType
 }
 
 // ─── Tab: Invoices ───────────────────────────────────────────────────────
-function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<typeof useCrmClient>["detail"]>; reload: () => void }) {
+function InvoicesPanel({ detail, reload, isAdmin }: { detail: NonNullable<ReturnType<typeof useCrmClient>["detail"]>; reload: () => void; isAdmin: boolean }) {
   const [composing, setComposing] = useState(false);
   const [viewing, setViewing] = useState<(typeof detail.invoices)[0] | null>(null);
 
@@ -801,7 +841,7 @@ function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
       </div>
 
       {composing && <InvoiceComposer clientId={detail.client.id} onClose={() => setComposing(false)} onSent={() => { setComposing(false); reload(); }} />}
-      {viewing && <InvoicePreviewModal invoice={viewing} client={detail.client} onClose={() => setViewing(null)} onReload={reload} />}
+      {viewing && <InvoicePreviewModal invoice={viewing} client={detail.client} isAdmin={isAdmin} onClose={() => setViewing(null)} onReload={reload} />}
     </div>
   );
 }
@@ -1060,9 +1100,10 @@ function GbpPanel({ connectionId }: { connectionId: string }) {
   );
 }
 
-function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
+function InvoicePreviewModal({ invoice, client, isAdmin, onClose, onReload }: {
   invoice: CrmInvoice;
   client: CrmClient;
+  isAdmin: boolean;
   onClose: () => void;
   onReload: () => void;
 }) {
@@ -1074,6 +1115,16 @@ function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
     setMarking(true);
     try {
       await crm("invoices.markPaid", { id: invoice.id });
+      onReload();
+      onClose();
+    } finally { setMarking(false); }
+  };
+
+  const markUnpaid = async () => {
+    if (!confirm("Mark this invoice as unpaid / open?")) return;
+    setMarking(true);
+    try {
+      await crm("invoices.markUnpaid", { id: invoice.id });
       onReload();
       onClose();
     } finally { setMarking(false); }
@@ -1121,6 +1172,15 @@ function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
                 className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
               >
                 {marking ? "Saving…" : "Mark as Paid"}
+              </button>
+            )}
+            {invoice.status === "paid" && isAdmin && (
+              <button
+                onClick={markUnpaid}
+                disabled={marking}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-50"
+              >
+                {marking ? "Saving…" : "Mark as Unpaid"}
               </button>
             )}
             <button
@@ -1182,17 +1242,36 @@ function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
           </div>
 
           {/* Dates */}
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              { label: "Issue Date", value: invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }) : "—" },
-              { label: "Due Date", value: invoice.due_date ? new Date(invoice.due_date).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }) : "—" },
-              { label: "Paid Date", value: invoice.paid_at ? new Date(invoice.paid_at).toLocaleDateString("en-CA", { year: "numeric", month: "long", day: "numeric" }) : "—" },
-            ].map(({ label, value }) => (
-              <div key={label} className="bg-muted/40 rounded-xl px-4 py-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</p>
-                <p className="text-sm font-semibold text-foreground mt-0.5">{value}</p>
+          <div className="bg-muted/30 rounded-xl px-5 py-4 border border-border/50">
+            <div className="flex items-center gap-1 mb-3">
+              <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Invoice Period</span>
+            </div>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Issued</p>
+                <p className="text-sm font-semibold text-foreground mt-0.5">
+                  {invoice.issued_at ? new Date(invoice.issued_at).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—"}
+                </p>
               </div>
-            ))}
+              <div className="flex-1 border-t-2 border-dashed border-border/60 min-w-[20px]" />
+              <div className="text-center">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Due</p>
+                <p className="text-sm font-semibold text-foreground mt-0.5">
+                  {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—"}
+                </p>
+              </div>
+              {invoice.paid_at && (
+                <>
+                  <div className="flex-1 border-t-2 border-dashed border-emerald-400/40 min-w-[20px]" />
+                  <div className="text-center">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">Paid</p>
+                    <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 mt-0.5">
+                      {new Date(invoice.paid_at).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })}
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
 
           {/* Line Items */}
