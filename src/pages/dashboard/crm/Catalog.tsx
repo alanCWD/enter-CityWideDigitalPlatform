@@ -132,7 +132,7 @@ function ProductEditor({ product, onClose, onSaved }: {
   const [description, setDescription] = useState(product?.description ?? "");
   const [type, setType] = useState<"one_off" | "subscription">(product?.type ?? "subscription");
   const [interval, setInterval] = useState<"month" | "year">((product?.interval as "month" | "year") ?? "month");
-  const [amount, setAmount] = useState(product ? String((product.unit_amount_cents ?? 0) / 100) : "");
+  const [amount, setAmount] = useState(product ? String(((product.unit_amount_cents || product.price_cents || 0) as number) / 100) : "");
   const [currency] = useState("CAD");
   const [active, setActive] = useState(product ? !!product.active : true);
   const [busy, setBusy] = useState(false);

@@ -119,6 +119,7 @@ async function bootstrap() {
     `ALTER TABLE products ADD COLUMN type TEXT NOT NULL DEFAULT 'subscription'`,
     `ALTER TABLE products ADD COLUMN interval TEXT`,
     `ALTER TABLE products ADD COLUMN stripe_product_id TEXT`,
+    `UPDATE products SET unit_amount_cents = price_cents WHERE unit_amount_cents = 0 AND price_cents > 0`,
     `CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, product_id TEXT NOT NULL, quantity INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'pending', start_date TEXT, current_period_end TEXT, cancel_at_period_end INTEGER NOT NULL DEFAULT 0, stripe_subscription_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE subscriptions ADD COLUMN stripe_subscription_id TEXT`,
     `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, agency_id TEXT NOT NULL DEFAULT 'citywide', subscription_id TEXT, number TEXT, subtotal_cents INTEGER NOT NULL DEFAULT 0, tax_cents INTEGER NOT NULL DEFAULT 0, total_cents INTEGER NOT NULL DEFAULT 0, amount_cents INTEGER NOT NULL DEFAULT 0, amount_paid_cents INTEGER NOT NULL DEFAULT 0, line_items TEXT, currency TEXT NOT NULL DEFAULT 'CAD', status TEXT NOT NULL DEFAULT 'draft', issued_at TEXT, due_at TEXT, paid_at TEXT, sent_at TEXT, hosted_invoice_url TEXT, pdf_url TEXT, stripe_invoice_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -212,7 +213,6 @@ async function ensureStripeCustomer(clientId: string): Promise<string> {
     await stripe.customers.retrieve(client.stripe_customer_id as string);
     return client.stripe_customer_id as string;
   } catch {
-    // Customer not found (likely a test→live switch) — create fresh
     console.warn(`Stripe customer ${client.stripe_customer_id} not found, creating fresh (mode switch?)`);
     return createFresh();
   }
@@ -327,7 +327,6 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
             try {
               await stripe.products.update(stripeProductId, { name: productName, description: (payload.description as string) || undefined, active: !!active });
             } catch {
-              // Stale test-mode ID — create fresh in live mode
               console.warn(`Stripe product ${stripeProductId} not found, creating fresh (mode switch?)`);
               stripeProductId = null;
               stripePriceId = null;
@@ -336,11 +335,10 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
             }
           }
 
-          // Create new Price if amount/interval changed, or if IDs were just cleared
           const priceChanged = !ex || ex.unit_amount_cents !== cents || ex.interval !== interval || !stripePriceId;
           if (priceChanged && stripeProductId) {
             if (stripePriceId) {
-              try { await stripe.prices.update(stripePriceId, { active: false }); } catch { /* stale test ID — ignore */ }
+              try { await stripe.prices.update(stripePriceId, { active: false }); } catch { /* stale — ignore */ }
             }
             const priceParams: Stripe.PriceCreateParams = { product: stripeProductId, unit_amount: cents, currency };
             if (productType === "subscription" && interval) {
