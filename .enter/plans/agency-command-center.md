@@ -1,153 +1,68 @@
-# Client Dashboard: Social Sync Pro + Digital CRM
+# Stripe Integration Plan
 
 ## Context
-The existing `/portal/*` client portal needs three major upgrades:
-1. **Sector-aware Overview** — widget layout adapts to GBP category (Restaurant / Retailer / Service Provider)
-2. **Social Sync Pro** — replace the current iframe placeholder with a full native UI backed by Zernio; includes post composer, queue manager, and platform account management
-3. **Digital CRM** — new portal tab for clients to view incoming leads/contacts and add follow-up notes
+The CRM (backed by BunnyDB via `bunny-rpc`) already has invoices, subscriptions, and payments tables with UI. Currently all billing is local only — no Stripe calls. The user wants:
+- Full Stripe invoice flow: create → finalize → email client Stripe payment link
+- Products/services managed FROM the app (synced to Stripe)
+- Subscriptions via Stripe recurring billing
 
-The `social-rpc` edge function already handles Zernio `connect`, `sync`, and `post` actions. The `ZERNIO_API_KEY` secret is configured. A `social_accounts` table already exists.
+`STRIPE_SECRET_KEY` is stored in secrets. `STRIPE_WEBHOOK_SECRET` still needed (user registers webhook endpoint after deploy).
 
----
+## What Changes
 
-## Database Migrations (2 new tables)
+### 1. `supabase/functions/bunny-rpc/index.ts` — Add Stripe calls
+Import `Stripe` from `https://esm.sh/stripe@14.21.0?target=deno`. Init with `STRIPE_SECRET_KEY`.
 
-### `scheduled_posts`
-```sql
-CREATE TABLE IF NOT EXISTS scheduled_posts (
-  id TEXT PRIMARY KEY,
-  client_id TEXT NOT NULL,
-  content TEXT NOT NULL,
-  media_url TEXT,
-  platforms JSONB NOT NULL DEFAULT '[]',
-  scheduled_at TIMESTAMPTZ,
-  delay_minutes INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'queued',     -- draft | queued | published | failed | cancelled
-  platform_states JSONB NOT NULL DEFAULT '{}',
-  zernio_post_id TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-ALTER TABLE scheduled_posts ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role_all" ON scheduled_posts USING (true);
-```
+**`products.create`** (new action) → Create Stripe Product + Price, save `stripe_product_id` + `stripe_price_id` to BunnyDB.
 
-### `client_leads`
-```sql
-CREATE TABLE IF NOT EXISTS client_leads (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  connection_id TEXT NOT NULL,
-  name TEXT NOT NULL,
-  email TEXT,
-  phone TEXT,
-  source TEXT DEFAULT 'manual',
-  message TEXT,
-  status TEXT NOT NULL DEFAULT 'new',    -- new | contacted | qualified | closed
-  notes TEXT,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-ALTER TABLE client_leads ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "service_role_all" ON client_leads USING (true);
-```
+**`products.update`** (new action) → Update Stripe Price if amount/interval changes (archive old price, create new one).
 
----
+**`clients.ensure_stripe_customer`** (internal helper) → If client has no `stripe_customer_id`, create one in Stripe using `billing_email` + `name`, save back to BunnyDB client row.
 
-## Edge Function: `social-rpc` additions
+**`invoices.send`** (update existing) → 
+1. Ensure Stripe customer exists
+2. Create Stripe Invoice with `collection_method: send_invoice`, `days_until_due`
+3. Add line items to Stripe Invoice (InvoiceItems)
+4. Finalize Stripe Invoice → get `hosted_invoice_url` + `invoice_pdf`
+5. Send Stripe Invoice email
+6. Update BunnyDB row: `stripe_invoice_id`, `hosted_invoice_url`, `pdf_url`, `status = open`, `sent_at`
 
-Add these actions to `/workspace/thread/supabase/functions/social-rpc/index.ts`:
+**`subscriptions.create`** (update existing) →
+1. Ensure Stripe customer exists  
+2. Look up product's `stripe_price_id`
+3. Create Stripe Subscription  
+4. Update BunnyDB `subscriptions` row with `stripe_subscription_id`
 
-| Action | What it does |
-|---|---|
-| `posts.create` | Insert to `scheduled_posts`; if platforms include GBP post immediately via Zernio; schedule others with `delay_minutes` offset |
-| `posts.list` | SELECT from `scheduled_posts` WHERE `client_id = ?` ORDER BY `created_at DESC` |
-| `posts.cancel` | UPDATE `status = 'cancelled'` WHERE `id = ?` |
-| `accounts.list` | SELECT from `social_accounts` WHERE `client_id = ?` |
-| `accounts.disconnect` | DELETE from `social_accounts` WHERE `id = ?` AND `client_id = ?` |
+### 2. New page: `/dashboard/billing/products` — Products & Services Manager
+- List all products from `products.list`  
+- Add/edit/archive product form:  
+  - Name, Description, Type (one-off / subscription), Amount, Currency (CAD), Interval (month/year, if subscription)  
+  - On save → calls `products.create` or `products.update` (bunny-rpc) which syncs to Stripe  
+- Shows `stripe_price_id` badge when synced
 
-**GBP-first workflow in `posts.create`:**
-1. Post to GBP via Zernio immediately
-2. For each other platform: compute `scheduled_at + delay_minutes` and pass that timestamp to Zernio's `scheduled_at` field in `POST /api/v1/posts`
-3. Store `zernio_post_id` + per-platform state in `platform_states` JSONB
+### 3. `supabase/functions/stripe-webhook/index.ts` — Already handles events
+Just need to verify it reads `STRIPE_WEBHOOK_SECRET` from env (it does). No code changes needed — it already upserts invoices/payments/subscriptions into BunnyDB.
 
----
+### 4. Sidebar / Router — Add Products page
+Add "Products & Services" link in Sidebar under Billing section.  
+Add route `/dashboard/billing/products` → new `Products.tsx` page.
 
-## New Components
+### 5. Stripe Webhook Registration (manual step for user)
+After deploy, user must:
+1. Stripe Dashboard → Developers → Webhooks → Add endpoint  
+2. URL: `https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/functions/v1/stripe-webhook`  
+3. Events: `invoice.*`, `customer.subscription.*`, `payment_intent.succeeded`  
+4. Copy signing secret → Add as `STRIPE_WEBHOOK_SECRET` in secrets
 
-### `src/components/portal/PostComposer.tsx`
-- Textarea for post content (280 char counter for Twitter)
-- Platform toggle row: **GBP** (always first, locked on), then Facebook / Twitter / LinkedIn toggles
-- "Schedule" vs "Post Now" toggle → date-time picker when scheduling
-- Per-platform delay sliders (0–60 min) shown in expanded "Advanced" section
-- Submit button calls `social-rpc` `posts.create`
-
-### `src/components/portal/QueueManager.tsx`
-- Table/card list of `scheduled_posts` for this client
-- Columns: content preview, platforms (badge row), scheduled time, status chip per platform
-- Cancel button on queued items
-- Auto-refreshes every 30s
-
-### `src/components/portal/ConnectedAccounts.tsx`
-- Grid of platform cards (GBP, Facebook, Twitter, LinkedIn)
-- Each shows: connected / not connected, connect button (triggers `social.connect`)
-- Disconnect button on connected platforms
-
-### `src/components/portal/SectorOverview.tsx`
-- Receives `sector: 'restaurant' | 'retail' | 'service' | 'generic'`
-- **Restaurant**: review score, covers estimate, top dishes CTA, reservation link
-- **Retail**: star rating, inventory sync CTA, promo post CTA
-- **Service**: star rating, booking link, response rate, review reply CTA
-- **Generic**: existing 4-card layout (rating, reviews, last sync, category)
-
----
-
-## Modified Files
-
-### `src/pages/portal/Overview.tsx`
-- Import `SectorOverview`
-- Add `getSector(category: string | null)` util: maps GBP category string → `'restaurant' | 'retail' | 'service' | 'generic'`
-- Replace hardcoded cards grid with `<SectorOverview sector={getSector(connection.category)} connection={connection} />`
-- Keep the quick-action links row below
-
-### `src/pages/portal/PortalSocial.tsx`
-- Remove `SocialSyncEmbed` import
-- Add local tab state: `'compose' | 'queue' | 'accounts'`
-- Render `<PostComposer>`, `<QueueManager>`, `<ConnectedAccounts>` based on active tab
-
-### `src/components/portal/PortalTopBar.tsx`
-- Add `{ name: "CRM", path: "crm", icon: Users, end: false }` to `TABS` array
-
-### `src/router.tsx`
-- Add `/portal/:clientId/crm` route → `PortalCrm` page
-
----
-
-## New Pages
-
-### `src/pages/portal/PortalCrm.tsx`
-- Uses `PortalLayout` render-prop pattern (matches all other portal pages)
-- Fetches `client_leads` via Supabase where `connection_id = connection.id`
-- **Lead list view**: card per lead showing name, email/phone, source badge, status chip, date
-- **Lead detail panel**: slide-in or expand showing full message + notes textarea
-- Status dropdown: new → contacted → qualified → closed
-- "Add Lead" button: small form modal (name, email, phone, source, message)
-- All DB ops go directly via `supabase.from('client_leads')`
-
----
-
-## Implementation Order
-1. DB migrations (scheduled_posts + client_leads)
-2. Update `social-rpc` edge function (posts.create, posts.list, posts.cancel, accounts.list, accounts.disconnect)
-3. Build `SectorOverview.tsx` + update `Overview.tsx`
-4. Build `ConnectedAccounts.tsx` + `PostComposer.tsx` + `QueueManager.tsx`
-5. Rewrite `PortalSocial.tsx` with native tabs
-6. Build `PortalCrm.tsx`
-7. Update `PortalTopBar.tsx` (add CRM tab) + `router.tsx` (add CRM route)
-
----
+## Files to Modify
+- `supabase/functions/bunny-rpc/index.ts` — add Stripe integration (~80 lines added to existing actions)
+- `src/pages/dashboard/billing/affiliates.tsx` — replace placeholder with real billing overview
+- **New**: `src/pages/dashboard/billing/Products.tsx`
+- `src/router.tsx` — add Products route
+- `src/components/dashboard/Sidebar.tsx` — add Products nav link
 
 ## Verification
-- Connect a GBP account → Overview shows sector-specific widgets
-- Social tab: Compose → Post Now → appears in Queue with status
-- Social tab: Accounts → Connect Facebook → OAuth redirect via Zernio
-- CRM tab: Add lead → appears in list → change status → add notes
+1. Create a product → appears in Stripe Dashboard → Products
+2. Open a client → Invoices tab → New Invoice → add line items → Send → client email arrives with Stripe payment link
+3. Add Subscription to client → Stripe Dashboard shows active subscription
+4. Stripe webhook fires on payment → invoice status updates to "paid" in CRM
