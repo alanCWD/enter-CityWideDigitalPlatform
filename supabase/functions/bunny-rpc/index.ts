@@ -433,11 +433,14 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await assertClientAccess(ctx, payload.client_id as string);
       const id = uuid();
       await exec({ sql: `INSERT INTO subscriptions (id, client_id, product_id, quantity, status, start_date) VALUES (?,?,?,?,?,?)`, args: [id, payload.client_id as string, payload.product_id as string, (payload.quantity as number) ?? 1, "active", now()] });
+      let stripeWarning: string | null = null;
       if (stripe && payload.product_id) {
         try {
           const { rows: prodRows } = await exec({ sql: `SELECT stripe_price_id FROM products WHERE id = ? LIMIT 1`, args: [payload.product_id as string] });
           const stripePriceId = prodRows[0]?.stripe_price_id as string | null;
-          if (stripePriceId) {
+          if (!stripePriceId) {
+            stripeWarning = "This product has no Stripe price. Open Catalog, open the product, and click Save & Sync to Stripe — then re-create the subscription.";
+          } else {
             const customerId = await ensureStripeCustomer(payload.client_id as string);
             const stripeSub = await stripe.subscriptions.create({
               customer: customerId,
@@ -446,13 +449,46 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
             });
             await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, id] });
           }
-        } catch (stripeErr) { console.error("Stripe subscription create failed:", stripeErr); }
+        } catch (stripeErr) {
+          console.error("Stripe subscription create failed:", stripeErr);
+          const msg = (stripeErr as Error).message ?? "Stripe sync failed";
+          stripeWarning = msg.includes("No such price") || msg.includes("resource_missing")
+            ? "The product's Stripe price is stale (test-mode ID used in live mode). Go to Catalog → open the product → Save & Sync to Stripe, then re-create this subscription."
+            : msg.slice(0, 300);
+        }
       }
-      return { id };
+      return { id, stripe_warning: stripeWarning };
     }
     case "subscriptions.cancel": {
+      const { rows: subRows } = await exec({ sql: `SELECT stripe_subscription_id FROM subscriptions WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      const stripeSub = subRows[0]?.stripe_subscription_id as string | null;
+      if (stripe && stripeSub) {
+        try {
+          if (payload.at_period_end) {
+            await stripe.subscriptions.update(stripeSub, { cancel_at_period_end: true });
+          } else {
+            await stripe.subscriptions.cancel(stripeSub);
+          }
+        } catch (e) { console.warn("Stripe subscription cancel failed:", e); }
+      }
       await exec({ sql: `UPDATE subscriptions SET status = ?, cancel_at_period_end = ?, updated_at = ? WHERE id = ?`, args: [payload.at_period_end ? "active" : "canceled", payload.at_period_end ? 1 : 0, now(), payload.id as string] });
       return { ok: true };
+    }
+    case "subscriptions.syncStripe": {
+      const { rows } = await exec({ sql: `SELECT s.*, p.stripe_price_id FROM subscriptions s JOIN products p ON p.id = s.product_id WHERE s.id = ? LIMIT 1`, args: [payload.id as string] });
+      const sub = rows[0];
+      if (!sub) throw new Error("Subscription not found");
+      if (!stripe) throw new Error("Stripe is not configured");
+      const stripePriceId = sub.stripe_price_id as string | null;
+      if (!stripePriceId) throw new Error("Product has no Stripe price — open Catalog, open this product, and click Save & Sync to Stripe first.");
+      const customerId = await ensureStripeCustomer(sub.client_id as string);
+      const stripeSub = await stripe.subscriptions.create({
+        customer: customerId,
+        items: [{ price: stripePriceId, quantity: (sub.quantity as number) ?? 1 }],
+        metadata: { crm_subscription_id: sub.id as string },
+      });
+      await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, sub.id as string] });
+      return { ok: true, stripe_subscription_id: stripeSub.id };
     }
     case "subscriptions.delete": {
       const { rows: subRows } = await exec({ sql: `SELECT stripe_subscription_id FROM subscriptions WHERE id = ? LIMIT 1`, args: [payload.id as string] });

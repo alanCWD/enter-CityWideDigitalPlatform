@@ -703,14 +703,17 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
     if (!pid) return;
     setBusy(true); setErr(null);
     try {
-      await crm("subscriptions.create", { client_id: detail.client.id, product_id: pid, quantity: 1 });
+      const result = await crm<{ id: string; stripe_warning?: string | null }>("subscriptions.create", { client_id: detail.client.id, product_id: pid, quantity: 1 });
       setPid(""); reload();
+      if (result.stripe_warning) {
+        setErr(`Subscription created locally, but Stripe sync failed: ${result.stripe_warning}`);
+      }
     } catch (e) { setErr((e as Error).message); }
     finally { setBusy(false); }
   };
 
   const cancel = async (id: string) => {
-    if (!confirm("Cancel this subscription at period end?")) return;
+    if (!confirm("Cancel this subscription at period end? This will also cancel it in Stripe.")) return;
     await crm("subscriptions.cancel", { id, at_period_end: true });
     reload();
   };
@@ -719,6 +722,15 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
     if (!confirm("Delete this subscription immediately? This will cancel it in Stripe right now.")) return;
     await crm("subscriptions.delete", { id });
     reload();
+  };
+
+  const syncStripe = async (id: string) => {
+    setBusy(true); setErr(null);
+    try {
+      await crm("subscriptions.syncStripe", { id });
+      reload();
+    } catch (e) { setErr(`Stripe sync failed: ${(e as Error).message}`); }
+    finally { setBusy(false); }
   };
 
   const fmtDateRange = (start: string | null, end: string | null) => {
@@ -755,7 +767,14 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
                 <div className="flex items-center gap-3 min-w-0">
                   <span className="w-7 h-7 shrink-0 rounded-lg bg-[#22C55E]/15 text-[#22C55E] flex items-center justify-center"><Repeat className="w-3.5 h-3.5" /></span>
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{s.product_name as string}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-foreground dark:text-[#EEF1FA]">{s.product_name as string}</span>
+                      {!s.stripe_subscription_id && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          <AlertCircle className="w-2.5 h-2.5" /> Not synced to Stripe
+                        </span>
+                      )}
+                    </div>
                     <div className="text-xs text-muted-foreground">
                       {fmtMoney((s.unit_amount_cents as number ?? 0) * (s.quantity as number), s.product_currency as string)} / {s.product_interval as string ?? "month"}
                       {s.cancel_at_period_end ? " · cancels at period end" : ""}
@@ -769,6 +788,11 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
                   <StatusPill status={s.status as string} />
                   {s.status !== "canceled" && (
                     <>
+                      {!s.stripe_subscription_id && (
+                        <button onClick={() => syncStripe(s.id as string)} disabled={busy} className="text-[11px] font-semibold text-amber-500 hover:text-amber-400 transition-colors disabled:opacity-50">
+                          Sync Stripe
+                        </button>
+                      )}
                       <button onClick={() => cancel(s.id as string)} className="text-xs text-muted-foreground hover:text-amber-400 transition-colors">Cancel</button>
                       {isAdmin && (
                         <button onClick={() => deleteNow(s.id as string)} className="text-xs text-red-400 hover:text-red-300 transition-colors inline-flex items-center gap-1 font-semibold">
