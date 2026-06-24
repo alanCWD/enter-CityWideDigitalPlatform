@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Package, Plus, X, Repeat, Tag, Pencil } from "lucide-react";
+import { Package, Plus, X, Repeat, Tag, Pencil, Zap } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmProducts } from "@/hooks/useCrm";
@@ -55,6 +55,19 @@ export function Catalog() {
               >
                 <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
               </button>
+
+              {/* Stripe sync badge */}
+              <div className="absolute top-4 right-12">
+                {p.stripe_product_id ? (
+                  <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400">
+                    <Zap className="w-2.5 h-2.5" /> Stripe
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground">
+                    <Zap className="w-2.5 h-2.5" /> No sync
+                  </span>
+                )}
+              </div>
 
               {/* Type badge */}
               <div className="flex items-center gap-2 mb-3">
@@ -257,9 +270,10 @@ function ProductEditor({ product, onClose, onSaved }: {
           <button
             type="submit"
             disabled={busy}
-            className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-bold px-5 py-2 rounded-lg transition-colors"
+            className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground text-sm font-bold px-5 py-2 rounded-lg transition-colors flex items-center gap-1.5"
           >
-            {busy ? "Saving…" : "Save Product"}
+            <Zap className="w-3.5 h-3.5" />
+            {busy ? "Saving & syncing…" : "Save & Sync to Stripe"}
           </button>
         </div>
       </form>

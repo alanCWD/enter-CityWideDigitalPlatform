@@ -777,12 +777,22 @@ function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
                 <td className="px-4 py-3 text-xs text-muted-foreground">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}</td>
                 <td className="px-4 py-3 text-right text-sm font-bold text-foreground">{fmtMoney(inv.total_cents, inv.currency)}</td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => setViewing(inv)}
-                    className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium"
-                  >
-                    <FileText className="w-3 h-3" /> View
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    {inv.hosted_invoice_url && (
+                      <a href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium"
+                        title="Open Stripe payment link"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                    <button
+                      onClick={() => setViewing(inv)}
+                      className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium"
+                    >
+                      <FileText className="w-3 h-3" /> View
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -1084,6 +1094,26 @@ function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
         <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-muted/30 rounded-t-2xl print:hidden">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Invoice Preview</span>
           <div className="flex items-center gap-2">
+            {invoice.hosted_invoice_url && (
+              <a
+                href={invoice.hosted_invoice_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1.5"
+              >
+                <ExternalLink className="w-3.5 h-3.5" /> Stripe Payment Link
+              </a>
+            )}
+            {invoice.pdf_url && (
+              <a
+                href={invoice.pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-muted hover:bg-accent text-foreground transition-colors inline-flex items-center gap-1.5"
+              >
+                <FileText className="w-3.5 h-3.5" /> PDF
+              </a>
+            )}
             {invoice.status === "open" && (
               <button
                 onClick={markPaid}

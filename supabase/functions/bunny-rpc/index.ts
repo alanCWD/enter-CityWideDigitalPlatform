@@ -1,5 +1,6 @@
 // CRM gateway with Vault (notes, credentials, files) + multi-agency tenancy.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,6 +14,8 @@ const BUNNY_TOKEN = Deno.env.get("BUNNY_DB_AUTH_TOKEN")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
+const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: "2024-04-10" }) : null;
 
 type SqlValue = string | number | null;
 interface ExecRequest { sql: string; args?: SqlValue[] }
@@ -110,13 +113,15 @@ async function bootstrap() {
     `CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, full_name TEXT NOT NULL DEFAULT '', email TEXT, phone TEXT, role TEXT, is_primary INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE contacts ADD COLUMN full_name TEXT NOT NULL DEFAULT ''`,
     `UPDATE contacts SET full_name = name WHERE full_name = '' AND name IS NOT NULL`,
-    `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_cents INTEGER NOT NULL DEFAULT 0, unit_amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', interval TEXT, type TEXT NOT NULL DEFAULT 'subscription', stripe_price_id TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS products (id TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT, price_cents INTEGER NOT NULL DEFAULT 0, unit_amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', interval TEXT, type TEXT NOT NULL DEFAULT 'subscription', stripe_product_id TEXT, stripe_price_id TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE products ADD COLUMN price_cents INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE products ADD COLUMN unit_amount_cents INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE products ADD COLUMN type TEXT NOT NULL DEFAULT 'subscription'`,
     `ALTER TABLE products ADD COLUMN interval TEXT`,
+    `ALTER TABLE products ADD COLUMN stripe_product_id TEXT`,
     `CREATE TABLE IF NOT EXISTS subscriptions (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, product_id TEXT NOT NULL, quantity INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'pending', start_date TEXT, current_period_end TEXT, cancel_at_period_end INTEGER NOT NULL DEFAULT 0, stripe_subscription_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
-    `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, agency_id TEXT NOT NULL DEFAULT 'citywide', subscription_id TEXT, number TEXT, subtotal_cents INTEGER NOT NULL DEFAULT 0, tax_cents INTEGER NOT NULL DEFAULT 0, total_cents INTEGER NOT NULL DEFAULT 0, amount_cents INTEGER NOT NULL DEFAULT 0, amount_paid_cents INTEGER NOT NULL DEFAULT 0, line_items TEXT, currency TEXT NOT NULL DEFAULT 'CAD', status TEXT NOT NULL DEFAULT 'draft', issued_at TEXT, due_at TEXT, paid_at TEXT, sent_at TEXT, hosted_invoice_url TEXT, stripe_invoice_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `ALTER TABLE subscriptions ADD COLUMN stripe_subscription_id TEXT`,
+    `CREATE TABLE IF NOT EXISTS invoices (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, agency_id TEXT NOT NULL DEFAULT 'citywide', subscription_id TEXT, number TEXT, subtotal_cents INTEGER NOT NULL DEFAULT 0, tax_cents INTEGER NOT NULL DEFAULT 0, total_cents INTEGER NOT NULL DEFAULT 0, amount_cents INTEGER NOT NULL DEFAULT 0, amount_paid_cents INTEGER NOT NULL DEFAULT 0, line_items TEXT, currency TEXT NOT NULL DEFAULT 'CAD', status TEXT NOT NULL DEFAULT 'draft', issued_at TEXT, due_at TEXT, paid_at TEXT, sent_at TEXT, hosted_invoice_url TEXT, pdf_url TEXT, stripe_invoice_id TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE invoices ADD COLUMN amount_cents INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE invoices ADD COLUMN subtotal_cents INTEGER NOT NULL DEFAULT 0`,
     `ALTER TABLE invoices ADD COLUMN tax_cents INTEGER NOT NULL DEFAULT 0`,
@@ -125,6 +130,7 @@ async function bootstrap() {
     `ALTER TABLE invoices ADD COLUMN line_items TEXT`,
     `ALTER TABLE invoices ADD COLUMN agency_id TEXT NOT NULL DEFAULT 'citywide'`,
     `ALTER TABLE invoices ADD COLUMN sent_at TEXT`,
+    `ALTER TABLE invoices ADD COLUMN pdf_url TEXT`,
     `CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, invoice_id TEXT, client_id TEXT NOT NULL, amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', method TEXT, status TEXT NOT NULL DEFAULT 'succeeded', stripe_payment_intent_id TEXT, paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE payments ADD COLUMN amount_cents INTEGER NOT NULL DEFAULT 0`,
     `CREATE TABLE IF NOT EXISTS vault_notes (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, agency_id TEXT NOT NULL DEFAULT 'citywide', title TEXT NOT NULL, body TEXT NOT NULL, visibility TEXT NOT NULL DEFAULT 'agency_only', pinned INTEGER NOT NULL DEFAULT 0, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
@@ -181,6 +187,21 @@ async function assertClientAccess(ctx: AuthCtx, clientId: string): Promise<void>
   if (!rows[0]) throw new Error(`client ${clientId} not found`);
   if (ctx.isSuperAdmin) return;
   if (rows[0].agency_id !== ctx.agencyId) throw new Error("Forbidden: client belongs to another agency");
+}
+
+async function ensureStripeCustomer(clientId: string): Promise<string> {
+  if (!stripe) throw new Error("Stripe is not configured. Add STRIPE_SECRET_KEY to secrets.");
+  const { rows } = await exec({ sql: `SELECT stripe_customer_id, name, billing_email FROM clients WHERE id = ? LIMIT 1`, args: [clientId] });
+  const client = rows[0];
+  if (!client) throw new Error("Client not found");
+  if (client.stripe_customer_id) return client.stripe_customer_id as string;
+  const customer = await stripe.customers.create({
+    name: client.name as string || undefined,
+    email: (client.billing_email as string) || undefined,
+    metadata: { crm_client_id: clientId },
+  });
+  await exec({ sql: `UPDATE clients SET stripe_customer_id = ? WHERE id = ?`, args: [customer.id, clientId] });
+  return customer.id;
 }
 
 const adminStorage = createClient(SUPABASE_URL, SERVICE_KEY).storage;
@@ -265,14 +286,61 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     }
 
     case "products.list": {
-      const { rows } = await exec({ sql: `SELECT id, name, description, type, unit_amount_cents, price_cents, currency, interval, stripe_price_id, active, created_at FROM products WHERE active = 1 ORDER BY unit_amount_cents ASC` });
+      const { rows } = await exec({ sql: `SELECT id, name, description, type, unit_amount_cents, price_cents, currency, interval, stripe_product_id, stripe_price_id, active, created_at FROM products WHERE active = 1 ORDER BY unit_amount_cents ASC` });
       return { products: rows };
     }
     case "products.upsert": {
       const id = (payload.id as string) || uuid();
       const cents = (payload.unit_amount_cents ?? payload.price_cents ?? 0) as number;
-      await exec({ sql: `INSERT INTO products (id, name, description, type, price_cents, unit_amount_cents, currency, interval, stripe_price_id, active) VALUES (?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, type=excluded.type, price_cents=excluded.price_cents, unit_amount_cents=excluded.unit_amount_cents, currency=excluded.currency, interval=excluded.interval, stripe_price_id=excluded.stripe_price_id, active=excluded.active`, args: [id, payload.name as string, (payload.description as string) ?? null, (payload.type as string) ?? "subscription", cents, cents, (payload.currency as string) ?? "CAD", (payload.interval as string) ?? null, (payload.stripe_price_id as string) ?? null, (payload.active as number) ?? 1] });
-      return { id };
+      const productName = payload.name as string;
+      const productType = (payload.type as string) ?? "subscription";
+      const interval = (payload.interval as string) ?? null;
+      const currency = ((payload.currency as string) ?? "CAD").toLowerCase();
+      const active = (payload.active as number) ?? 1;
+
+      // Fetch existing record to check if it already has Stripe IDs
+      const { rows: existing } = await exec({ sql: `SELECT stripe_product_id, stripe_price_id, unit_amount_cents, interval FROM products WHERE id = ? LIMIT 1`, args: [id] });
+      const ex = existing[0];
+
+      let stripeProductId = (ex?.stripe_product_id ?? payload.stripe_product_id ?? null) as string | null;
+      let stripePriceId = (ex?.stripe_price_id ?? payload.stripe_price_id ?? null) as string | null;
+
+      if (stripe) {
+        try {
+          // Create or update Stripe Product
+          if (!stripeProductId) {
+            const sp = await stripe.products.create({ name: productName, description: (payload.description as string) || undefined, metadata: { crm_product_id: id } });
+            stripeProductId = sp.id;
+          } else {
+            await stripe.products.update(stripeProductId, { name: productName, description: (payload.description as string) || undefined, active: !!active });
+          }
+
+          // Create new Price if amount or interval changed (Stripe prices are immutable)
+          const priceChanged = !ex || ex.unit_amount_cents !== cents || ex.interval !== interval;
+          if (priceChanged && stripeProductId) {
+            // Archive old price if it exists
+            if (stripePriceId) {
+              try { await stripe.prices.update(stripePriceId, { active: false }); } catch { /* ignore */ }
+            }
+            const priceParams: Stripe.PriceCreateParams = {
+              product: stripeProductId,
+              unit_amount: cents,
+              currency,
+            };
+            if (productType === "subscription" && interval) {
+              priceParams.recurring = { interval: interval as "month" | "year" };
+            }
+            const sp = await stripe.prices.create(priceParams);
+            stripePriceId = sp.id;
+          }
+        } catch (stripeErr) {
+          console.error("Stripe product sync failed:", stripeErr);
+          // Don't fail the whole operation — save locally anyway
+        }
+      }
+
+      await exec({ sql: `INSERT INTO products (id, name, description, type, price_cents, unit_amount_cents, currency, interval, stripe_product_id, stripe_price_id, active) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, type=excluded.type, price_cents=excluded.price_cents, unit_amount_cents=excluded.unit_amount_cents, currency=excluded.currency, interval=excluded.interval, stripe_product_id=excluded.stripe_product_id, stripe_price_id=excluded.stripe_price_id, active=excluded.active`, args: [id, productName, (payload.description as string) ?? null, productType, cents, cents, (payload.currency as string) ?? "CAD", interval, stripeProductId, stripePriceId, active] });
+      return { id, stripe_product_id: stripeProductId, stripe_price_id: stripePriceId };
     }
 
     case "clients.list": {
@@ -297,7 +365,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         { sql: `SELECT * FROM clients WHERE id = ? LIMIT 1`, args: [id] },
         { sql: `SELECT id, client_id, full_name, email, phone, role, is_primary, created_at FROM contacts WHERE client_id = ? ORDER BY is_primary DESC, full_name ASC`, args: [id] },
         { sql: `SELECT s.*, p.name as product_name, p.unit_amount_cents, p.currency as product_currency, p.interval as product_interval FROM subscriptions s JOIN products p ON p.id = s.product_id WHERE s.client_id = ? ORDER BY s.created_at DESC`, args: [id] },
-        { sql: `SELECT id, client_id, number, status, subtotal_cents, tax_cents, total_cents, amount_paid_cents, currency, line_items, issued_at, due_at as due_date, paid_at, sent_at, hosted_invoice_url, stripe_invoice_id, created_at FROM invoices WHERE client_id = ? ORDER BY issued_at DESC LIMIT 50`, args: [id] },
+        { sql: `SELECT id, client_id, number, status, subtotal_cents, tax_cents, total_cents, amount_paid_cents, currency, line_items, issued_at, due_at as due_date, paid_at, sent_at, hosted_invoice_url, pdf_url, stripe_invoice_id, created_at FROM invoices WHERE client_id = ? ORDER BY issued_at DESC LIMIT 50`, args: [id] },
         { sql: `SELECT * FROM payments WHERE client_id = ? ORDER BY paid_at DESC LIMIT 50`, args: [id] },
       ]);
       return { client: client.rows[0] ?? null, contacts: contacts.rows, subscriptions: subs.rows, invoices: invs.rows, payments: pays.rows };
@@ -353,6 +421,26 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await assertClientAccess(ctx, payload.client_id as string);
       const id = uuid();
       await exec({ sql: `INSERT INTO subscriptions (id, client_id, product_id, quantity, status, start_date) VALUES (?,?,?,?,?,?)`, args: [id, payload.client_id as string, payload.product_id as string, (payload.quantity as number) ?? 1, "active", now()] });
+
+      // Push to Stripe if the product has a stripe_price_id
+      if (stripe && payload.product_id) {
+        try {
+          const { rows: prodRows } = await exec({ sql: `SELECT stripe_price_id FROM products WHERE id = ? LIMIT 1`, args: [payload.product_id as string] });
+          const stripePriceId = prodRows[0]?.stripe_price_id as string | null;
+          if (stripePriceId) {
+            const customerId = await ensureStripeCustomer(payload.client_id as string);
+            const stripeSub = await stripe.subscriptions.create({
+              customer: customerId,
+              items: [{ price: stripePriceId, quantity: (payload.quantity as number) ?? 1 }],
+              metadata: { crm_subscription_id: id },
+            });
+            await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, id] });
+          }
+        } catch (stripeErr) {
+          console.error("Stripe subscription create failed:", stripeErr);
+        }
+      }
+
       return { id };
     }
     case "subscriptions.cancel": {
@@ -378,10 +466,52 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       return { id, number: invoiceNum };
     }
     case "invoices.send": {
-      const { rows } = await exec({ sql: `SELECT id FROM invoices WHERE id = ? LIMIT 1`, args: [payload.id as string] });
-      if (!rows[0]) throw new Error("Invoice not found");
-      await exec({ sql: `UPDATE invoices SET status = 'open', sent_at = ? WHERE id = ?`, args: [now(), payload.id as string] });
-      return { ok: true };
+      const { rows } = await exec({ sql: `SELECT * FROM invoices WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      const inv = rows[0];
+      if (!inv) throw new Error("Invoice not found");
+
+      let hostedUrl = inv.hosted_invoice_url as string | null;
+      let pdfUrl = inv.pdf_url as string | null;
+      let stripeInvoiceId = inv.stripe_invoice_id as string | null;
+
+      if (stripe) {
+        try {
+          const customerId = await ensureStripeCustomer(inv.client_id as string);
+          type LineItem = { description: string; quantity: number; unit_amount_cents: number };
+          const lineItems: LineItem[] = JSON.parse((inv.line_items as string) || "[]");
+          const dueDays = Math.max(1, Math.round((new Date(inv.due_at as string).getTime() - Date.now()) / 86400000)) || 14;
+
+          // Create invoice items
+          for (const item of lineItems) {
+            await stripe.invoiceItems.create({
+              customer: customerId,
+              amount: Math.round((item.unit_amount_cents ?? 0) * (item.quantity ?? 1)),
+              currency: ((inv.currency as string) || "CAD").toLowerCase(),
+              description: item.description || "Service",
+            });
+          }
+
+          // Create and finalize the Stripe invoice
+          const stripeInv = await stripe.invoices.create({
+            customer: customerId,
+            collection_method: "send_invoice",
+            days_until_due: dueDays,
+            metadata: { crm_invoice_id: inv.id as string },
+          });
+          stripeInvoiceId = stripeInv.id;
+          const finalized = await stripe.invoices.finalizeInvoice(stripeInv.id);
+          hostedUrl = finalized.hosted_invoice_url ?? null;
+          pdfUrl = finalized.invoice_pdf ?? null;
+          // Send the invoice email via Stripe
+          await stripe.invoices.sendInvoice(stripeInv.id);
+        } catch (stripeErr) {
+          console.error("Stripe invoice send failed:", stripeErr);
+          // Fall through — still mark as sent locally
+        }
+      }
+
+      await exec({ sql: `UPDATE invoices SET status = 'open', sent_at = ?, stripe_invoice_id = ?, hosted_invoice_url = ?, pdf_url = ? WHERE id = ?`, args: [now(), stripeInvoiceId, hostedUrl, pdfUrl, payload.id as string] });
+      return { ok: true, hosted_invoice_url: hostedUrl, pdf_url: pdfUrl, stripe_invoice_id: stripeInvoiceId };
     }
     case "invoices.markPaid": {
       await exec({ sql: `UPDATE invoices SET status = 'paid', paid_at = ?, amount_paid_cents = total_cents WHERE id = ?`, args: [now(), payload.id as string] });
@@ -392,7 +522,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const invArgs: SqlValue[] = [];
       if (payload.client_id) { invWhere.push("i.client_id = ?"); invArgs.push(payload.client_id as string); }
       if (payload.status) { invWhere.push("i.status = ?"); invArgs.push(payload.status as string); }
-      const { rows } = await exec({ sql: `SELECT i.id, i.client_id, c.name as client_name, i.number, i.status, i.subtotal_cents, i.tax_cents, i.total_cents, i.amount_cents, i.amount_paid_cents, i.currency, i.line_items, i.issued_at, i.due_at as due_date, i.paid_at, i.sent_at, i.hosted_invoice_url, i.stripe_invoice_id, i.created_at FROM invoices i JOIN clients c ON c.id = i.client_id WHERE ${invWhere.join(" AND ")} ORDER BY i.issued_at DESC LIMIT 200`, args: invArgs });
+      const { rows } = await exec({ sql: `SELECT i.id, i.client_id, c.name as client_name, i.number, i.status, i.subtotal_cents, i.tax_cents, i.total_cents, i.amount_cents, i.amount_paid_cents, i.currency, i.line_items, i.issued_at, i.due_at as due_date, i.paid_at, i.sent_at, i.hosted_invoice_url, i.pdf_url, i.stripe_invoice_id, i.created_at FROM invoices i JOIN clients c ON c.id = i.client_id WHERE ${invWhere.join(" AND ")} ORDER BY i.issued_at DESC LIMIT 200`, args: invArgs });
       return { invoices: rows };
     }
 
