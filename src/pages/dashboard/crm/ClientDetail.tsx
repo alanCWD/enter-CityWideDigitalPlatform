@@ -265,10 +265,10 @@ export function ClientDetail() {
         <LinkZernioProfileDialog
           crmClientId={c.id}
           clientName={c.name}
+          currentConnectionId={c.gbp_connection_id}
           onLinked={(connectionId) => {
             setShowLinkZernio(false);
             reload();
-            window.open(`/portal/${connectionId}`, "_blank");
           }}
           onClose={() => setShowLinkZernio(false)}
         />

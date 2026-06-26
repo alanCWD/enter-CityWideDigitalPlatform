@@ -1,46 +1,48 @@
 import { useState, useEffect } from "react";
-import { X, RefreshCw, Link2, CheckCircle, AlertCircle, Store } from "lucide-react";
+import { X, RefreshCw, Link2, CheckCircle, AlertCircle, Store, Star, Phone, MapPin } from "lucide-react";
 import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { crm } from "@/lib/crm";
 import { useToast } from "@/hooks/use-toast";
 
-interface BusinessProfile {
-  _id: string;
-  name: string;
-  description?: string;
-  platforms?: string[];
-  category?: string;
-  address?: string;
-  phone?: string;
-  website?: string;
-  rating?: number;
-  review_count?: number;
+interface GbpConnection {
+  id: string;
+  business_name: string | null;
+  client_label: string;
+  category: string | null;
+  address: string | null;
+  phone: string | null;
+  website: string | null;
+  rating: number | null;
+  review_count: number | null;
+  google_location_name: string | null;
 }
 
 interface Props {
   crmClientId: string;
   clientName: string;
+  currentConnectionId?: string | null;
   onLinked: (connectionId: string) => void;
   onClose: () => void;
 }
 
-export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onClose }: Props) {
+export function LinkZernioProfileDialog({ crmClientId, clientName, currentConnectionId, onLinked, onClose }: Props) {
   const { toast } = useToast();
-  const [profiles, setProfiles] = useState<BusinessProfile[]>([]);
+  const [connections, setConnections] = useState<GbpConnection[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [linking, setLinking] = useState<string | null>(null);
 
-  const fetchProfiles = async () => {
+  const fetchConnections = async () => {
     setLoading(true);
     setError(null);
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("social-rpc", {
-        body: { action: "zernio.profiles", payload: {} },
-      });
-      if (fnError || !data?.ok) throw new Error(data?.error ?? fnError?.message ?? "Failed to load business profiles");
-      setProfiles((data.profiles as BusinessProfile[]) ?? []);
+      const { data, error: dbError } = await supabase
+        .from("gbp_connections")
+        .select("id, business_name, client_label, category, address, phone, website, rating, review_count, google_location_name")
+        .order("client_label");
+      if (dbError) throw new Error(dbError.message);
+      setConnections((data ?? []) as GbpConnection[]);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -48,45 +50,14 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
     }
   };
 
-  useEffect(() => { fetchProfiles(); }, []);
+  useEffect(() => { fetchConnections(); }, []);
 
-  const linkProfile = async (profile: BusinessProfile) => {
-    setLinking(profile._id);
+  const linkConnection = async (conn: GbpConnection) => {
+    setLinking(conn.id);
     try {
-      // 1. Create/update connection record
-      const { data, error: fnError } = await supabase.functions.invoke("social-rpc", {
-        body: {
-          action: "zernio.linkProfile",
-          payload: {
-            crm_client_id: crmClientId,
-            zernio_profile_id: profile._id,
-            profile_name: profile.name,
-            category: profile.category,
-            address: profile.address,
-            phone: profile.phone,
-            website: profile.website,
-            rating: profile.rating,
-            review_count: profile.review_count,
-          },
-        },
-      });
-      if (fnError || !data?.ok) throw new Error(data?.error ?? fnError?.message ?? "Link failed");
-
-      const connectionId = data.connection_id as string;
-
-      // 3. Sync GBP data (NAP, reviews, posts) from Zernio
-      await supabase.functions.invoke("social-rpc", {
-        body: {
-          action: "zernio.syncProfile",
-          payload: { connection_id: connectionId, zernio_profile_id: profile._id },
-        },
-      });
-
-      // 4. Update CRM client record with connection ID
-      await crm("clients.update", { id: crmClientId, gbp_connection_id: connectionId });
-
-      toast({ title: `"${profile.name}" linked to ${clientName}` });
-      onLinked(connectionId);
+      await crm("clients.update", { id: crmClientId, gbp_connection_id: conn.id });
+      toast({ title: `"${conn.business_name ?? conn.client_label}" linked to ${clientName}` });
+      onLinked(conn.id);
     } catch (e) {
       toast({ title: "Link failed", description: (e as Error).message, variant: "destructive" });
     } finally {
@@ -105,14 +76,14 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border dark:border-white/10">
           <div>
-            <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Select Business Profile</h3>
+            <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Link a Business Profile</h3>
             <p className="text-[11px] text-muted-foreground mt-0.5">
-              Choose the profile to link to <strong>{clientName}</strong>
+              Choose a GBP account to connect to <strong>{clientName}</strong>
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
-              onClick={fetchProfiles}
+              onClick={fetchConnections}
               disabled={loading}
               className="text-muted-foreground hover:text-foreground dark:text-[rgba(238,241,250,0.4)] dark:hover:text-[#EEF1FA] transition-colors disabled:opacity-40"
               title="Refresh"
@@ -126,7 +97,7 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
         </div>
 
         {/* Body */}
-        <div className="p-4 max-h-[400px] overflow-y-auto">
+        <div className="p-4 max-h-[440px] overflow-y-auto">
           {loading ? (
             <div className="flex items-center justify-center py-12 gap-2 text-muted-foreground text-sm">
               <RefreshCw className="w-4 h-4 animate-spin" /> Loading business profiles…
@@ -137,54 +108,86 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
               <div>
                 <div className="text-sm font-bold text-red-400">Could not load profiles</div>
                 <div className="text-xs text-red-400/70 mt-0.5">{error}</div>
-                <button
-                  onClick={fetchProfiles}
-                  className="text-xs text-red-400 underline mt-1"
-                >
-                  Try again
-                </button>
+                <button onClick={fetchConnections} className="text-xs text-red-400 underline mt-1">Try again</button>
               </div>
             </div>
-          ) : profiles.length === 0 ? (
+          ) : connections.length === 0 ? (
             <div className="text-center py-12">
               <Store className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-40" />
-              <p className="text-sm text-muted-foreground">No business profiles found.</p>
+              <p className="text-sm text-muted-foreground">No GBP accounts found.</p>
               <p className="text-xs text-muted-foreground/60 mt-1">
-                Make sure your master account has connected business profiles.
+                Connect a Google Business Profile account in the Social dashboard first.
               </p>
             </div>
           ) : (
             <div className="space-y-2">
-              {profiles.map((profile) => (
-                <div
-                  key={profile._id}
-                  className="flex items-center justify-between bg-muted/40 dark:bg-[#0D1526] rounded-xl px-4 py-3.5 border border-border dark:border-white/8"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-bold text-foreground dark:text-[#EEF1FA] truncate">{profile.name}</div>
-                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                      {profile.category && (
-                        <span className="text-[10px] text-muted-foreground">{profile.category}</span>
-                      )}
-                      {profile.address && (
-                        <span className="text-[10px] text-muted-foreground truncate">{profile.address}</span>
-                      )}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => linkProfile(profile)}
-                    disabled={!!linking}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-[#0078D7] hover:bg-[#005FA3] disabled:opacity-40 text-white transition-colors ml-3 flex-shrink-0"
+              {connections.map((conn) => {
+                const isLinked = conn.id === currentConnectionId;
+                const displayName = conn.business_name ?? conn.client_label;
+                return (
+                  <div
+                    key={conn.id}
+                    className={`flex items-center justify-between rounded-xl px-4 py-3.5 border transition-colors ${
+                      isLinked
+                        ? "bg-[#0078D7]/8 border-[#0078D7]/30"
+                        : "bg-muted/40 dark:bg-[#0D1526] border-border dark:border-white/8"
+                    }`}
                   >
-                    {linking === profile._id ? (
-                      <RefreshCw className="w-3 h-3 animate-spin" />
-                    ) : (
-                      <Link2 className="w-3 h-3" />
-                    )}
-                    {linking === profile._id ? "Linking…" : "Select"}
-                  </button>
-                </div>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-foreground dark:text-[#EEF1FA] truncate">{displayName}</span>
+                        {isLinked && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#0078D7]/15 text-[#0078D7] border border-[#0078D7]/20 shrink-0">
+                            Current
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        {conn.category && (
+                          <span className="text-[10px] text-muted-foreground">{conn.category}</span>
+                        )}
+                        {conn.address && (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <MapPin className="w-2.5 h-2.5" />{conn.address}
+                          </span>
+                        )}
+                        {conn.phone && (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <Phone className="w-2.5 h-2.5" />{conn.phone}
+                          </span>
+                        )}
+                        {conn.rating != null && (
+                          <span className="text-[10px] text-muted-foreground flex items-center gap-0.5">
+                            <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
+                            {conn.rating} ({conn.review_count ?? 0})
+                          </span>
+                        )}
+                        {!conn.address && !conn.phone && !conn.category && (
+                          <span className="text-[10px] text-muted-foreground/50 italic">No address or phone synced yet</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => linkConnection(conn)}
+                      disabled={!!linking || isLinked}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ml-3 flex-shrink-0 ${
+                        isLinked
+                          ? "bg-[#0078D7]/15 text-[#0078D7] cursor-default"
+                          : "bg-[#0078D7] hover:bg-[#005FA3] disabled:opacity-40 text-white"
+                      }`}
+                    >
+                      {linking === conn.id ? (
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                      ) : isLinked ? (
+                        <CheckCircle className="w-3 h-3" />
+                      ) : (
+                        <Link2 className="w-3 h-3" />
+                      )}
+                      {linking === conn.id ? "Linking…" : isLinked ? "Linked" : "Select"}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -194,7 +197,7 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, onLinked, onC
           <div className="flex items-center gap-2">
             <CheckCircle className="w-3.5 h-3.5 text-[#22C55E] flex-shrink-0" />
             <p className="text-[11px] text-muted-foreground dark:text-[rgba(238,241,250,0.45)]">
-              Profiles are pulled from your agency's connected master account. No client action required.
+              These are all GBP accounts connected to your agency. Select one to activate this client's portal.
             </p>
           </div>
         </div>
