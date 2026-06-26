@@ -13,6 +13,45 @@ function formatAddress(addr: Record<string, unknown>): string {
   return [lines.join(" "), locality, region, postal].filter(Boolean).join(", ");
 }
 
+/** Update the BunnyDB (Turso/libSQL) CRM client's gbp_connection_id */
+async function linkCrmClient(crmClientId: string, connectionId: string): Promise<void> {
+  const bunnyBase = (Deno.env.get("BUNNY_DB_URL") ?? "")
+    .trim().replace(/\/$/, "").replace(/^libsql:\/\//i, "https://");
+  const bunnyToken = Deno.env.get("BUNNY_DB_AUTH_TOKEN");
+  if (!bunnyBase || !bunnyToken) {
+    console.warn("BUNNY_DB credentials not set — skipping CRM link");
+    return;
+  }
+  const res = await fetch(`${bunnyBase}/v2/pipeline`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${bunnyToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      requests: [
+        {
+          type: "execute",
+          stmt: {
+            sql: "UPDATE clients SET gbp_connection_id = ?, updated_at = ? WHERE id = ?",
+            args: [
+              { type: "text", value: connectionId },
+              { type: "text", value: new Date().toISOString() },
+              { type: "text", value: crmClientId },
+            ],
+          },
+        },
+        { type: "close" },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    console.error("BunnyDB CRM link failed:", res.status, await res.text());
+  } else {
+    console.log(`CRM client ${crmClientId} linked to gbp_connection ${connectionId}`);
+  }
+}
+
 Deno.serve(async (req) => {
   const requestUrl = new URL(req.url);
   const code = requestUrl.searchParams.get("code");
@@ -23,11 +62,13 @@ Deno.serve(async (req) => {
   let clientLabel = "New Client";
   let frontendOrigin = "";
   let linkUserId: string | null = null;
+  let crmClientId: string | null = null;
   try {
     const parsed = JSON.parse(atob(state || ""));
     clientLabel = parsed.clientLabel || clientLabel;
     frontendOrigin = parsed.frontendOrigin || "";
     linkUserId = parsed.linkUserId || null;
+    crmClientId = parsed.crmClientId || null;
   } catch { /* use defaults */ }
 
   const redirectTo = (path: string) => {
@@ -40,7 +81,8 @@ Deno.serve(async (req) => {
     const msg = oauthError === "access_denied"
       ? "This Google account is not authorised. Make sure the business owner's email is added as a Test User in Google Cloud Console."
       : (oauthError || "no_code");
-    return redirectTo(`/gbp?error=google_rejected&diag=${encodeURIComponent(msg)}`);
+    const back = crmClientId ? `/dashboard/crm/clients/${crmClientId}?gbp_error=${encodeURIComponent(msg)}` : `/gbp?error=google_rejected&diag=${encodeURIComponent(msg)}`;
+    return redirectTo(back);
   }
 
   const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
@@ -71,7 +113,10 @@ Deno.serve(async (req) => {
     if (!tokens.access_token) {
       console.error("Token exchange failed:", JSON.stringify(tokens));
       const msg = tokens.error_description || tokens.error || "unknown";
-      return redirectTo(`/gbp?error=token_exchange_failed&diag=${encodeURIComponent(msg)}`);
+      const back = crmClientId
+        ? `/dashboard/crm/clients/${crmClientId}?gbp_error=${encodeURIComponent("Token exchange failed: " + msg)}`
+        : `/gbp?error=token_exchange_failed&diag=${encodeURIComponent(msg)}`;
+      return redirectTo(back);
     }
 
     const accessToken = tokens.access_token;
@@ -86,10 +131,11 @@ Deno.serve(async (req) => {
     console.log("Accounts found:", accountCount, JSON.stringify(accountsData).slice(0, 300));
 
     if (accountCount === 0) {
-      return redirectTo(`/gbp?error=no_accounts&diag=${encodeURIComponent(
-        "The Google account you signed in with has no Google Business Profiles. " +
-        "You must sign in with the account that OWNS the business GBP listing."
-      )}`);
+      const msg = "The Google account you signed in with has no Google Business Profiles. You must sign in with the account that OWNS the business GBP listing.";
+      const back = crmClientId
+        ? `/dashboard/crm/clients/${crmClientId}?gbp_error=${encodeURIComponent(msg)}`
+        : `/gbp?error=no_accounts&diag=${encodeURIComponent(msg)}`;
+      return redirectTo(back);
     }
 
     const account = accountsData.accounts![0];
@@ -106,10 +152,11 @@ Deno.serve(async (req) => {
     console.log("Locations found:", locationCount, JSON.stringify(locListData).slice(0, 500));
 
     if (locationCount === 0) {
-      return redirectTo(`/gbp?error=no_locations&diag=${encodeURIComponent(
-        `Account "${account.accountName || accountName}" was found but has 0 GBP locations. ` +
-        "Make sure this is the account that owns the GBP listing."
-      )}`);
+      const msg = `Account "${account.accountName || accountName}" was found but has 0 GBP locations. Make sure this is the account that owns the GBP listing.`;
+      const back = crmClientId
+        ? `/dashboard/crm/clients/${crmClientId}?gbp_error=${encodeURIComponent(msg)}`
+        : `/gbp?error=no_locations&diag=${encodeURIComponent(msg)}`;
+      return redirectTo(back);
     }
 
     const location = locListData.locations![0] as Record<string, unknown>;
@@ -175,7 +222,10 @@ Deno.serve(async (req) => {
         .from("gbp_connections").insert(napPayload).select("id").single();
       if (insertErr || !newConn) {
         console.error("Insert failed:", insertErr);
-        return redirectTo(`/gbp?error=db_insert_failed&diag=${encodeURIComponent(insertErr?.message || "unknown")}`);
+        const back = crmClientId
+          ? `/dashboard/crm/clients/${crmClientId}?gbp_error=${encodeURIComponent(insertErr?.message || "db insert failed")}`
+          : `/gbp?error=db_insert_failed&diag=${encodeURIComponent(insertErr?.message || "unknown")}`;
+        return redirectTo(back);
       }
       connectionId = newConn.id;
     }
@@ -214,7 +264,12 @@ Deno.serve(async (req) => {
       await supabase.from("gbp_posts").upsert(rows, { onConflict: "connection_id,post_id" });
     }
 
-    // 8. Link portal user if self-connect flow
+    // 8. Link CRM client in BunnyDB (if agency-initiated from CRM)
+    if (crmClientId) {
+      await linkCrmClient(crmClientId, connectionId);
+    }
+
+    // 9. Link portal user if self-connect flow
     if (linkUserId) {
       await supabase.from("portal_users").upsert(
         { user_id: linkUserId, connection_id: connectionId, role: "owner" },
@@ -223,11 +278,21 @@ Deno.serve(async (req) => {
       return redirectTo(`/portal/${connectionId}?status=connected`);
     }
 
+    // 10. If agency-initiated from CRM, redirect back to the CRM client page
+    if (crmClientId) {
+      return redirectTo(
+        `/dashboard/crm/clients/${crmClientId}?gbp=connected&business=${encodeURIComponent(businessName)}`,
+      );
+    }
+
     return redirectTo(
       `/gbp?status=connected&business=${encodeURIComponent(businessName)}&reviews=${reviews.length}&posts=${posts.length}`,
     );
   } catch (err) {
     console.error("gbp-auth-callback exception:", err);
-    return redirectTo(`/gbp?error=exception&diag=${encodeURIComponent((err as Error).message)}`);
+    const back = crmClientId
+      ? `/dashboard/crm/clients/${crmClientId}?gbp_error=${encodeURIComponent((err as Error).message)}`
+      : `/gbp?error=exception&diag=${encodeURIComponent((err as Error).message)}`;
+    return redirectTo(back);
   }
 });

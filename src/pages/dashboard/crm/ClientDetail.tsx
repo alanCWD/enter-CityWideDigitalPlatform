@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
@@ -28,14 +28,32 @@ function useIsAdmin() {
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { detail, loading, error, reload } = useCrmClient(id);
   const isAdmin = useIsAdmin();
+  const { toast } = useToast();
   const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp">("overview");
   const [deleting, setDeleting] = useState(false);
   const [editingHeader, setEditingHeader] = useState(false);
   const [showLinkZernio, setShowLinkZernio] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
   const [previewing, setPreviewing] = useState(false);
+
+  // Handle GBP OAuth redirect-back
+  useEffect(() => {
+    const gbp = searchParams.get("gbp");
+    const gbpError = searchParams.get("gbp_error");
+    const business = searchParams.get("business");
+    if (gbp === "connected") {
+      reload();
+      toast({ title: `${business ? `"${business}"` : "Business profile"} connected`, description: "All GBP data has been synced automatically." });
+      setSearchParams({}, { replace: true });
+      setTab("gbp");
+    } else if (gbpError) {
+      toast({ title: "GBP connect failed", description: gbpError, variant: "destructive" });
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams]);
 
   const previewPortal = async (connectionId: string) => {
     setPreviewing(true);

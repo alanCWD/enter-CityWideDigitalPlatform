@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { clientLabel, frontendOrigin, linkUserId } = await req.json();
+    const { clientLabel, frontendOrigin, linkUserId, crmClientId } = await req.json();
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     if (!clientId) return new Response(JSON.stringify({ error: "GOOGLE_CLIENT_ID not configured" }), { status: 500, headers: cors });
 
@@ -21,6 +21,7 @@ Deno.serve(async (req) => {
       clientLabel: (clientLabel || "New Client").trim(),
       frontendOrigin: frontendOrigin || "",
       linkUserId: linkUserId || null,
+      crmClientId: crmClientId || null,
     }));
 
     const params = new URLSearchParams({
