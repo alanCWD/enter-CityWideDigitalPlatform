@@ -153,10 +153,12 @@ async function ensureSeedData() {
   if (seedEnsured) return;
   try {
     await execMany([
-      { sql: `INSERT OR IGNORE INTO clients (id, name, status, billing_email, phone, agency_id, created_at, updated_at) VALUES ('hyperdrii-1', 'HyperDrii', 'lead', 'info@hyperdrii.ca', '226-225-8333', 'citywide', '2026-05-23T00:00:00Z', '2026-05-23T00:00:00Z')` },
+      // Remove stale duplicate leads that kept auto-recreating
+      { sql: `DELETE FROM clients WHERE id IN ('hyperdrii-1', 'hyperdrii-3', 'hyperdrii-primary')` },
+      // Ensure the canonical HyperDrii client exists
       { sql: `INSERT OR IGNORE INTO clients (id, name, status, billing_email, phone, agency_id, created_at, updated_at) VALUES ('hyperdrii-2', 'HyperDrii', 'active', 'alan@citywidedigital.ca', '+1 226 225 8333', 'citywide', '2026-05-10T00:00:00Z', '2026-05-10T00:00:00Z')` },
-      { sql: `INSERT OR IGNORE INTO clients (id, name, status, billing_email, phone, agency_id, created_at, updated_at) VALUES ('hyperdrii-3', 'HyperDrii', 'lead', NULL, '226-225-8333', 'citywide', '2026-05-24T00:00:00Z', '2026-05-24T00:00:00Z')` },
-      { sql: `DELETE FROM clients WHERE id = 'hyperdrii-primary'` },
+      // Unlink the CityWide Digital master account — HyperDrii should use its own GBP connection
+      { sql: `UPDATE clients SET gbp_connection_id = NULL WHERE id = 'hyperdrii-2' AND gbp_connection_id = '27cd88f7-6eef-454f-a881-1df5ddb89824'` },
     ]);
   } catch (e) { console.error("ensureSeedData failed", e); }
   seedEnsured = true;

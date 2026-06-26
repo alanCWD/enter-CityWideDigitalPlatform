@@ -969,9 +969,6 @@ interface GbpRecord {
 function GbpPanel({ connectionId }: { connectionId: string }) {
   const { toast } = useToast();
   const [record, setRecord] = useState<GbpRecord | null>(null);
-  const [form, setForm] = useState<Record<string, string>>({});
-  const [editing, setEditing] = useState(false);
-  const [busy, setBusy] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -982,41 +979,11 @@ function GbpPanel({ connectionId }: { connectionId: string }) {
       .select("id,business_name,address,phone,website,category,rating,review_count,last_synced_at,zernio_profile_id")
       .eq("id", connectionId)
       .maybeSingle();
-    if (data) {
-      setRecord(data as GbpRecord);
-      setForm({
-        business_name: data.business_name ?? "",
-        address: data.address ?? "",
-        phone: data.phone ?? "",
-        website: data.website ?? "",
-        category: data.category ?? "",
-        rating: data.rating != null ? String(data.rating) : "",
-      });
-    }
+    if (data) setRecord(data as GbpRecord);
     setLoading(false);
   };
 
   useEffect(() => { load(); }, [connectionId]);
-
-  const save = async () => {
-    setBusy(true);
-    const { error } = await supabase.from("gbp_connections").update({
-      business_name: form.business_name || null,
-      address: form.address || null,
-      phone: form.phone || null,
-      website: form.website || null,
-      category: form.category || null,
-      rating: form.rating ? parseFloat(form.rating) : null,
-    }).eq("id", connectionId);
-    if (error) {
-      toast({ title: "Save failed", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "NAP saved" });
-      setEditing(false);
-      await load();
-    }
-    setBusy(false);
-  };
 
   const sync = async () => {
     if (!record?.zernio_profile_id) return;
@@ -1037,13 +1004,13 @@ function GbpPanel({ connectionId }: { connectionId: string }) {
   if (loading) return <div className="py-10 text-center text-sm text-muted-foreground">Loading…</div>;
   if (!record) return <div className="py-10 text-center text-sm text-muted-foreground">No GBP data found.</div>;
 
-  const napFields: { key: keyof typeof form; label: string; icon: React.ElementType; placeholder: string; type?: string }[] = [
-    { key: "business_name", label: "Business Name", icon: Store, placeholder: "The Finer Details" },
-    { key: "address", label: "Address", icon: MapPin, placeholder: "123 Main St, Vancouver, BC" },
-    { key: "phone", label: "Phone", icon: Phone, placeholder: "+1 (778) 555-0000", type: "tel" },
-    { key: "website", label: "Website", icon: Globe, placeholder: "https://thefinerdetails.ca" },
-    { key: "category", label: "Category", icon: MessageCircle, placeholder: "Auto Detailing" },
-    { key: "rating", label: "Rating", icon: Star, placeholder: "4.8", type: "number" },
+  const napFields: { key: keyof GbpRecord; label: string; icon: React.ElementType }[] = [
+    { key: "business_name", label: "Business Name", icon: Store },
+    { key: "address", label: "Address", icon: MapPin },
+    { key: "phone", label: "Phone", icon: Phone },
+    { key: "website", label: "Website", icon: Globe },
+    { key: "category", label: "Category", icon: MessageCircle },
+    { key: "rating", label: "Rating", icon: Star },
   ];
 
   return (
@@ -1054,77 +1021,37 @@ function GbpPanel({ connectionId }: { connectionId: string }) {
           <div>
             <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">NAP Details</h3>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Name, Address & Phone — shown in the client portal.
+              Name, Address & Phone — synced from Google Business Profile.
               {record.last_synced_at && ` Last synced ${new Date(record.last_synced_at).toLocaleDateString()}.`}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {record.zernio_profile_id && (
-              <button
-                onClick={sync}
-                disabled={syncing}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-50"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
-                {syncing ? "Syncing…" : "Sync from Zernio"}
-              </button>
-            )}
-            {!editing ? (
-              <button
-                onClick={() => setEditing(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 border border-primary/20 transition-colors"
-              >
-                <Pencil className="w-3.5 h-3.5" /> Edit NAP
-              </button>
-            ) : (
-              <div className="flex gap-2">
-                <button onClick={() => setEditing(false)} className="px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground border border-border rounded-lg transition-colors">
-                  Cancel
-                </button>
-                <button
-                  onClick={save}
-                  disabled={busy}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-                >
-                  <Save className="w-3.5 h-3.5" /> {busy ? "Saving…" : "Save"}
-                </button>
-              </div>
-            )}
-          </div>
+          {record.zernio_profile_id && (
+            <button
+              onClick={sync}
+              disabled={syncing}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${syncing ? "animate-spin" : ""}`} />
+              {syncing ? "Syncing…" : "Sync from Zernio"}
+            </button>
+          )}
         </div>
 
-        {editing ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {napFields.map(({ key, label, icon: Icon, placeholder, type }) => (
-              <label key={key} className="block space-y-1">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Icon className="w-3 h-3" /> {label}
-                </span>
-                <input
-                  type={type ?? "text"}
-                  value={form[key]}
-                  onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
-                  placeholder={placeholder}
-                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </label>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {napFields.map(({ key, label, icon: Icon }) => (
-              <div key={key} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg border border-border/50">
-                <Icon className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
-                <div>
-                  <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
-                  <div className="text-sm text-foreground mt-0.5">
-                    {form[key] || <span className="text-muted-foreground/50 italic text-xs">Not set — click Edit NAP to add</span>}
-                  </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {napFields.map(({ key, label, icon: Icon }) => (
+            <div key={key} className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg border border-border/50">
+              <Icon className="w-3.5 h-3.5 text-primary mt-0.5 flex-shrink-0" />
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</div>
+                <div className="text-sm text-foreground mt-0.5">
+                  {record[key] != null && record[key] !== ""
+                    ? String(record[key])
+                    : <span className="text-muted-foreground/50 italic text-xs">Not synced yet</span>}
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Stats */}
