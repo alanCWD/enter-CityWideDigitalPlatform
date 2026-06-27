@@ -47,9 +47,16 @@ export function GbpCallback() {
         });
 
         if (fnError) {
+          // Try to extract the real error from the response body
+          let msg = "Connection failed.";
+          try {
+            const body = await (fnError as unknown as { context: Response }).context?.json?.();
+            msg = body?.error || fnError.message || msg;
+          } catch { msg = fnError.message || msg; }
           setStatus("error");
-          setMessage(fnError.message || "Connection failed.");
-          setTimeout(() => navigate(`/gbp?error=${encodeURIComponent(fnError.message || "exchange_failed")}`), 2500);
+          setMessage(msg);
+          const crmId = state ? (() => { try { return JSON.parse(atob(state)).crmClientId; } catch { return null; } })() : null;
+          setTimeout(() => navigate(crmId ? `/dashboard/crm/clients/${crmId}?gbp_error=${encodeURIComponent(msg)}` : `/gbp?error=${encodeURIComponent(msg)}`), 2500);
           return;
         }
 

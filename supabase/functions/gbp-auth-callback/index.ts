@@ -5,8 +5,11 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
+
+// Always returns 200 so supabase.functions.invoke() can read the body.
+// Errors are communicated via { success: false, error: "..." }.
+const ok = (body: unknown) =>
+  new Response(JSON.stringify(body), { status: 200, headers: { ...cors, "Content-Type": "application/json" } });
 
 function starRatingToNumber(rating: string | undefined): number {
   const map: Record<string, number> = { ONE: 1, TWO: 2, THREE: 3, FOUR: 4, FIVE: 5, STAR_RATING_UNSPECIFIED: 0 };
@@ -22,11 +25,10 @@ function formatAddress(addr: Record<string, unknown>): string {
 }
 
 async function linkCrmClient(crmClientId: string, connectionId: string): Promise<void> {
-  const bunnyBase = (Deno.env.get("BUNNY_DB_URL") ?? "")
-    .trim().replace(/\/$/, "").replace(/^libsql:\/\//i, "https://");
+  const bunnyBase = (Deno.env.get("BUNNY_DB_URL") ?? "").trim().replace(/\/$/, "").replace(/^libsql:\/\//i, "https://");
   const bunnyToken = Deno.env.get("BUNNY_DB_AUTH_TOKEN");
   if (!bunnyBase || !bunnyToken) { console.warn("BUNNY_DB not configured"); return; }
-  const res = await fetch(`${bunnyBase}/v2/pipeline`, {
+  await fetch(`${bunnyBase}/v2/pipeline`, {
     method: "POST",
     headers: { "Authorization": `Bearer ${bunnyToken}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -36,22 +38,19 @@ async function linkCrmClient(crmClientId: string, connectionId: string): Promise
       ],
     }),
   });
-  if (!res.ok) console.error("BunnyDB CRM link failed:", res.status, await res.text());
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
-  // ── POST: Called by GbpCallback.tsx (frontend) with user JWT ──────────────
   try {
     const body = await req.json();
     const code: string = body.code;
     const state: string = body.state || "";
-    // redirectUri sent by the frontend — must match what was used in gbp-auth-url
-    const redirectUri: string = body.redirectUri;
+    const redirectUri: string = body.redirectUri; // e.g. https://dashboard.citywidedigital.ca/gbp/callback
 
-    if (!code) return json({ error: "no_code" }, 400);
-    if (!redirectUri) return json({ error: "missing redirectUri — frontend must send window.location.origin + /gbp/callback" }, 400);
+    if (!code) return ok({ success: false, error: "no_code" });
+    if (!redirectUri) return ok({ success: false, error: "missing redirectUri" });
 
     let clientLabel = "New Client";
     let linkUserId: string | null = null;
@@ -68,18 +67,18 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // 1. Exchange code for tokens — redirectUri must match what was sent to Google
-    console.log("Token exchange with redirectUri:", redirectUri);
+    // 1. Exchange authorization code for tokens
+    console.log("Token exchange — redirectUri:", redirectUri, "code:", code.slice(0, 20));
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({ code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: "authorization_code" }),
     });
     const tokens = await tokenRes.json() as { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string };
+    console.log("Token response:", JSON.stringify({ error: tokens.error, desc: tokens.error_description, hasAccess: !!tokens.access_token }));
 
     if (!tokens.access_token) {
-      console.error("Token exchange failed:", JSON.stringify(tokens));
-      return json({ error: `Token exchange failed: ${tokens.error_description || tokens.error || "unknown"}` }, 400);
+      return ok({ success: false, error: `Google token error: ${tokens.error_description || tokens.error || "unknown"}` });
     }
 
     const accessToken = tokens.access_token;
@@ -93,7 +92,7 @@ Deno.serve(async (req) => {
     console.log("Accounts:", accountsData.accounts?.length);
 
     if (!accountsData.accounts?.length) {
-      return json({ error: "The Google account has no Google Business Profiles. Sign in with the account that owns the GBP listing." }, 400);
+      return ok({ success: false, error: "This Google account has no Google Business Profiles. Sign in with the account that owns the GBP listing." });
     }
 
     const account = accountsData.accounts[0];
@@ -105,10 +104,10 @@ Deno.serve(async (req) => {
       { headers: h },
     );
     const locData = await locRes.json() as { locations?: Array<Record<string, unknown>> };
-    console.log("Locations:", locData.locations?.length);
+    console.log("Locations:", locData.locations?.length, JSON.stringify(locData).slice(0, 400));
 
     if (!locData.locations?.length) {
-      return json({ error: `Account "${account.accountName || accountName}" has 0 GBP locations.` }, 400);
+      return ok({ success: false, error: `The account "${account.accountName || accountName}" has 0 GBP locations. Make sure you signed in with the account that manages the GBP listing.` });
     }
 
     const location = locData.locations[0];
@@ -123,15 +122,20 @@ Deno.serve(async (req) => {
     const cats = location.categories as { primaryCategory?: { displayName?: string } } | undefined;
     const category = cats?.primaryCategory?.displayName || null;
 
+    console.log("Business:", businessName, "location:", locationName);
+
     // 4. Reviews
     const rvRes = await fetch(`https://mybusinessreviews.googleapis.com/v1/${fullName}/reviews?pageSize=200`, { headers: h });
     const rvData = await rvRes.json() as { reviews?: Array<Record<string, unknown>>; totalReviewCount?: number; averageRating?: number };
     const reviews = rvData.reviews || [];
     const avgRating = rvData.averageRating ?? (reviews.length > 0 ? reviews.reduce((s, r) => s + starRatingToNumber(r.starRating as string), 0) / reviews.length : null);
+    console.log("Reviews:", reviews.length, "avgRating:", avgRating);
 
-    // 5. Upsert connection
+    // 5. Upsert gbp_connection
     const { data: existingByLoc } = await supabase.from("gbp_connections").select("id").eq("google_location_name", locationName).maybeSingle();
-    const { data: existingByLabel } = !existingByLoc ? await supabase.from("gbp_connections").select("id").eq("client_label", clientLabel).maybeSingle() : { data: null };
+    const { data: existingByLabel } = !existingByLoc
+      ? await supabase.from("gbp_connections").select("id").eq("client_label", clientLabel).maybeSingle()
+      : { data: null };
 
     const napPayload = {
       client_label: clientLabel, business_name: businessName, address, phone, website, category,
@@ -145,14 +149,16 @@ Deno.serve(async (req) => {
     const matchId = existingByLoc?.id || existingByLabel?.id;
     if (matchId) {
       connectionId = matchId;
-      await supabase.from("gbp_connections").update(napPayload).eq("id", connectionId);
+      const { error: upErr } = await supabase.from("gbp_connections").update(napPayload).eq("id", connectionId);
+      if (upErr) console.error("Update error:", upErr.message);
     } else {
       const { data: newConn, error: insertErr } = await supabase.from("gbp_connections").insert(napPayload).select("id").single();
-      if (insertErr || !newConn) return json({ error: insertErr?.message || "DB insert failed" }, 500);
+      if (insertErr || !newConn) return ok({ success: false, error: `DB insert failed: ${insertErr?.message}` });
       connectionId = newConn.id;
     }
+    console.log("Connection ID:", connectionId);
 
-    // 6. Reviews upsert
+    // 6. Upsert reviews
     if (reviews.length > 0) {
       const rows = reviews.map((r) => ({
         connection_id: connectionId,
@@ -163,7 +169,8 @@ Deno.serve(async (req) => {
         reply: ((r.reviewReply as Record<string, unknown>)?.comment as string) || null,
         review_time: (r.createTime as string) || new Date().toISOString(),
       }));
-      await supabase.from("gbp_reviews").upsert(rows, { onConflict: "connection_id,review_id" });
+      const { error: rvErr } = await supabase.from("gbp_reviews").upsert(rows, { onConflict: "connection_id,review_id" });
+      if (rvErr) console.error("Reviews upsert error:", rvErr.message);
     }
 
     // 7. Posts
@@ -181,8 +188,9 @@ Deno.serve(async (req) => {
       }));
       await supabase.from("gbp_posts").upsert(rows, { onConflict: "connection_id,post_id" });
     }
+    console.log("Posts:", posts.length);
 
-    // 8. Link CRM client
+    // 8. Link CRM client in BunnyDB
     if (crmClientId) await linkCrmClient(crmClientId, connectionId);
 
     // 9. Link portal user
@@ -193,9 +201,9 @@ Deno.serve(async (req) => {
       );
     }
 
-    return json({ success: true, connectionId, businessName, crmClientId, linkUserId, reviewCount: reviews.length, postCount: posts.length });
+    return ok({ success: true, connectionId, businessName, crmClientId, linkUserId, reviewCount: reviews.length, postCount: posts.length });
   } catch (err) {
-    console.error("gbp-auth-callback POST exception:", err);
-    return json({ error: (err as Error).message }, 500);
+    console.error("gbp-auth-callback exception:", err);
+    return ok({ success: false, error: (err as Error).message || "Unexpected error" });
   }
 });
