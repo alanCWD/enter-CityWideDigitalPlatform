@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, RefreshCw, Link2, CheckCircle, AlertCircle, Store, Star, Phone, MapPin, Plus, ArrowLeft, Chrome } from "lucide-react";
+import { X, RefreshCw, Link2, CheckCircle, AlertCircle, Store, Star, Phone, MapPin, ArrowLeft, Chrome } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import { crm } from "@/lib/crm";
@@ -12,7 +12,6 @@ interface GbpConnection {
   category: string | null;
   address: string | null;
   phone: string | null;
-  website: string | null;
   rating: number | null;
   review_count: number | null;
   google_location_name: string | null;
@@ -26,7 +25,7 @@ interface Props {
   onClose: () => void;
 }
 
-type View = "main" | "list" | "create";
+type View = "main" | "list";
 
 export function LinkZernioProfileDialog({ crmClientId, clientName, currentConnectionId, onLinked, onClose }: Props) {
   const { toast } = useToast();
@@ -38,13 +37,6 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, currentConnec
   const [listError, setListError] = useState<string | null>(null);
   const [linking, setLinking] = useState<string | null>(null);
 
-  // ── Create state ─────────────────────────────────────────
-  const [newName, setNewName] = useState(clientName);
-  const [newAddress, setNewAddress] = useState("");
-  const [newPhone, setNewPhone] = useState("");
-  const [newCategory, setNewCategory] = useState("");
-  const [creating, setCreating] = useState(false);
-
   // ── Google OAuth state ────────────────────────────────────
   const [oauthLoading, setOauthLoading] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
@@ -55,7 +47,8 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, currentConnec
     try {
       const { data, error: dbError } = await supabase
         .from("gbp_connections")
-        .select("id, business_name, client_label, category, address, phone, website, rating, review_count, google_location_name")
+        .select("id, business_name, client_label, category, address, phone, rating, review_count, google_location_name")
+        .not("google_location_name", "is", null) // only real Google-connected profiles
         .order("client_label");
       if (dbError) throw new Error(dbError.message);
       setConnections((data ?? []) as GbpConnection[]);
@@ -112,32 +105,6 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, currentConnec
     }
   };
 
-  const createAndLink = async () => {
-    if (!newName.trim()) return;
-    setCreating(true);
-    try {
-      const { data: inserted, error: insertErr } = await supabase
-        .from("gbp_connections")
-        .insert({
-          business_name: newName.trim(),
-          client_label: newName.trim(),
-          address: newAddress.trim() || null,
-          phone: newPhone.trim() || null,
-          category: newCategory.trim() || null,
-        })
-        .select("id")
-        .single();
-      if (insertErr || !inserted) throw new Error(insertErr?.message ?? "Insert failed");
-      await crm("clients.update", { id: crmClientId, gbp_connection_id: inserted.id });
-      toast({ title: `"${newName.trim()}" created and linked to ${clientName}` });
-      onLinked(inserted.id);
-    } catch (e) {
-      toast({ title: "Create failed", description: (e as Error).message, variant: "destructive" });
-    } finally {
-      setCreating(false);
-    }
-  };
-
   const Header = ({ title, subtitle }: { title: string; subtitle: string }) => (
     <div className="flex items-center justify-between px-6 py-4 border-b border-border dark:border-white/10">
       <div className="flex items-center gap-2">
@@ -170,20 +137,20 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, currentConnec
           {/* ── Main view ─────────────────────────────────── */}
           {view === "main" && (
             <motion.div key="main" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-              <Header title="Link a Business Profile" subtitle={`Activate the client portal for ${clientName}`} />
+              <Header title="Connect Google Business Profile" subtitle={`Link real GBP data for ${clientName}`} />
               <div className="p-5 space-y-3">
 
                 {/* Primary: Connect with Google */}
                 <div className="rounded-xl border border-[#0078D7]/30 bg-[#0078D7]/5 p-4">
                   <div className="flex items-start gap-3 mb-3">
                     <div className="w-9 h-9 rounded-lg bg-[#0078D7]/15 flex items-center justify-center flex-shrink-0">
-                      <Chrome className="w-4.5 h-4.5 text-[#0078D7]" />
+                      <Chrome className="w-5 h-5 text-[#0078D7]" />
                     </div>
                     <div>
                       <p className="text-sm font-bold text-foreground dark:text-[#EEF1FA]">Connect with Google</p>
                       <p className="text-[11px] text-muted-foreground mt-0.5">
                         Sign in with the Google account that manages {clientName}'s GBP listing.
-                        All data syncs automatically — name, address, phone, reviews, posts.
+                        All data syncs automatically — name, address, phone, reviews, and posts.
                       </p>
                     </div>
                   </div>
@@ -210,29 +177,18 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, currentConnec
                   <div className="flex-1 border-t border-border dark:border-white/10" />
                 </div>
 
-                {/* Secondary options */}
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => setView("list")}
-                    className="flex flex-col items-center gap-1.5 p-3.5 rounded-xl border border-border dark:border-white/8 bg-muted/40 dark:bg-[#0D1526] hover:border-[#0078D7]/40 hover:bg-[#0078D7]/5 transition-colors text-left"
-                  >
-                    <Link2 className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs font-bold text-foreground dark:text-[#EEF1FA]">Link Existing</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Pick from already-connected profiles</p>
-                    </div>
-                  </button>
-                  <button
-                    onClick={() => setView("create")}
-                    className="flex flex-col items-center gap-1.5 p-3.5 rounded-xl border border-border dark:border-white/8 bg-muted/40 dark:bg-[#0D1526] hover:border-[#0078D7]/40 hover:bg-[#0078D7]/5 transition-colors text-left"
-                  >
-                    <Plus className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs font-bold text-foreground dark:text-[#EEF1FA]">Create Blank</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">Manually enter business details</p>
-                    </div>
-                  </button>
-                </div>
+                {/* Secondary: link an already-connected profile */}
+                <button
+                  onClick={() => setView("list")}
+                  className="w-full flex items-center gap-3 p-3.5 rounded-xl border border-border dark:border-white/8 bg-muted/40 dark:bg-[#0D1526] hover:border-[#0078D7]/40 hover:bg-[#0078D7]/5 transition-colors"
+                >
+                  <Link2 className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                  <div className="text-left">
+                    <p className="text-xs font-bold text-foreground dark:text-[#EEF1FA]">Link Already-Connected Profile</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Pick from profiles already authorized via Google in your agency</p>
+                  </div>
+                </button>
+
               </div>
             </motion.div>
           )}
@@ -242,9 +198,9 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, currentConnec
             <motion.div key="list" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}>
               <Header
                 title="Link Existing Profile"
-                subtitle={`Pick a connected profile for ${clientName}`}
+                subtitle={`Pick a Google-connected profile for ${clientName}`}
               />
-              <div className="p-4 max-h-[400px] overflow-y-auto">
+              <div className="p-4 max-h-[420px] overflow-y-auto">
                 {loading ? (
                   <div className="flex items-center justify-center py-10 gap-2 text-muted-foreground text-sm">
                     <RefreshCw className="w-4 h-4 animate-spin" /> Loading…
@@ -259,9 +215,10 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, currentConnec
                     </div>
                   </div>
                 ) : connections.length === 0 ? (
-                  <div className="text-center py-10">
-                    <Store className="w-8 h-8 text-muted-foreground mx-auto mb-3 opacity-40" />
-                    <p className="text-sm text-muted-foreground">No profiles connected yet.</p>
+                  <div className="text-center py-10 space-y-3">
+                    <Store className="w-8 h-8 text-muted-foreground mx-auto opacity-40" />
+                    <p className="text-sm text-muted-foreground">No Google-connected profiles yet.</p>
+                    <p className="text-xs text-muted-foreground/60">Use "Connect with Google" to authorize a GBP account first.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -300,9 +257,6 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, currentConnec
                                   {conn.rating} ({conn.review_count ?? 0})
                                 </span>
                               )}
-                              {!conn.address && !conn.phone && !conn.category && !conn.rating && (
-                                <span className="text-[10px] text-muted-foreground/50 italic">No details synced yet</span>
-                              )}
                             </div>
                           </div>
                           <button
@@ -320,45 +274,6 @@ export function LinkZernioProfileDialog({ crmClientId, clientName, currentConnec
                     })}
                   </div>
                 )}
-              </div>
-            </motion.div>
-          )}
-
-          {/* ── Create view ───────────────────────────────── */}
-          {view === "create" && (
-            <motion.div key="create" initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 12 }}>
-              <Header title="Create Blank Profile" subtitle={`Manually add details for ${clientName}`} />
-              <div className="p-5 space-y-3">
-                {[
-                  { label: "Business Name", required: true, value: newName, onChange: setNewName, placeholder: `e.g. ${clientName}`, type: "text" },
-                  { label: "Category", required: false, value: newCategory, onChange: setNewCategory, placeholder: "e.g. Digital Marketing Agency", type: "text" },
-                  { label: "Address", required: false, value: newAddress, onChange: setNewAddress, placeholder: "e.g. 123 Main St, Calgary, AB", type: "text" },
-                  { label: "Phone", required: false, value: newPhone, onChange: setNewPhone, placeholder: "e.g. +1 403 555 0100", type: "tel" },
-                ].map(({ label, required, value, onChange, placeholder, type }) => (
-                  <div key={label}>
-                    <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-                      {label} {required && <span className="text-red-400">*</span>}
-                    </label>
-                    <input
-                      type={type}
-                      value={value}
-                      onChange={e => onChange(e.target.value)}
-                      placeholder={placeholder}
-                      className="w-full px-3 py-2.5 rounded-lg text-sm bg-muted/50 dark:bg-[#0D1526] border border-border dark:border-white/10 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-[#0078D7]/50"
-                    />
-                  </div>
-                ))}
-                <button
-                  onClick={createAndLink}
-                  disabled={creating || !newName.trim()}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold bg-[#0078D7] hover:bg-[#005FA3] disabled:opacity-40 text-white transition-colors"
-                >
-                  {creating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                  {creating ? "Creating & Linking…" : "Create Profile & Link"}
-                </button>
-                <p className="text-[11px] text-muted-foreground/60 text-center">
-                  You can sync actual GBP data later by connecting via Google OAuth.
-                </p>
               </div>
             </motion.div>
           )}
