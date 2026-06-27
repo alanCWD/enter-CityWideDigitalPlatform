@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
     // 1. Token exchange
-    console.log("[gbp-callback] Token exchange — redirectUri:", redirectUri, "code prefix:", code.slice(0, 20));
+    console.log("[gbp-callback] Token exchange — redirectUri:", redirectUri);
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -84,26 +84,41 @@ Deno.serve(async (req) => {
     const tokenExpiry = new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString();
     const h = { Authorization: `Bearer ${accessToken}` };
 
-    // ── Helper: fetch all locations from a given parent (account or wildcard)
-    const fetchLocations = async (parent: string) => {
-      const url = `https://mybusinessbusinessinformation.googleapis.com/v1/${parent}/locations?readMask=name,title,phoneNumbers,storefrontAddress,websiteUri,categories&pageSize=100`;
-      const r = await fetch(url, { headers: h });
-      const d = await r.json() as { locations?: Array<Record<string, unknown>>; error?: unknown };
-      console.log(`[gbp-callback] locations(${parent}) status=${r.status}:`, JSON.stringify(d).slice(0, 500));
-      return d.locations || [];
-    };
-
-    // 2. List accounts
+    // 2. List accounts — capture full raw response for diagnostics
     const accountsRes = await fetch("https://mybusinessaccountmanagement.googleapis.com/v1/accounts", { headers: h });
-    const accountsData = await accountsRes.json() as { accounts?: Array<{ name: string; accountName: string; type?: string }> };
-    console.log("[gbp-callback] accounts status:", accountsRes.status, "raw:", JSON.stringify(accountsData).slice(0, 600));
+    const accountsRaw = await accountsRes.text();
+    console.log("[gbp-callback] accounts HTTP status:", accountsRes.status, "body:", accountsRaw.slice(0, 800));
+
+    let accountsData: { accounts?: Array<{ name: string; accountName: string; type?: string }>; error?: { code?: number; message?: string; status?: string } };
+    try { accountsData = JSON.parse(accountsRaw); } catch { accountsData = {}; }
+
+    // Surface API errors directly — most likely: API not enabled in Google Cloud Console
+    if (accountsData.error) {
+      const e = accountsData.error;
+      if (e.status === "PERMISSION_DENIED" || e.code === 403) {
+        return ok({ success: false, error: `Google My Business API not enabled: "${e.message}". Go to Google Cloud Console → APIs & Services → Library and enable: "Google My Business Account Management API", "My Business Business Information API", "My Business Reviews API".` });
+      }
+      return ok({ success: false, error: `Accounts API error ${e.code}: ${e.message}` });
+    }
 
     const accounts = accountsData.accounts || [];
+    console.log("[gbp-callback] accounts found:", accounts.length, accounts.map(a => a.name).join(", "));
 
-    // 3. Collect all locations across accounts + wildcard fallback
+    // 3. Collect locations across all accounts
     type GbpLocation = Record<string, unknown>;
+    const locationAccountMap: Record<string, string> = {};
     let allLocations: GbpLocation[] = [];
-    let locationAccountMap: Record<string, string> = {}; // location.name → account.name
+
+    const fetchLocations = async (parent: string): Promise<GbpLocation[]> => {
+      const url = `https://mybusinessbusinessinformation.googleapis.com/v1/${parent}/locations?readMask=name,title,phoneNumbers,storefrontAddress,websiteUri,categories&pageSize=100`;
+      const r = await fetch(url, { headers: h });
+      const raw = await r.text();
+      console.log(`[gbp-callback] locations(${parent}) HTTP ${r.status}:`, raw.slice(0, 500));
+      let d: { locations?: GbpLocation[]; error?: { code?: number; message?: string; status?: string } };
+      try { d = JSON.parse(raw); } catch { return []; }
+      if (d.error) console.warn(`[gbp-callback] locations error for ${parent}:`, JSON.stringify(d.error));
+      return d.locations || [];
+    };
 
     if (accounts.length > 0) {
       for (const acct of accounts) {
@@ -115,31 +130,35 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Wildcard fallback — catches locations accessible via invitation/manager role
+    // Wildcard fallback
     if (allLocations.length === 0) {
-      console.log("[gbp-callback] No locations from accounts, trying wildcard accounts/-/locations");
+      console.log("[gbp-callback] Trying wildcard accounts/-/locations");
       const wildcardLocs = await fetchLocations("accounts/-");
       for (const loc of wildcardLocs) {
         allLocations.push(loc);
-        // Derive account from location name: "accounts/123/locations/456" → "accounts/123"
         const parts = (loc.name as string || "").split("/");
         if (parts.length >= 2) locationAccountMap[loc.name as string] = `${parts[0]}/${parts[1]}`;
       }
     }
 
-    console.log("[gbp-callback] Total locations found:", allLocations.length);
+    console.log("[gbp-callback] Total locations:", allLocations.length);
 
     if (allLocations.length === 0) {
-      const hint = accounts.length === 0
-        ? "This Google account has no Google Business Profiles accessible. Make sure you sign in with the Google account that owns or manages the GBP listing."
-        : `Found ${accounts.length} account(s) but 0 locations. Make sure the GBP listing is active and verified.`;
-      return ok({ success: false, error: hint });
+      return ok({
+        success: false,
+        error: accounts.length === 0
+          ? "This Google account has 0 GBP accounts. Make sure you are signed in with the account that owns or manages the Business Profile. If the APIs were just enabled, wait 1–2 minutes and try again."
+          : `Found ${accounts.length} GBP account(s) but 0 locations. The GBP listing may be unverified or in a suspended state.`,
+        _debug: { accountsStatus: accountsRes.status, accountCount: accounts.length },
+      });
     }
 
     // Use first location
     const location = allLocations[0];
-    const locationName = (location.name as string).split("/").slice(2).join("/"); // e.g. "locations/12345"
-    const accountNameForLocation = locationAccountMap[location.name as string] || (accounts[0]?.name ?? "accounts/-");
+    const locNameFull = location.name as string; // "accounts/123/locations/456"
+    const locParts = locNameFull.split("/");
+    const locationName = locParts.slice(2).join("/"); // "locations/456"
+    const accountNameForLocation = locationAccountMap[locNameFull] || locParts.slice(0, 2).join("/");
     const fullName = `${accountNameForLocation}/${locationName}`;
 
     const businessName = (location.title as string) || clientLabel;
@@ -151,12 +170,11 @@ Deno.serve(async (req) => {
     const cats = location.categories as { primaryCategory?: { displayName?: string } } | undefined;
     const category = cats?.primaryCategory?.displayName || null;
 
-    console.log("[gbp-callback] Using location:", fullName, "business:", businessName);
+    console.log("[gbp-callback] Using:", fullName, "—", businessName);
 
     // 4. Reviews
     const rvRes = await fetch(`https://mybusinessreviews.googleapis.com/v1/${fullName}/reviews?pageSize=200`, { headers: h });
-    const rvData = await rvRes.json() as { reviews?: Array<Record<string, unknown>>; totalReviewCount?: number; averageRating?: number; error?: unknown };
-    console.log("[gbp-callback] reviews status:", rvRes.status, JSON.stringify(rvData).slice(0, 300));
+    const rvData = await rvRes.json() as { reviews?: Array<Record<string, unknown>>; totalReviewCount?: number; averageRating?: number };
     const reviews = rvData.reviews || [];
     const avgRating = rvData.averageRating ?? (reviews.length > 0 ? reviews.reduce((s, r) => s + starRatingToNumber(r.starRating as string), 0) / reviews.length : null);
 
@@ -178,16 +196,14 @@ Deno.serve(async (req) => {
     const matchId = existingByLoc?.id || existingByLabel?.id;
     if (matchId) {
       connectionId = matchId;
-      const { error: upErr } = await supabase.from("gbp_connections").update(napPayload).eq("id", connectionId);
-      if (upErr) console.error("Update error:", upErr.message);
+      await supabase.from("gbp_connections").update(napPayload).eq("id", connectionId);
     } else {
       const { data: newConn, error: insertErr } = await supabase.from("gbp_connections").insert(napPayload).select("id").single();
       if (insertErr || !newConn) return ok({ success: false, error: `DB insert failed: ${insertErr?.message}` });
       connectionId = newConn.id;
     }
-    console.log("[gbp-callback] connectionId:", connectionId);
 
-    // 6. Upsert reviews
+    // 6. Reviews
     if (reviews.length > 0) {
       const rows = reviews.map((r) => ({
         connection_id: connectionId,
@@ -198,8 +214,7 @@ Deno.serve(async (req) => {
         reply: ((r.reviewReply as Record<string, unknown>)?.comment as string) || null,
         review_time: (r.createTime as string) || new Date().toISOString(),
       }));
-      const { error: rvErr } = await supabase.from("gbp_reviews").upsert(rows, { onConflict: "connection_id,review_id" });
-      if (rvErr) console.error("Reviews upsert error:", rvErr.message);
+      await supabase.from("gbp_reviews").upsert(rows, { onConflict: "connection_id,review_id" });
     }
 
     // 7. Posts
@@ -218,7 +233,7 @@ Deno.serve(async (req) => {
       await supabase.from("gbp_posts").upsert(rows, { onConflict: "connection_id,post_id" });
     }
 
-    // 8. Link CRM client & portal user
+    // 8. Link
     if (crmClientId) await linkCrmClient(crmClientId, connectionId);
     if (linkUserId) {
       await supabase.from("portal_users").upsert(
