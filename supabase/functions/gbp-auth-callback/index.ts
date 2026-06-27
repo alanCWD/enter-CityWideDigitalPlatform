@@ -138,7 +138,7 @@ Deno.serve(async (req) => {
       storefrontAddress?: Record<string, unknown>;
     };
 
-    let allLocations: V4Location[] = [];
+    const allLocations: V4Location[] = [];
     const locationAccountMap: Record<string, string> = {};
 
     const fetchLocationsV4 = async (parent: string): Promise<V4Location[]> => {

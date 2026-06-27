@@ -306,6 +306,8 @@ export function ClientDetail() {
 // ─── Inline client detail editor ─────────────────────────────────────────
 type ClientRow = Record<string, string | null>;
 
+const CLIENT_STATUS_OPTIONS = ["lead", "prospect", "active", "paused", "churned"] as const;
+
 function ClientEditForm({ client, onSaved, onCancel }: { client: ClientRow; onSaved: () => void; onCancel: () => void }) {
   const fields: { key: string; label: string; type?: string; placeholder?: string }[] = [
     { key: "name",          label: "Business Name",  placeholder: "Acme Corp" },
@@ -319,9 +321,10 @@ function ClientEditForm({ client, onSaved, onCancel }: { client: ClientRow; onSa
     { key: "notes",         label: "Notes",          placeholder: "Internal notes…" },
   ];
 
-  const [form, setForm] = useState<Record<string, string>>(() =>
-    Object.fromEntries(fields.map(({ key }) => [key, (client[key] as string) ?? ""]))
-  );
+  const [form, setForm] = useState<Record<string, string>>(() => ({
+    status: (client.status as string) ?? "lead",
+    ...Object.fromEntries(fields.map(({ key }) => [key, (client[key] as string) ?? ""])),
+  }));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -331,7 +334,7 @@ function ClientEditForm({ client, onSaved, onCancel }: { client: ClientRow; onSa
     if (!form.name.trim()) { setErr("Business name is required."); return; }
     setBusy(true); setErr(null);
     try {
-      const payload: Record<string, string | null> = { id: client.id as string };
+      const payload: Record<string, string | null> = { id: client.id as string, status: form.status };
       for (const { key } of fields) payload[key] = form[key] || null;
       await crm("clients.update", payload);
       onSaved();
@@ -346,6 +349,19 @@ function ClientEditForm({ client, onSaved, onCancel }: { client: ClientRow; onSa
         <button onClick={onCancel} className="p-1 text-muted-foreground hover:text-foreground"><X className="w-4 h-4" /></button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {/* Status select */}
+        <label className="block space-y-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Status</span>
+          <select
+            value={form.status}
+            onChange={(e) => set("status", e.target.value)}
+            className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-[#0078D7]"
+          >
+            {CLIENT_STATUS_OPTIONS.map((s) => (
+              <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+            ))}
+          </select>
+        </label>
         {fields.map(({ key, label, type, placeholder }) => (
           <label key={key} className={cn("block space-y-1", key === "notes" && "sm:col-span-2 lg:col-span-3")}>
             <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{label}</span>
