@@ -447,6 +447,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
               items: [{ price: stripePriceId, quantity: (payload.quantity as number) ?? 1 }],
               collection_method: method,
               ...(method === "send_invoice" ? { days_until_due: 30 } : {}),
+              payment_settings: { save_default_payment_method: "on_subscription" },
               metadata: { crm_subscription_id: id },
             });
             await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, id] });
@@ -490,6 +491,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         items: [{ price: stripePriceId, quantity: (sub.quantity as number) ?? 1 }],
         collection_method: method,
         ...(method === "send_invoice" ? { days_until_due: 30 } : {}),
+        payment_settings: { save_default_payment_method: "on_subscription" },
         metadata: { crm_subscription_id: sub.id as string },
       });
       await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, sub.id as string] });
