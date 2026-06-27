@@ -158,13 +158,14 @@ async function ensureSeedData() {
       { sql: `UPDATE clients SET gbp_connection_id = NULL WHERE id = 'hyperdrii-2' AND gbp_connection_id = '27cd88f7-6eef-454f-a881-1df5ddb89824'` },
     ]);
   } catch (e) { console.error("ensureSeedData failed", e); }
-  // One-time idempotent migration: clients outside the 15 most-recently-updated
-  // that are still "active" should be "prospect".
+  // Migration 1 (idempotent): clients outside top-15 active → prospect
   try {
-    await exec({
-      sql: `UPDATE clients SET status = 'prospect', updated_at = CURRENT_TIMESTAMP WHERE status = 'active' AND id NOT IN (SELECT id FROM clients ORDER BY updated_at DESC LIMIT 15)`,
-    });
-  } catch (e) { console.error("status migration failed", e); }
+    await exec({ sql: `UPDATE clients SET status = 'prospect', updated_at = CURRENT_TIMESTAMP WHERE status = 'active' AND id NOT IN (SELECT id FROM clients ORDER BY updated_at DESC LIMIT 15)` });
+  } catch (e) { console.error("migration-1 failed", e); }
+  // Migration 2 (idempotent): all prospects → lead
+  try {
+    await exec({ sql: `UPDATE clients SET status = 'lead', updated_at = CURRENT_TIMESTAMP WHERE status = 'prospect'` });
+  } catch (e) { console.error("migration-2 failed", e); }
   seedEnsured = true;
 }
 
@@ -372,7 +373,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const offset = Number(payload.offset ?? 0);
       const whereClause = where.join(" AND ");
       const [{ rows }, { rows: countRows }] = await execMany([
-        { sql: `SELECT id, name, status, billing_email, phone, city, region, gbp_connection_id, agency_id, created_at, updated_at FROM clients WHERE ${whereClause} ORDER BY updated_at DESC LIMIT ? OFFSET ?`, args: [...args, limit, offset] },
+        { sql: `SELECT id, name, status, billing_email, phone, city, region, gbp_connection_id, agency_id, created_at, updated_at FROM clients WHERE ${whereClause} ORDER BY CASE status WHEN 'active' THEN 1 WHEN 'prospect' THEN 2 WHEN 'lead' THEN 3 WHEN 'paused' THEN 4 WHEN 'churned' THEN 5 ELSE 6 END, name ASC LIMIT ? OFFSET ?`, args: [...args, limit, offset] },
         { sql: `SELECT COUNT(*) as total FROM clients WHERE ${whereClause}`, args },
       ]);
       return { clients: rows, total: Number(countRows[0]?.total ?? 0), limit, offset };
@@ -419,7 +420,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       for (const r of items) {
         const id = uuid();
         try {
-          await exec({ sql: `INSERT INTO clients (id, name, status, source, billing_email, phone, address_line1, city, region, postal_code, country, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, (r.name as string) ?? "Untitled", (r.status as string) ?? "prospect", (r.source as string) ?? "import", (r.billing_email as string) ?? null, (r.phone as string) ?? null, (r.address_line1 as string) ?? null, (r.city as string) ?? null, (r.region as string) ?? null, (r.postal_code as string) ?? null, (r.country as string) ?? null, (r.notes as string) ?? null, ctx.agencyId] });
+          await exec({ sql: `INSERT INTO clients (id, name, status, source, billing_email, phone, address_line1, city, region, postal_code, country, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, (r.name as string) ?? "Untitled", (r.status as string) ?? "lead", (r.source as string) ?? "import", (r.billing_email as string) ?? null, (r.phone as string) ?? null, (r.address_line1 as string) ?? null, (r.city as string) ?? null, (r.region as string) ?? null, (r.postal_code as string) ?? null, (r.country as string) ?? null, (r.notes as string) ?? null, ctx.agencyId] });
           created++;
         } catch { skipped++; }
       }
