@@ -1,5 +1,3 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
 const cors = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -14,12 +12,13 @@ Deno.serve(async (req) => {
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     if (!clientId) return new Response(JSON.stringify({ error: "GOOGLE_CLIENT_ID not configured" }), { status: 500, headers: cors });
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const redirectUri = `${supabaseUrl}/functions/v1/gbp-auth-callback`;
+    // Redirect back to the FRONTEND callback page so the user's JWT is available
+    const origin = (frontendOrigin || "").replace(/\/$/, "");
+    const redirectUri = `${origin}/gbp/callback`;
 
     const state = btoa(JSON.stringify({
       clientLabel: (clientLabel || "New Client").trim(),
-      frontendOrigin: frontendOrigin || "",
+      frontendOrigin: origin,
       linkUserId: linkUserId || null,
       crmClientId: crmClientId || null,
     }));

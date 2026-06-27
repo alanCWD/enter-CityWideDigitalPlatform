@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 
 export function GbpCallback() {
   const [searchParams] = useSearchParams();
@@ -19,8 +19,11 @@ export function GbpCallback() {
     const error = searchParams.get("error");
 
     if (error) {
+      const msg = error === "access_denied"
+        ? "Google denied access. Make sure this Google account manages the GBP listing."
+        : `Google error: ${error}`;
       setStatus("error");
-      setMessage(`Google denied access: ${error}`);
+      setMessage(msg);
       setTimeout(() => navigate(`/gbp?error=${encodeURIComponent(error)}`), 2500);
       return;
     }
@@ -32,58 +35,46 @@ export function GbpCallback() {
       return;
     }
 
-    // Parse client label + redirectUri from state
-    let clientLabel = "New Client";
-    let linkUserId: string | null = null;
-    // The redirectUri must exactly match what was sent to Google in the auth URL
-    const redirectUri = window.location.href.split("?")[0]; // current URL without query params
-    try {
-      const parsed = JSON.parse(atob(state || ""));
-      clientLabel = parsed.clientLabel || clientLabel;
-      linkUserId = parsed.linkUserId || null;
-    } catch { /* use default */ }
+    // redirectUri must exactly match what was sent to Google in gbp-auth-url
+    const redirectUri = `${window.location.origin}/gbp/callback`;
 
-    // Exchange code via edge function (with proper auth headers)
     const exchange = async () => {
       try {
         setMessage("Connecting to Google Business Profile…");
-        const res = await fetch(`${SUPABASE_URL}/functions/v1/gbp-auth-callback`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            code,
-            clientLabel,
-            redirectUri,
-            linkUserId,
-          }),
+
+        const { data, error: fnError } = await supabase.functions.invoke("gbp-auth-callback", {
+          body: { code, state: state || "", redirectUri },
         });
 
-        const data = await res.json();
-
-        if (data.diagnostics) {
-          console.log("[GBP Diagnostics]", JSON.stringify(data.diagnostics, null, 2));
+        if (fnError) {
+          setStatus("error");
+          setMessage(fnError.message || "Connection failed.");
+          setTimeout(() => navigate(`/gbp?error=${encodeURIComponent(fnError.message || "exchange_failed")}`), 2500);
+          return;
         }
 
-        if (data.success) {
-          const hasLocation = !!data.diagnostics?.resolvedLocationId;
+        if (data?.success) {
           setStatus("success");
-          setMessage(hasLocation
-            ? `${data.businessName} connected with ${data.reviewCount || 0} reviews`
-            : `${data.businessName} connected (no GBP location found on this account)`
-          );
-          // Portal self-connect → bounce back to the new business in the portal
-          if (linkUserId && data.connectionId) {
+          setMessage(`${data.businessName} connected with ${data.reviewCount || 0} reviews`);
+
+          if (data.crmClientId) {
+            // Agency-initiated: go back to the CRM client page
+            setTimeout(() => navigate(
+              `/dashboard/crm/clients/${data.crmClientId}?gbp=connected&business=${encodeURIComponent(data.businessName || "")}`
+            ), 1500);
+          } else if (data.linkUserId && data.connectionId) {
+            // Portal self-connect
             setTimeout(() => navigate(`/portal/${data.connectionId}?status=connected`), 1500);
           } else {
-            setTimeout(() => navigate(`/gbp?status=connected&business=${encodeURIComponent(data.businessName || clientLabel)}&noLocation=${hasLocation ? "0" : "1"}`), 2000);
+            // Standalone GBP page
+            setTimeout(() => navigate(
+              `/gbp?status=connected&business=${encodeURIComponent(data.businessName || "")}`
+            ), 1500);
           }
         } else {
           setStatus("error");
-          setMessage(data.error || "Connection failed.");
-          setTimeout(() => navigate(`/gbp?error=${encodeURIComponent(data.error || "exchange_failed")}`), 2500);
+          setMessage(data?.error || "Connection failed.");
+          setTimeout(() => navigate(`/gbp?error=${encodeURIComponent(data?.error || "exchange_failed")}`), 2500);
         }
       } catch (err) {
         setStatus("error");
