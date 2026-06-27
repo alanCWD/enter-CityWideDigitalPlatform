@@ -42,71 +42,34 @@ async function linkCrmClient(crmClientId: string, connectionId: string): Promise
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
-  // ── GET: Google OAuth redirect relay ──────────────────────────────────────
-  // Google redirects here after the user authorizes. We can't process the code
-  // here (no user JWT), so we relay the browser to the frontend callback page
-  // which will call us again as POST with the user's session token.
-  if (req.method === "GET") {
-    const url = new URL(req.url);
-    const code = url.searchParams.get("code");
-    const state = url.searchParams.get("state");
-    const error = url.searchParams.get("error");
-
-    let frontendOrigin = "";
-    let crmClientId: string | null = null;
-    try {
-      const parsed = JSON.parse(atob(state || ""));
-      frontendOrigin = parsed.frontendOrigin || "";
-      crmClientId = parsed.crmClientId || null;
-    } catch { /* use defaults */ }
-
-    const base = frontendOrigin || "https://app.enter.pro";
-
-    if (error || !code) {
-      const msg = error === "access_denied"
-        ? "This Google account is not authorised. Make sure you signed in with the account that manages the GBP listing."
-        : (error || "no_code");
-      const back = crmClientId
-        ? `/dashboard/crm/clients/${crmClientId}?gbp_error=${encodeURIComponent(msg)}`
-        : `/gbp?error=${encodeURIComponent(msg)}`;
-      return new Response(null, { status: 302, headers: { Location: `${base}${back}` } });
-    }
-
-    // Relay to frontend callback page — preserves code + state in URL
-    const frontendCallback = new URL(`${base}/gbp/callback`);
-    frontendCallback.searchParams.set("code", code);
-    if (state) frontendCallback.searchParams.set("state", state);
-    return new Response(null, { status: 302, headers: { Location: frontendCallback.toString() } });
-  }
-
-  // ── POST: Frontend sends { code, state, redirectUri } with user JWT ────────
+  // ── POST: Called by GbpCallback.tsx (frontend) with user JWT ──────────────
   try {
     const body = await req.json();
     const code: string = body.code;
     const state: string = body.state || "";
-    // redirectUri must be the Supabase function URL (matches what was sent to Google)
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const redirectUri = `${supabaseUrl}/functions/v1/gbp-auth-callback`;
+    // redirectUri sent by the frontend — must match what was used in gbp-auth-url
+    const redirectUri: string = body.redirectUri;
 
     if (!code) return json({ error: "no_code" }, 400);
+    if (!redirectUri) return json({ error: "missing redirectUri — frontend must send window.location.origin + /gbp/callback" }, 400);
 
     let clientLabel = "New Client";
-    let frontendOrigin = "";
     let linkUserId: string | null = null;
     let crmClientId: string | null = null;
     try {
       const parsed = JSON.parse(atob(state));
       clientLabel = parsed.clientLabel || clientLabel;
-      frontendOrigin = parsed.frontendOrigin || "";
       linkUserId = parsed.linkUserId || null;
       crmClientId = parsed.crmClientId || null;
     } catch { /* use defaults */ }
 
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID")!;
     const clientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabase = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-    // 1. Exchange code for tokens
+    // 1. Exchange code for tokens — redirectUri must match what was sent to Google
+    console.log("Token exchange with redirectUri:", redirectUri);
     const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -127,7 +90,7 @@ Deno.serve(async (req) => {
     // 2. Get GBP accounts
     const accountsRes = await fetch("https://mybusinessaccountmanagement.googleapis.com/v1/accounts", { headers: h });
     const accountsData = await accountsRes.json() as { accounts?: Array<{ name: string; accountName: string }> };
-    console.log("Accounts:", accountsData.accounts?.length, JSON.stringify(accountsData).slice(0, 300));
+    console.log("Accounts:", accountsData.accounts?.length);
 
     if (!accountsData.accounts?.length) {
       return json({ error: "The Google account has no Google Business Profiles. Sign in with the account that owns the GBP listing." }, 400);
@@ -142,7 +105,7 @@ Deno.serve(async (req) => {
       { headers: h },
     );
     const locData = await locRes.json() as { locations?: Array<Record<string, unknown>> };
-    console.log("Locations:", locData.locations?.length, JSON.stringify(locData).slice(0, 500));
+    console.log("Locations:", locData.locations?.length);
 
     if (!locData.locations?.length) {
       return json({ error: `Account "${account.accountName || accountName}" has 0 GBP locations.` }, 400);

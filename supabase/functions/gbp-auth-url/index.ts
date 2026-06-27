@@ -12,14 +12,14 @@ Deno.serve(async (req) => {
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     if (!clientId) return new Response(JSON.stringify({ error: "GOOGLE_CLIENT_ID not configured" }), { status: 500, headers: cors });
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    // Keep the Supabase function URL as the registered redirect_uri in Google Cloud Console.
-    // The function will then relay the browser to the frontend callback page.
-    const redirectUri = `${supabaseUrl}/functions/v1/gbp-auth-callback`;
+    const origin = (frontendOrigin || "").replace(/\/$/, "");
+    // The redirect_uri is the FRONTEND callback page — no JWT required there.
+    // This URL must be registered in Google Cloud Console → OAuth 2.0 → Authorized redirect URIs.
+    const redirectUri = `${origin}/gbp/callback`;
 
     const state = btoa(JSON.stringify({
       clientLabel: (clientLabel || "New Client").trim(),
-      frontendOrigin: (frontendOrigin || "").replace(/\/$/, ""),
+      frontendOrigin: origin,
       linkUserId: linkUserId || null,
       crmClientId: crmClientId || null,
     }));
@@ -35,7 +35,7 @@ Deno.serve(async (req) => {
     });
 
     const url = `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
-    return new Response(JSON.stringify({ url }), {
+    return new Response(JSON.stringify({ url, redirectUri }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (err) {
