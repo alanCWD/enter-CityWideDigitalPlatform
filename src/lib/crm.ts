@@ -102,7 +102,8 @@ export interface CrmMetrics {
   overdue_count: number;
 }
 
-/** One-shot RPC call. Throws on transport / function error. */
+/** One-shot RPC call. Throws on transport / function error.
+ *  Automatically retries once on network-level failures (cold starts, transient drops). */
 export async function crm<T = unknown>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
   // Await getSession() explicitly so the session is always restored from
   // localStorage before we call invoke — prevents the race condition where
@@ -112,11 +113,21 @@ export async function crm<T = unknown>(action: string, payload: Record<string, u
   if (session?.access_token) {
     headers["Authorization"] = `Bearer ${session.access_token}`;
   }
-  const { data, error } = await supabase.functions.invoke("bunny-rpc", {
+
+  const attempt = async () => supabase.functions.invoke("bunny-rpc", {
     body: { action, payload },
     headers,
   });
-  if (error) throw new Error(error.message || "Network error");
+
+  let { data, error } = await attempt();
+
+  // Retry once on network-level failures (e.g. edge function cold start).
+  if (error && error.message?.includes("Failed to send a request")) {
+    await new Promise((r) => setTimeout(r, 1200));
+    ({ data, error } = await attempt());
+  }
+
+  if (error) throw new Error(`[${action}] ${error.message || "Network error"}`);
   if (data && typeof data === "object" && "error" in data && data.error) {
     throw new Error(String((data as { error: string }).error));
   }
