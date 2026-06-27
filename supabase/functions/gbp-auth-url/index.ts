@@ -12,13 +12,14 @@ Deno.serve(async (req) => {
     const clientId = Deno.env.get("GOOGLE_CLIENT_ID");
     if (!clientId) return new Response(JSON.stringify({ error: "GOOGLE_CLIENT_ID not configured" }), { status: 500, headers: cors });
 
-    // Redirect back to the FRONTEND callback page so the user's JWT is available
-    const origin = (frontendOrigin || "").replace(/\/$/, "");
-    const redirectUri = `${origin}/gbp/callback`;
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    // Keep the Supabase function URL as the registered redirect_uri in Google Cloud Console.
+    // The function will then relay the browser to the frontend callback page.
+    const redirectUri = `${supabaseUrl}/functions/v1/gbp-auth-callback`;
 
     const state = btoa(JSON.stringify({
       clientLabel: (clientLabel || "New Client").trim(),
-      frontendOrigin: origin,
+      frontendOrigin: (frontendOrigin || "").replace(/\/$/, ""),
       linkUserId: linkUserId || null,
       crmClientId: crmClientId || null,
     }));

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 
 export function GbpCallback() {
   const [searchParams] = useSearchParams();
@@ -35,8 +35,10 @@ export function GbpCallback() {
       return;
     }
 
-    // redirectUri must exactly match what was sent to Google in gbp-auth-url
-    const redirectUri = `${window.location.origin}/gbp/callback`;
+    // redirectUri must match what was registered in Google Cloud Console and sent in gbp-auth-url.
+    // gbp-auth-url uses the Supabase function URL — the function then relays the browser here.
+    // We reconstruct that same URL for the token exchange.
+    const redirectUri = `${SUPABASE_URL}/functions/v1/gbp-auth-callback`;
 
     const exchange = async () => {
       try {
