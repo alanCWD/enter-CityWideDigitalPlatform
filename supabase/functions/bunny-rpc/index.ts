@@ -158,6 +158,13 @@ async function ensureSeedData() {
       { sql: `UPDATE clients SET gbp_connection_id = NULL WHERE id = 'hyperdrii-2' AND gbp_connection_id = '27cd88f7-6eef-454f-a881-1df5ddb89824'` },
     ]);
   } catch (e) { console.error("ensureSeedData failed", e); }
+  // One-time idempotent migration: clients outside the 15 most-recently-updated
+  // that are still "active" should be "prospect".
+  try {
+    await exec({
+      sql: `UPDATE clients SET status = 'prospect', updated_at = CURRENT_TIMESTAMP WHERE status = 'active' AND id NOT IN (SELECT id FROM clients ORDER BY updated_at DESC LIMIT 15)`,
+    });
+  } catch (e) { console.error("status migration failed", e); }
   seedEnsured = true;
 }
 
