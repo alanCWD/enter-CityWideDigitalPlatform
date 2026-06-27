@@ -712,6 +712,7 @@ function ContactsPanel({ detail, reload }: { detail: NonNullable<ReturnType<type
 function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<ReturnType<typeof useCrmClient>["detail"]>; reload: () => void; isAdmin: boolean }) {
   const { products } = useCrmProducts();
   const [pid, setPid] = useState("");
+  const [collectionMethod, setCollectionMethod] = useState<"charge_automatically" | "send_invoice">("charge_automatically");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -721,7 +722,7 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
     if (!pid) return;
     setBusy(true); setErr(null);
     try {
-      const result = await crm<{ id: string; stripe_warning?: string | null }>("subscriptions.create", { client_id: detail.client.id, product_id: pid, quantity: 1 });
+      const result = await crm<{ id: string; stripe_warning?: string | null }>("subscriptions.create", { client_id: detail.client.id, product_id: pid, quantity: 1, collection_method: collectionMethod });
       setPid(""); reload();
       if (result.stripe_warning) {
         setErr(`Subscription created locally, but Stripe sync failed: ${result.stripe_warning}`);
@@ -742,10 +743,10 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
     reload();
   };
 
-  const syncStripe = async (id: string) => {
+  const syncStripe = async (id: string, method: "charge_automatically" | "send_invoice") => {
     setBusy(true); setErr(null);
     try {
-      await crm("subscriptions.syncStripe", { id });
+      await crm("subscriptions.syncStripe", { id, collection_method: method });
       reload();
     } catch (e) { setErr(`Stripe sync failed: ${(e as Error).message}`); }
     finally { setBusy(false); }
@@ -768,6 +769,20 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
           <option value="">Choose a plan…</option>
           {subs.map((p) => <option key={p.id} value={p.id}>{p.name} — {fmtMoney(p.unit_amount_cents, p.currency)} / {p.interval}</option>)}
         </select>
+        <div className="flex rounded-md border border-border overflow-hidden text-xs font-semibold">
+          <button
+            onClick={() => setCollectionMethod("charge_automatically")}
+            className={`px-3 py-2 transition-colors ${collectionMethod === "charge_automatically" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          >
+            Auto-charge
+          </button>
+          <button
+            onClick={() => setCollectionMethod("send_invoice")}
+            className={`px-3 py-2 transition-colors border-l border-border ${collectionMethod === "send_invoice" ? "bg-primary text-primary-foreground" : "bg-background text-muted-foreground hover:bg-muted"}`}
+          >
+            Send Invoice
+          </button>
+        </div>
         <button disabled={!pid || busy} onClick={add} className="bg-primary hover:bg-primary/90 disabled:opacity-50 text-primary-foreground font-bold text-sm px-4 py-2 rounded-md inline-flex items-center gap-1.5">
           <Plus className="w-3.5 h-3.5" /> {busy ? "Adding…" : "Add Subscription"}
         </button>
@@ -807,9 +822,14 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
                   {s.status !== "canceled" && (
                     <>
                       {!s.stripe_subscription_id && (
-                        <button onClick={() => syncStripe(s.id as string)} disabled={busy} className="text-[11px] font-semibold text-amber-500 hover:text-amber-400 transition-colors disabled:opacity-50">
-                          Sync Stripe
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <button onClick={() => syncStripe(s.id as string, "charge_automatically")} disabled={busy} title="Auto-charge (card on file)" className="text-[10px] font-semibold text-amber-500 hover:text-amber-400 transition-colors disabled:opacity-50 border border-amber-500/30 rounded px-1.5 py-0.5">
+                            Auto-charge
+                          </button>
+                          <button onClick={() => syncStripe(s.id as string, "send_invoice")} disabled={busy} title="Send invoice (no card required)" className="text-[10px] font-semibold text-amber-500 hover:text-amber-400 transition-colors disabled:opacity-50 border border-amber-500/30 rounded px-1.5 py-0.5">
+                            Invoice
+                          </button>
+                        </div>
                       )}
                       <button onClick={() => cancel(s.id as string)} className="text-xs text-muted-foreground hover:text-amber-400 transition-colors">Cancel</button>
                       {isAdmin && (

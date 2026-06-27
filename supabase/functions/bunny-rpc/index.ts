@@ -153,11 +153,8 @@ async function ensureSeedData() {
   if (seedEnsured) return;
   try {
     await execMany([
-      // Remove stale duplicate leads that kept auto-recreating
       { sql: `DELETE FROM clients WHERE id IN ('hyperdrii-1', 'hyperdrii-3', 'hyperdrii-primary')` },
-      // Ensure the canonical HyperDrii client exists
       { sql: `INSERT OR IGNORE INTO clients (id, name, status, billing_email, phone, agency_id, created_at, updated_at) VALUES ('hyperdrii-2', 'HyperDrii', 'active', 'alan@citywidedigital.ca', '+1 226 225 8333', 'citywide', '2026-05-10T00:00:00Z', '2026-05-10T00:00:00Z')` },
-      // Unlink the CityWide Digital master account — HyperDrii should use its own GBP connection
       { sql: `UPDATE clients SET gbp_connection_id = NULL WHERE id = 'hyperdrii-2' AND gbp_connection_id = '27cd88f7-6eef-454f-a881-1df5ddb89824'` },
     ]);
   } catch (e) { console.error("ensureSeedData failed", e); }
@@ -444,11 +441,12 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
             stripeWarning = "This product has no Stripe price. Open Catalog, open the product, and click Save & Sync to Stripe — then re-create the subscription.";
           } else {
             const customerId = await ensureStripeCustomer(payload.client_id as string);
+            const method = (payload.collection_method as string) === "send_invoice" ? "send_invoice" : "charge_automatically";
             const stripeSub = await stripe.subscriptions.create({
               customer: customerId,
               items: [{ price: stripePriceId, quantity: (payload.quantity as number) ?? 1 }],
-              collection_method: "send_invoice",
-              days_until_due: 30,
+              collection_method: method,
+              ...(method === "send_invoice" ? { days_until_due: 30 } : {}),
               metadata: { crm_subscription_id: id },
             });
             await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, id] });
@@ -486,11 +484,12 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const stripePriceId = sub.stripe_price_id as string | null;
       if (!stripePriceId) throw new Error("Product has no Stripe price — open Catalog, open this product, and click Save & Sync to Stripe first.");
       const customerId = await ensureStripeCustomer(sub.client_id as string);
+      const method = (payload.collection_method as string) === "send_invoice" ? "send_invoice" : "charge_automatically";
       const stripeSub = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: stripePriceId, quantity: (sub.quantity as number) ?? 1 }],
-        collection_method: "send_invoice",
-        days_until_due: 30,
+        collection_method: method,
+        ...(method === "send_invoice" ? { days_until_due: 30 } : {}),
         metadata: { crm_subscription_id: sub.id as string },
       });
       await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, sub.id as string] });
