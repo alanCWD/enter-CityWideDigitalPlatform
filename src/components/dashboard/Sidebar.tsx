@@ -14,6 +14,7 @@ import {
   Receipt,
   Users,
   Package,
+  FileText,
 } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { name: "CRM & Billing", path: "/dashboard/crm", icon: Receipt },
   { name: "Clients", path: "/dashboard/crm/clients", icon: Users },
   { name: "Products & Plans", path: "/dashboard/crm/catalog", icon: Package },
+  { name: "Invoices", path: "/dashboard/crm/invoices", icon: FileText },
 ];
 
 export function Sidebar() {
