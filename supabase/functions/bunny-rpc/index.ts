@@ -158,7 +158,6 @@ async function ensureSeedData() {
       { sql: `UPDATE clients SET gbp_connection_id = NULL WHERE id = 'hyperdrii-2' AND gbp_connection_id = '27cd88f7-6eef-454f-a881-1df5ddb89824'` },
     ]);
   } catch (e) { console.error("ensureSeedData failed", e); }
-  // (one-time migrations have been removed — data is correct in DB)
   seedEnsured = true;
 }
 
@@ -195,7 +194,6 @@ async function ensureStripeCustomer(clientId: string): Promise<string> {
   const { rows } = await exec({ sql: `SELECT stripe_customer_id, name, billing_email FROM clients WHERE id = ? LIMIT 1`, args: [clientId] });
   const client = rows[0];
   if (!client) throw new Error("Client not found");
-
   const createFresh = async () => {
     const customer = await stripe!.customers.create({
       name: (client.name as string) || undefined,
@@ -205,39 +203,38 @@ async function ensureStripeCustomer(clientId: string): Promise<string> {
     await exec({ sql: `UPDATE clients SET stripe_customer_id = ? WHERE id = ?`, args: [customer.id, clientId] });
     return customer.id;
   };
-
   if (!client.stripe_customer_id) return createFresh();
-
   try {
     await stripe.customers.retrieve(client.stripe_customer_id as string);
     return client.stripe_customer_id as string;
   } catch {
-    console.warn(`Stripe customer ${client.stripe_customer_id} not found, creating fresh (mode switch?)`);
+    console.warn(`Stripe customer ${client.stripe_customer_id} not found, creating fresh`);
     return createFresh();
   }
 }
 
-// Cache the GST tax rate ID for the lifetime of the isolate
 let cachedGstTaxRateId: string | null = null;
 async function ensureGstTaxRate(): Promise<string> {
   if (!stripe) throw new Error("Stripe not configured");
   if (cachedGstTaxRateId) return cachedGstTaxRateId;
-  // Look for an existing active 5% Canadian GST rate
   const { data: rates } = await stripe.taxRates.list({ active: true, limit: 20 });
   const existing = rates.find((r) => Math.abs(r.percentage - 5) < 0.01 && !r.inclusive && (r.country === "CA" || (r.display_name ?? "").toUpperCase().includes("GST")));
   if (existing) { cachedGstTaxRateId = existing.id; return existing.id; }
-  // Create it if missing
   const created = await stripe.taxRates.create({
-    display_name: "GST",
-    description: "Canadian Goods and Services Tax",
-    jurisdiction: "CA",
-    percentage: 5,
-    inclusive: false,
-    country: "CA",
-    tax_type: "gst",
+    display_name: "GST", description: "Canadian Goods and Services Tax",
+    jurisdiction: "CA", percentage: 5, inclusive: false, country: "CA", tax_type: "gst",
   });
   cachedGstTaxRateId = created.id;
   return created.id;
+}
+
+async function sendSubscriptionInvoice(stripe: Stripe, stripeSub: Stripe.Subscription): Promise<void> {
+  if (!stripeSub.latest_invoice) return;
+  const invoiceId = typeof stripeSub.latest_invoice === "string" ? stripeSub.latest_invoice : (stripeSub.latest_invoice as { id: string }).id;
+  const invoice = await stripe.invoices.retrieve(invoiceId);
+  if (invoice.status === "paid" || invoice.status === "void") return;
+  if (invoice.status === "draft") await stripe.invoices.finalizeInvoice(invoice.id);
+  await stripe.invoices.sendInvoice(invoice.id);
 }
 
 const adminStorage = createClient(SUPABASE_URL, SERVICE_KEY).storage;
@@ -333,13 +330,10 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const interval = (payload.interval as string) ?? null;
       const currency = ((payload.currency as string) ?? "CAD").toLowerCase();
       const active = (payload.active as number) ?? 1;
-
       const { rows: existing } = await exec({ sql: `SELECT stripe_product_id, stripe_price_id, unit_amount_cents, interval FROM products WHERE id = ? LIMIT 1`, args: [id] });
       const ex = existing[0];
-
       let stripeProductId = (ex?.stripe_product_id ?? payload.stripe_product_id ?? null) as string | null;
       let stripePriceId = (ex?.stripe_price_id ?? payload.stripe_price_id ?? null) as string | null;
-
       if (stripe) {
         try {
           if (!stripeProductId) {
@@ -349,31 +343,21 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
             try {
               await stripe.products.update(stripeProductId, { name: productName, description: (payload.description as string) || undefined, active: !!active });
             } catch {
-              console.warn(`Stripe product ${stripeProductId} not found, creating fresh (mode switch?)`);
-              stripeProductId = null;
-              stripePriceId = null;
+              stripeProductId = null; stripePriceId = null;
               const sp = await stripe.products.create({ name: productName, description: (payload.description as string) || undefined, metadata: { crm_product_id: id } });
               stripeProductId = sp.id;
             }
           }
-
           const priceChanged = !ex || ex.unit_amount_cents !== cents || ex.interval !== interval || !stripePriceId;
           if (priceChanged && stripeProductId) {
-            if (stripePriceId) {
-              try { await stripe.prices.update(stripePriceId, { active: false }); } catch { /* stale — ignore */ }
-            }
+            if (stripePriceId) { try { await stripe.prices.update(stripePriceId, { active: false }); } catch { /* ignore */ } }
             const priceParams: Stripe.PriceCreateParams = { product: stripeProductId, unit_amount: cents, currency };
-            if (productType === "subscription" && interval) {
-              priceParams.recurring = { interval: interval as "month" | "year" };
-            }
+            if (productType === "subscription" && interval) priceParams.recurring = { interval: interval as "month" | "year" };
             const sp = await stripe.prices.create(priceParams);
             stripePriceId = sp.id;
           }
-        } catch (stripeErr) {
-          console.error("Stripe product sync failed:", stripeErr);
-        }
+        } catch (stripeErr) { console.error("Stripe product sync failed:", stripeErr); }
       }
-
       await exec({ sql: `INSERT INTO products (id, name, description, type, price_cents, unit_amount_cents, currency, interval, stripe_product_id, stripe_price_id, active) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name, description=excluded.description, type=excluded.type, price_cents=excluded.price_cents, unit_amount_cents=excluded.unit_amount_cents, currency=excluded.currency, interval=excluded.interval, stripe_product_id=excluded.stripe_product_id, stripe_price_id=excluded.stripe_price_id, active=excluded.active`, args: [id, productName, (payload.description as string) ?? null, productType, cents, cents, (payload.currency as string) ?? "CAD", interval, stripeProductId, stripePriceId, active] });
       return { id, stripe_product_id: stripeProductId, stripe_price_id: stripePriceId };
     }
@@ -415,16 +399,12 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const fields: string[] = []; const args: SqlValue[] = [];
       const updatable = ["name","status","source","owner_id","billing_email","phone","address_line1","city","region","postal_code","country","gbp_connection_id","stripe_customer_id","notes"];
       for (const k of updatable) if (k in payload) { fields.push(`${k} = ?`); args.push((payload[k] as SqlValue) ?? null); }
-      fields.push("updated_at = ?"); args.push(now());
-      args.push(id);
+      fields.push("updated_at = ?"); args.push(now()); args.push(id);
       await exec({ sql: `UPDATE clients SET ${fields.join(", ")} WHERE id = ?`, args });
-      // Keep Stripe customer email in sync when billing_email changes
       if (stripe && "billing_email" in payload && payload.billing_email) {
         try {
           const { rows: cr } = await exec({ sql: `SELECT stripe_customer_id FROM clients WHERE id = ? LIMIT 1`, args: [id] });
-          if (cr[0]?.stripe_customer_id) {
-            await stripe.customers.update(cr[0].stripe_customer_id as string, { email: payload.billing_email as string });
-          }
+          if (cr[0]?.stripe_customer_id) await stripe.customers.update(cr[0].stripe_customer_id as string, { email: payload.billing_email as string });
         } catch (e) { console.warn("Stripe customer email sync failed:", e); }
       }
       return { ok: true };
@@ -486,12 +466,16 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
               metadata: { crm_subscription_id: id },
             });
             await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, id] });
+            // Immediately finalize and send the first invoice for send_invoice — Stripe auto-delay can be up to 1 hour
+            if (method === "send_invoice") {
+              try { await sendSubscriptionInvoice(stripe, stripeSub); } catch (e) { console.warn("Failed to send first invoice:", e); }
+            }
           }
         } catch (stripeErr) {
           console.error("Stripe subscription create failed:", stripeErr);
           const msg = (stripeErr as Error).message ?? "Stripe sync failed";
           stripeWarning = msg.includes("No such price") || msg.includes("resource_missing")
-            ? "The product's Stripe price is stale (test-mode ID used in live mode). Go to Catalog → open the product → Save & Sync to Stripe, then re-create this subscription."
+            ? "The product's Stripe price is stale. Go to Catalog → open the product → Save & Sync to Stripe, then re-create this subscription."
             : msg.slice(0, 300);
         }
       }
@@ -502,11 +486,8 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const stripeSub = subRows[0]?.stripe_subscription_id as string | null;
       if (stripe && stripeSub) {
         try {
-          if (payload.at_period_end) {
-            await stripe.subscriptions.update(stripeSub, { cancel_at_period_end: true });
-          } else {
-            await stripe.subscriptions.cancel(stripeSub);
-          }
+          if (payload.at_period_end) { await stripe.subscriptions.update(stripeSub, { cancel_at_period_end: true }); }
+          else { await stripe.subscriptions.cancel(stripeSub); }
         } catch (e) { console.warn("Stripe subscription cancel failed:", e); }
       }
       await exec({ sql: `UPDATE subscriptions SET status = ?, cancel_at_period_end = ?, updated_at = ? WHERE id = ?`, args: [payload.at_period_end ? "active" : "canceled", payload.at_period_end ? 1 : 0, now(), payload.id as string] });
@@ -532,6 +513,9 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         metadata: { crm_subscription_id: sub.id as string },
       });
       await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, sub.id as string] });
+      if (method === "send_invoice") {
+        try { await sendSubscriptionInvoice(stripe, stripeSub); } catch (e) { console.warn("Failed to send first invoice (syncStripe):", e); }
+      }
       return { ok: true, stripe_subscription_id: stripeSub.id };
     }
     case "subscriptions.resendInvoice": {
@@ -539,15 +523,12 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const sub = rows[0];
       if (!sub) throw new Error("Subscription not found");
       if (!stripe) throw new Error("Stripe not configured");
-      if (!sub.stripe_subscription_id) throw new Error("Subscription not yet synced to Stripe. Use the Invoice button first.");
-      // Ensure the Stripe customer email matches the current billing_email
+      if (!sub.stripe_subscription_id) throw new Error("Subscription not yet synced to Stripe.");
       const { rows: clientRows } = await exec({ sql: `SELECT stripe_customer_id, billing_email FROM clients WHERE id = ? LIMIT 1`, args: [sub.client_id as string] });
       const cl = clientRows[0];
       if (cl?.stripe_customer_id && cl?.billing_email) {
-        try { await stripe.customers.update(cl.stripe_customer_id as string, { email: cl.billing_email as string }); }
-        catch (e) { console.warn("Stripe customer email update failed:", e); }
+        try { await stripe.customers.update(cl.stripe_customer_id as string, { email: cl.billing_email as string }); } catch (e) { console.warn("Stripe customer email update failed:", e); }
       }
-      // Retrieve the subscription's latest invoice from Stripe
       const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id as string);
       const latestInvoiceId = stripeSub.latest_invoice as string | null;
       if (!latestInvoiceId) throw new Error("No invoice found for this subscription in Stripe");
@@ -560,9 +541,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     case "subscriptions.delete": {
       const { rows: subRows } = await exec({ sql: `SELECT stripe_subscription_id FROM subscriptions WHERE id = ? LIMIT 1`, args: [payload.id as string] });
       const stripeSub = subRows[0]?.stripe_subscription_id as string | null;
-      if (stripe && stripeSub) {
-        try { await stripe.subscriptions.cancel(stripeSub); } catch (e) { console.warn("Stripe subscription cancel failed:", e); }
-      }
+      if (stripe && stripeSub) { try { await stripe.subscriptions.cancel(stripeSub); } catch (e) { console.warn("Stripe subscription cancel failed:", e); } }
       await exec({ sql: `DELETE FROM subscriptions WHERE id = ?`, args: [payload.id as string] });
       return { ok: true };
     }
@@ -572,7 +551,6 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       type LineItem = { description: string; quantity: number; unit_amount_cents: number; product_id?: string };
       const items = (payload.items as LineItem[]) ?? [];
       const subtotal = items.reduce((s, i) => s + (i.unit_amount_cents * (i.quantity || 1)), 0);
-      const total = subtotal;
       const dueDays = (payload.due_days as number) ?? 14;
       const issuedAt = now();
       const dueAt = new Date(Date.now() + dueDays * 86400000).toISOString();
@@ -581,7 +559,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const seq = Math.max(999, Number(seqRows[0]?.max_seq ?? 999)) + 1;
       const invoiceNum = `INV-${yr}-${seq}`;
       const id = uuid();
-      await exec({ sql: `INSERT INTO invoices (id, client_id, agency_id, number, subtotal_cents, tax_cents, total_cents, amount_cents, amount_paid_cents, line_items, currency, status, issued_at, due_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.client_id as string, ctx.agencyId, invoiceNum, subtotal, 0, total, total, 0, JSON.stringify(items), "CAD", "draft", issuedAt, dueAt] });
+      await exec({ sql: `INSERT INTO invoices (id, client_id, agency_id, number, subtotal_cents, tax_cents, total_cents, amount_cents, amount_paid_cents, line_items, currency, status, issued_at, due_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.client_id as string, ctx.agencyId, invoiceNum, subtotal, 0, subtotal, subtotal, 0, JSON.stringify(items), "CAD", "draft", issuedAt, dueAt] });
       return { id, number: invoiceNum };
     }
     case "invoices.send": {
