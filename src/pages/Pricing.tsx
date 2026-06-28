@@ -95,7 +95,7 @@ const features: Feature[] = [
     ],
   },
   {
-    category: "Listing Manager",
+    category: "Listing Sync Pro",
     items: [
       { name: "Directory sync", starter: false, growth: true, pro: true },
       { name: "Directories covered", starter: false, growth: "40+", pro: "40+" },
@@ -154,7 +154,7 @@ const faqs = [
     a: "We have niche templates for Restaurants, Contractors, Retail, Healthcare, Salons & Spas, Auto Services, and more. New templates are added regularly. Contact us if you don't see your industry.",
   },
   {
-    q: "Is the Listing Manager powered by Yext?",
+    q: "What listings are covered in Listing Sync Pro?",
     a: "Our listing sync integrates with the leading directory data providers to ensure maximum coverage. We support 40+ directories including Yelp, Apple Maps, Bing Places, Foursquare, and more.",
   },
   {
