@@ -6,7 +6,6 @@ import NetworkBackground from "@/components/marketing/NetworkBackground";
 
 const trustPoints = [
   "No manual updates ever",
-  "Live in under 48 hours",
   "30-day free trial",
 ];
 
@@ -23,11 +22,11 @@ export default function HeroSection() {
       <div className="relative max-w-[1200px] mx-auto px-6">
         <div className="max-w-3xl mx-auto text-center">
           <Badge variant="on-dark" className="mb-6 text-xs font-semibold tracking-wider uppercase">
-            Powered by Google Business Profile
+            Powered by Google
           </Badge>
 
           <h1 className="text-4xl md:text-5xl lg:text-[56px] font-extrabold text-[#EEF1FA] leading-[1.15] tracking-tight mb-6 text-balance">
-            Your Business Runs{" "}
+            Your Business Website Runs{" "}
             <span className="text-transparent bg-clip-text bg-[linear-gradient(90deg,#0078D7,#5BB8FF)]">
               Itself Online
             </span>
@@ -35,7 +34,7 @@ export default function HeroSection() {
 
           <p className="text-lg md:text-xl text-[rgba(238,241,250,0.75)] leading-relaxed mb-8 max-w-2xl mx-auto text-balance">
             CityWide Digital connects your Google Business Profile to a live website, 
-            all your social channels, and every major directory —{" "}
+            your social channels, and every major directory —{" "}
             <span className="text-[#EEF1FA] font-medium">automatically</span>.
           </p>
 
