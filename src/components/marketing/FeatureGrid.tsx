@@ -43,7 +43,7 @@ export default function FeatureGrid() {
             One platform. Every digital channel.
           </h2>
           <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-            Stop juggling five tools. CityWide Digital handles your entire online presence for Small Businesses from a single dashboard.
+            Stop juggling multiple digital tools. CityWide Digital connects your entire online presence from a single dashboard.
           </p>
         </div>
 
