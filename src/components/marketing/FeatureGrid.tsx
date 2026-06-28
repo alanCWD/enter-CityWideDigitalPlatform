@@ -14,7 +14,7 @@ const features = [
   {
     icon: MapPin,
     title: "Listing Accuracy",
-    description: "Your name, address, and phone number are corrected and kept consistent across 40+ major directories.",
+    description: "Your name, address, and phone number are corrected and kept consistent across all major directories.",
   },
   {
     icon: Video,
