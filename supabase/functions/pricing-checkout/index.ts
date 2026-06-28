@@ -88,8 +88,10 @@ Deno.serve(async (req) => {
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
+      payment_method_collection: "if_required",
       subscription_data: {
         trial_period_days: 30,
+        trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
         metadata: { citywide_plan: plan },
       },
       success_url,
