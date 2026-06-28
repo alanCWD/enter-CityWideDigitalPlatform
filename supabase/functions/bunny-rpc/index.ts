@@ -217,6 +217,29 @@ async function ensureStripeCustomer(clientId: string): Promise<string> {
   }
 }
 
+// Cache the GST tax rate ID for the lifetime of the isolate
+let cachedGstTaxRateId: string | null = null;
+async function ensureGstTaxRate(): Promise<string> {
+  if (!stripe) throw new Error("Stripe not configured");
+  if (cachedGstTaxRateId) return cachedGstTaxRateId;
+  // Look for an existing active 5% Canadian GST rate
+  const { data: rates } = await stripe.taxRates.list({ active: true, limit: 20 });
+  const existing = rates.find((r) => Math.abs(r.percentage - 5) < 0.01 && !r.inclusive && (r.country === "CA" || (r.display_name ?? "").toUpperCase().includes("GST")));
+  if (existing) { cachedGstTaxRateId = existing.id; return existing.id; }
+  // Create it if missing
+  const created = await stripe.taxRates.create({
+    display_name: "GST",
+    description: "Canadian Goods and Services Tax",
+    jurisdiction: "CA",
+    percentage: 5,
+    inclusive: false,
+    country: "CA",
+    tax_type: "gst",
+  });
+  cachedGstTaxRateId = created.id;
+  return created.id;
+}
+
 const adminStorage = createClient(SUPABASE_URL, SERVICE_KEY).storage;
 
 function bucketFor(score: number): { bucket: "critical" | "needs_work" | "healthy" | "excellent"; label: string } {
@@ -452,12 +475,14 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
           } else {
             const customerId = await ensureStripeCustomer(payload.client_id as string);
             const method = (payload.collection_method as string) === "send_invoice" ? "send_invoice" : "charge_automatically";
+            const gstRateId = await ensureGstTaxRate().catch((e) => { console.warn("GST tax rate fetch failed:", e); return null; });
             const stripeSub = await stripe.subscriptions.create({
               customer: customerId,
               items: [{ price: stripePriceId, quantity: (payload.quantity as number) ?? 1 }],
               collection_method: method,
               ...(method === "send_invoice" ? { days_until_due: 30 } : {}),
               payment_settings: { save_default_payment_method: "on_subscription" },
+              ...(gstRateId ? { default_tax_rates: [gstRateId] } : {}),
               metadata: { crm_subscription_id: id },
             });
             await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, id] });
@@ -496,12 +521,14 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       if (!stripePriceId) throw new Error("Product has no Stripe price — open Catalog, open this product, and click Save & Sync to Stripe first.");
       const customerId = await ensureStripeCustomer(sub.client_id as string);
       const method = (payload.collection_method as string) === "send_invoice" ? "send_invoice" : "charge_automatically";
+      const gstRateId = await ensureGstTaxRate().catch((e) => { console.warn("GST tax rate fetch failed:", e); return null; });
       const stripeSub = await stripe.subscriptions.create({
         customer: customerId,
         items: [{ price: stripePriceId, quantity: (sub.quantity as number) ?? 1 }],
         collection_method: method,
         ...(method === "send_invoice" ? { days_until_due: 30 } : {}),
         payment_settings: { save_default_payment_method: "on_subscription" },
+        ...(gstRateId ? { default_tax_rates: [gstRateId] } : {}),
         metadata: { crm_subscription_id: sub.id as string },
       });
       await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, sub.id as string] });
