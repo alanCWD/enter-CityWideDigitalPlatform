@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle, SendHorizonal } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
@@ -865,7 +865,7 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
                           title="Resend latest invoice email (also updates customer email to current billing email)"
                           className="text-[10px] font-semibold text-sky-500 hover:text-sky-400 transition-colors disabled:opacity-50 border border-sky-500/30 rounded px-1.5 py-0.5 inline-flex items-center gap-1"
                         >
-                          <SendHorizonal className="w-2.5 h-2.5" /> Resend Invoice
+                          <Send className="w-2.5 h-2.5" /> Resend Invoice
                         </button>
                       )}
                       <button onClick={() => cancel(s.id as string)} className="text-xs text-muted-foreground hover:text-amber-400 transition-colors">Cancel</button>
