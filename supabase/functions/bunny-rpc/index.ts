@@ -576,9 +576,10 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const dueDays = (payload.due_days as number) ?? 14;
       const issuedAt = now();
       const dueAt = new Date(Date.now() + dueDays * 86400000).toISOString();
-      const { rows: countRows } = await exec({ sql: `SELECT COUNT(*) as n FROM invoices` });
-      const seq = Number(countRows[0]?.n ?? 0) + 1;
-      const invoiceNum = `INV-${new Date().getFullYear()}-${String(seq).padStart(4, "0")}`;
+      const yr = new Date().getFullYear();
+      const { rows: seqRows } = await exec({ sql: `SELECT COALESCE(MAX(CAST(SUBSTR(number, 5 + INSTR(SUBSTR(number, 5), '-')) AS INTEGER)), 999) AS max_seq FROM invoices WHERE number LIKE 'INV-%'` });
+      const seq = Math.max(999, Number(seqRows[0]?.max_seq ?? 999)) + 1;
+      const invoiceNum = `INV-${yr}-${seq}`;
       const id = uuid();
       await exec({ sql: `INSERT INTO invoices (id, client_id, agency_id, number, subtotal_cents, tax_cents, total_cents, amount_cents, amount_paid_cents, line_items, currency, status, issued_at, due_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.client_id as string, ctx.agencyId, invoiceNum, subtotal, 0, total, total, 0, JSON.stringify(items), "CAD", "draft", issuedAt, dueAt] });
       return { id, number: invoiceNum };
