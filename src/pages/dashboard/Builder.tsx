@@ -48,7 +48,7 @@ const TEMPLATES = [
 
 const TIERS: { id: Tier; name: string; price: string; features: string[] }[] = [
   { id: "basic", name: "Basic", price: "$97/mo", features: ["GMB Sync", "1 Template", "SEO Basics"] },
-  { id: "pro", name: "Pro", price: "$197/mo", features: ["Everything in Basic", "Social Sync", "Listing Manager", "Analytics"] },
+  { id: "pro", name: "Pro", price: "$197/mo", features: ["Everything in Basic", "Social Sync", "Listing Sync Pro", "Analytics"] },
   { id: "enterprise", name: "Enterprise", price: "$297/mo", features: ["Everything in Pro", "Video Reviews", "POS Integration", "Native Ordering"] },
 ];
 

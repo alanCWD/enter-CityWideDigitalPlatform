@@ -44,10 +44,10 @@ const services = [
   {
     id: "listing-manager",
     icon: MapPin,
-    name: "Listing Manager",
+    name: "Listing Sync Pro",
     price: "$79/mo",
     tagline: "Accurate everywhere, always",
-    description: "Wrong phone numbers, outdated addresses, and inconsistent business names kill your local search ranking. CityWide's Listing Manager powered by our directory partnerships syncs your verified business data across 40+ major directories and actively monitors for unauthorized changes.",
+    description: "Wrong phone numbers, outdated addresses, and inconsistent business names kill your local search ranking. CityWide's Listing Sync Pro powered by our directory partnerships syncs your verified business data across 40+ major directories and actively monitors for unauthorized changes.",
     features: [
       "Sync to 40+ directories (Yelp, Apple Maps, Bing, and more)",
       "Suppress duplicate listings",

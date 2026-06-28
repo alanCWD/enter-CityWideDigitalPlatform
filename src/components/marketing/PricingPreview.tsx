@@ -28,7 +28,7 @@ const tiers = [
     features: [
       "Everything in Starter",
       "Social Sync Pro (4 platforms)",
-      "Listing Manager (40+ directories)",
+      "Listing Sync Pro (40+ directories)",
       "Monthly performance report",
       "Priority support",
     ],
