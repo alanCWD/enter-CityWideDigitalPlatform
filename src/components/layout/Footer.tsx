@@ -18,7 +18,7 @@ const footerLinks = {
   ],
   Support: [
     { label: "Help Center", href: "/contact" },
-    { label: "Book a Demo", href: "https://meet.google.com/hde-tjen-maf", external: true },
+    { label: "Book a Demo", href: "https://calendly.com/alan-citywidedigital/30min", external: true },
     { label: "Privacy Policy", href: "/contact" },
     { label: "Terms of Service", href: "/contact" },
   ],

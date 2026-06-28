@@ -47,7 +47,7 @@ export default function HeroSection() {
               </Link>
             </Button>
             <Button variant="ghost-dark" size="xl" asChild>
-              <a href="https://meet.google.com/hde-tjen-maf" target="_blank" rel="noopener noreferrer">
+              <a href="https://calendly.com/alan-citywidedigital/30min" target="_blank" rel="noopener noreferrer">
                 <Calendar className="w-4 h-4" />
                 Book a Demo
               </a>

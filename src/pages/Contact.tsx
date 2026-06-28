@@ -82,7 +82,7 @@ export default function Contact() {
                   Book a free 20-minute discovery call with our team. We'll learn about your business and show you exactly how CityWide Digital can help.
                 </p>
                 <Button variant="on-dark" className="w-full" asChild>
-                  <a href="https://calendly.com" target="_blank" rel="noopener noreferrer">
+                  <a href="https://calendly.com/alan-citywidedigital/30min" target="_blank" rel="noopener noreferrer">
                     Book a Discovery Call
                   </a>
                 </Button>

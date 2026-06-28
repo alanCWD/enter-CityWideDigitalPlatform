@@ -35,7 +35,7 @@ export default function CTABanner() {
             className="border-white/40 text-white hover:bg-white/10"
             asChild
           >
-            <a href="https://meet.google.com/hde-tjen-maf" target="_blank" rel="noopener noreferrer">
+            <a href="https://calendly.com/alan-citywidedigital/30min" target="_blank" rel="noopener noreferrer">
               <Calendar className="w-5 h-5" />
               Book a Demo Call
             </a>
