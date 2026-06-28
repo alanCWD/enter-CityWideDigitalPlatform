@@ -284,7 +284,7 @@ export default function Pricing() {
                 {features.map((category) => (
                   <React.Fragment key={category.category}>
                     <tr className="bg-muted/50">
-                      <td colSpan={4} className="px-5 py-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                      <td colSpan={4} className="px-5 py-3 text-xs font-bold uppercase tracking-widest text-primary">
                         {category.category}
                       </td>
                     </tr>
