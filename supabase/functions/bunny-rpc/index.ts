@@ -395,6 +395,15 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       fields.push("updated_at = ?"); args.push(now());
       args.push(id);
       await exec({ sql: `UPDATE clients SET ${fields.join(", ")} WHERE id = ?`, args });
+      // Keep Stripe customer email in sync when billing_email changes
+      if (stripe && "billing_email" in payload && payload.billing_email) {
+        try {
+          const { rows: cr } = await exec({ sql: `SELECT stripe_customer_id FROM clients WHERE id = ? LIMIT 1`, args: [id] });
+          if (cr[0]?.stripe_customer_id) {
+            await stripe.customers.update(cr[0].stripe_customer_id as string, { email: payload.billing_email as string });
+          }
+        } catch (e) { console.warn("Stripe customer email sync failed:", e); }
+      }
       return { ok: true };
     }
     case "clients.archive": {
@@ -497,6 +506,29 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       });
       await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, sub.id as string] });
       return { ok: true, stripe_subscription_id: stripeSub.id };
+    }
+    case "subscriptions.resendInvoice": {
+      const { rows } = await exec({ sql: `SELECT stripe_subscription_id, client_id FROM subscriptions WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      const sub = rows[0];
+      if (!sub) throw new Error("Subscription not found");
+      if (!stripe) throw new Error("Stripe not configured");
+      if (!sub.stripe_subscription_id) throw new Error("Subscription not yet synced to Stripe. Use the Invoice button first.");
+      // Ensure the Stripe customer email matches the current billing_email
+      const { rows: clientRows } = await exec({ sql: `SELECT stripe_customer_id, billing_email FROM clients WHERE id = ? LIMIT 1`, args: [sub.client_id as string] });
+      const cl = clientRows[0];
+      if (cl?.stripe_customer_id && cl?.billing_email) {
+        try { await stripe.customers.update(cl.stripe_customer_id as string, { email: cl.billing_email as string }); }
+        catch (e) { console.warn("Stripe customer email update failed:", e); }
+      }
+      // Retrieve the subscription's latest invoice from Stripe
+      const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id as string);
+      const latestInvoiceId = stripeSub.latest_invoice as string | null;
+      if (!latestInvoiceId) throw new Error("No invoice found for this subscription in Stripe");
+      const invoice = await stripe.invoices.retrieve(latestInvoiceId);
+      if (invoice.status === "paid" || invoice.status === "void") throw new Error(`Invoice is already ${invoice.status} — nothing to send.`);
+      if (invoice.status === "draft") await stripe.invoices.finalizeInvoice(invoice.id);
+      await stripe.invoices.sendInvoice(invoice.id);
+      return { ok: true, invoice_id: invoice.id, sent_to: cl?.billing_email };
     }
     case "subscriptions.delete": {
       const { rows: subRows } = await exec({ sql: `SELECT stripe_subscription_id FROM subscriptions WHERE id = ? LIMIT 1`, args: [payload.id as string] });
