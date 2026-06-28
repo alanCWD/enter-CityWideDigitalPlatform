@@ -228,12 +228,45 @@ async function ensureGstTaxRate(): Promise<string> {
   return created.id;
 }
 
-async function sendSubscriptionInvoice(stripe: Stripe, stripeSub: Stripe.Subscription): Promise<void> {
+async function sendSubscriptionInvoice(
+  stripe: Stripe,
+  stripeSub: Stripe.Subscription,
+  clientId: string,
+  agencyId: string,
+): Promise<void> {
   if (!stripeSub.latest_invoice) return;
   const invoiceId = typeof stripeSub.latest_invoice === "string" ? stripeSub.latest_invoice : (stripeSub.latest_invoice as { id: string }).id;
   const invoice = await stripe.invoices.retrieve(invoiceId);
   if (invoice.status === "paid" || invoice.status === "void") return;
-  if (invoice.status === "draft") await stripe.invoices.finalizeInvoice(invoice.id);
+
+  let hostedUrl: string | null = null;
+  let pdfUrl: string | null = null;
+
+  if (invoice.status === "draft") {
+    // Generate CRM invoice number (≥1000)
+    const yr = new Date().getFullYear();
+    const { rows: seqRows } = await exec({ sql: `SELECT COALESCE(MAX(CAST(SUBSTR(number, 5 + INSTR(SUBSTR(number, 5), '-')) AS INTEGER)), 999) AS max_seq FROM invoices WHERE number LIKE 'INV-%'` });
+    const seq = Math.max(999, Number(seqRows[0]?.max_seq ?? 999)) + 1;
+    const invoiceNum = `INV-${yr}-${seq}`;
+
+    // Stamp our number as a visible custom field on the Stripe invoice PDF/email
+    await stripe.invoices.update(invoice.id, {
+      custom_fields: [{ name: "Invoice No.", value: invoiceNum }],
+    });
+    const finalized = await stripe.invoices.finalizeInvoice(invoice.id);
+    hostedUrl = finalized.hosted_invoice_url ?? null;
+    pdfUrl = finalized.invoice_pdf ?? null;
+
+    // Create a CRM invoice record for tracking
+    try {
+      const crmInvoiceId = uuid();
+      await exec({
+        sql: `INSERT OR IGNORE INTO invoices (id, client_id, agency_id, number, subtotal_cents, tax_cents, total_cents, amount_cents, amount_paid_cents, currency, status, issued_at, sent_at, stripe_invoice_id, hosted_invoice_url, pdf_url) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        args: [crmInvoiceId, clientId, agencyId, invoiceNum, invoice.subtotal ?? 0, invoice.tax ?? 0, invoice.total ?? 0, invoice.total ?? 0, 0, "CAD", "open", now(), now(), invoice.id, hostedUrl, pdfUrl],
+      });
+    } catch (e) { console.warn("Failed to save CRM invoice record:", e); }
+  }
+
   await stripe.invoices.sendInvoice(invoice.id);
 }
 
@@ -468,7 +501,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
             await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, id] });
             // Immediately finalize and send the first invoice for send_invoice — Stripe auto-delay can be up to 1 hour
             if (method === "send_invoice") {
-              try { await sendSubscriptionInvoice(stripe, stripeSub); } catch (e) { console.warn("Failed to send first invoice:", e); }
+              try { await sendSubscriptionInvoice(stripe, stripeSub, payload.client_id as string, ctx.agencyId); } catch (e) { console.warn("Failed to send first invoice:", e); }
             }
           }
         } catch (stripeErr) {
@@ -514,7 +547,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       });
       await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, sub.id as string] });
       if (method === "send_invoice") {
-        try { await sendSubscriptionInvoice(stripe, stripeSub); } catch (e) { console.warn("Failed to send first invoice (syncStripe):", e); }
+        try { await sendSubscriptionInvoice(stripe, stripeSub, sub.client_id as string, ctx.agencyId); } catch (e) { console.warn("Failed to send first invoice (syncStripe):", e); }
       }
       return { ok: true, stripe_subscription_id: stripeSub.id };
     }
@@ -578,7 +611,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
           for (const item of lineItems) {
             await stripe.invoiceItems.create({ customer: customerId, amount: Math.round((item.unit_amount_cents ?? 0) * (item.quantity ?? 1)), currency: ((inv.currency as string) || "CAD").toLowerCase(), description: item.description || "Service" });
           }
-          const stripeInv = await stripe.invoices.create({ customer: customerId, collection_method: "send_invoice", days_until_due: dueDays, metadata: { crm_invoice_id: inv.id as string } });
+          const stripeInv = await stripe.invoices.create({ customer: customerId, collection_method: "send_invoice", days_until_due: dueDays, custom_fields: [{ name: "Invoice No.", value: inv.number as string }], metadata: { crm_invoice_id: inv.id as string } });
           stripeInvoiceId = stripeInv.id;
           const finalized = await stripe.invoices.finalizeInvoice(stripeInv.id);
           hostedUrl = finalized.hosted_invoice_url ?? null;
