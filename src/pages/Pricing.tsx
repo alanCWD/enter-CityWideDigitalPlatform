@@ -1,37 +1,63 @@
-import React from "react";
-import { CheckCircle, Minus } from "lucide-react";
-import { Link } from "react-router-dom";
+import React, { useState } from "react";
+import { CheckCircle, Minus, Check } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import CTABanner from "@/components/marketing/CTABanner";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const tiers = [
   {
     name: "Starter",
+    planKey: "starter",
     price: "$97",
     period: "/mo",
     tagline: "Get found online — fast",
     featured: false,
     cta: "Start Free Trial",
+    features: [
+      "GMB-synced website",
+      "Niche-specific template",
+      "Auto-updating content",
+      "Custom domain support",
+      "Basic SEO",
+      "Email support",
+    ],
   },
   {
     name: "Growth",
+    planKey: "growth",
     price: "$197",
     period: "/mo",
     tagline: "Everything you need to compete",
     featured: true,
     badge: "Most Popular",
     cta: "Start Free Trial",
+    features: [
+      "Everything in Starter",
+      "Social Sync — 4 platforms",
+      "40+ directory listings",
+      "Monthly performance report",
+      "Priority support",
+    ],
   },
   {
     name: "Pro",
+    planKey: "pro",
     price: "$297",
     period: "/mo",
     tagline: "Maximum presence, zero effort",
     featured: false,
     cta: "Start Free Trial",
+    features: [
+      "Everything in Growth",
+      "Review Engine",
+      "AI chatbot intake",
+      "3 Site Concierge credits/mo",
+      "Dedicated account manager",
+    ],
   },
 ];
 
@@ -140,6 +166,32 @@ function FeatureValue({ value }: { value: boolean | string }) {
 }
 
 export default function Pricing() {
+  const [loading, setLoading] = useState<string | null>(null);
+
+  async function handleCheckout(planKey: string) {
+    setLoading(planKey);
+    try {
+      const origin = window.location.origin;
+      const { data, error } = await supabase.functions.invoke("pricing-checkout", {
+        body: {
+          plan: planKey,
+          success_url: `${origin}/dashboard?trial=started`,
+          cancel_url: `${origin}/pricing`,
+        },
+      });
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error("No checkout URL returned");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Could not start checkout. Please try again or contact us.");
+    } finally {
+      setLoading(null);
+    }
+  }
   return (
     <Layout>
       {/* Hero — extends behind the fixed navbar like the home hero */}
@@ -180,14 +232,29 @@ export default function Pricing() {
                   <span className={`text-4xl font-extrabold ${tier.featured ? "text-[#EEF1FA]" : "text-foreground"}`}>{tier.price}</span>
                   <span className={`text-sm ${tier.featured ? "text-[rgba(238,241,250,0.6)]" : "text-muted-foreground"}`}>{tier.period}</span>
                 </div>
-                <p className={`text-sm mb-6 ${tier.featured ? "text-[rgba(238,241,250,0.7)]" : "text-muted-foreground"}`}>{tier.tagline}</p>
+                <p className={`text-sm mb-5 ${tier.featured ? "text-[rgba(238,241,250,0.7)]" : "text-muted-foreground"}`}>{tier.tagline}</p>
+
+                {/* Feature list */}
+                <ul className="space-y-2 mb-6">
+                  {tier.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2">
+                      <Check className={`w-4 h-4 mt-0.5 shrink-0 ${tier.featured ? "text-primary" : "text-emerald-500"}`} />
+                      <span className={`text-sm ${tier.featured ? "text-[rgba(238,241,250,0.8)]" : "text-foreground/80"}`}>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+
                 <Button
                   variant={tier.featured ? "on-dark" : "outline"}
                   className="w-full"
-                  asChild
+                  disabled={loading === tier.planKey}
+                  onClick={() => handleCheckout(tier.planKey)}
                 >
-                  <Link to="/contact">{tier.cta}</Link>
+                  {loading === tier.planKey ? "Starting…" : tier.cta}
                 </Button>
+                <p className={`text-center text-xs mt-3 ${tier.featured ? "text-[rgba(238,241,250,0.4)]" : "text-muted-foreground/60"}`}>
+                  30-day free trial · No credit card required up front
+                </p>
               </div>
             ))}
           </div>
