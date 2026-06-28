@@ -9,7 +9,7 @@ const features = [
   {
     icon: Share2,
     title: "One-Click Social Sync",
-    description: "Post once on Google. It instantly publishes to Facebook, Instagram, X, and LinkedIn.",
+    description: "Post once on Google. It instantly publishes to the Social profiles where your customers are.",
   },
   {
     icon: MapPin,
