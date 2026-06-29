@@ -3217,6 +3217,7 @@ export type Database = {
           rating: number | null
           refresh_token: string | null
           review_count: number | null
+          synup_location_id: string | null
           token_expires_at: string | null
           website: string | null
           zernio_profile_id: string | null
@@ -3241,6 +3242,7 @@ export type Database = {
           rating?: number | null
           refresh_token?: string | null
           review_count?: number | null
+          synup_location_id?: string | null
           token_expires_at?: string | null
           website?: string | null
           zernio_profile_id?: string | null
@@ -3265,6 +3267,7 @@ export type Database = {
           rating?: number | null
           refresh_token?: string | null
           review_count?: number | null
+          synup_location_id?: string | null
           token_expires_at?: string | null
           website?: string | null
           zernio_profile_id?: string | null

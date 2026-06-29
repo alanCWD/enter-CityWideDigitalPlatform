@@ -1,0 +1,3 @@
+-- Add Synup location ID to gbp_connections so each portal client
+-- can be linked to their Synup location for live data.
+ALTER TABLE gbp_connections ADD COLUMN IF NOT EXISTS synup_location_id text;
