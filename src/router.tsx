@@ -22,6 +22,9 @@ import PortalAnalytics from "./pages/portal/PortalAnalytics";
 import PortalConnect from "./pages/portal/PortalConnect";
 import PortalVault from "./pages/portal/PortalVault";
 import PortalHealth from "./pages/portal/PortalHealth";
+import PortalListings from "./pages/portal/PortalListings";
+import PortalReviews from "./pages/portal/PortalReviews";
+import PortalSEO from "./pages/portal/PortalSEO";
 import { AdminUsers } from "./pages/admin/AdminUsers";
 import { CrmIndex } from "./pages/dashboard/crm/CrmIndex";
 import { ClientsList } from "./pages/dashboard/crm/ClientsList";
@@ -137,6 +140,21 @@ export const routers = [
     path: "/portal/:clientId/health",
     name: "portal-health",
     element: <PortalHealth />,
+  },
+  {
+    path: "/portal/:clientId/listings",
+    name: "portal-listings",
+    element: <PortalListings />,
+  },
+  {
+    path: "/portal/:clientId/reviews",
+    name: "portal-reviews",
+    element: <PortalReviews />,
+  },
+  {
+    path: "/portal/:clientId/seo",
+    name: "portal-seo",
+    element: <PortalSEO />,
   },
   {
     path: "/portal/:clientId/social",
