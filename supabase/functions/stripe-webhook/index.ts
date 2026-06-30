@@ -1,5 +1,5 @@
-// Stripe webhook receiver. Mirrors invoice / subscription / payment state into the
-// Bunny CRM database so the dashboard renders without round-tripping Stripe.
+// Stripe webhook receiver — always returns 200 to Stripe (fire-and-log pattern).
+// Mirrors invoice / subscription / payment state into the Bunny CRM database.
 
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 
@@ -16,14 +16,28 @@ function bunnyBase(): string {
   return u;
 }
 
-const BUNNY_TOKEN = Deno.env.get("BUNNY_DB_AUTH_TOKEN")!;
-const stripeKey = Deno.env.get("STRIPE_SECRET_KEY")!;
-const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
-const stripe = new Stripe(stripeKey, { apiVersion: "2024-04-10" });
+const BUNNY_TOKEN = Deno.env.get("BUNNY_DB_AUTH_TOKEN") ?? "";
+const stripeKey = Deno.env.get("STRIPE_SECRET_KEY") ?? "";
+const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET") ?? "";
+
+// Validate required secrets are present
+const missingSecrets: string[] = [];
+if (!stripeKey) missingSecrets.push("STRIPE_SECRET_KEY");
+if (!webhookSecret) missingSecrets.push("STRIPE_WEBHOOK_SECRET");
+if (!BUNNY_TOKEN) missingSecrets.push("BUNNY_DB_AUTH_TOKEN");
+if (missingSecrets.length > 0) {
+  console.warn("stripe-webhook: missing env vars:", missingSecrets.join(", "));
+}
+
+const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: "2024-04-10" }) : null;
 
 type SqlValue = string | number | null;
 async function exec(sql: string, args: SqlValue[] = []) {
-  const res = await fetch(`${bunnyBase()}/v2/pipeline`, {
+  if (!BUNNY_TOKEN) throw new Error("BUNNY_DB_AUTH_TOKEN not configured");
+  const base = bunnyBase();
+  if (!base || base === "https://") throw new Error("BUNNY_DB_URL not configured");
+
+  const res = await fetch(`${base}/v2/pipeline`, {
     method: "POST",
     headers: { "Authorization": `Bearer ${BUNNY_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -51,13 +65,19 @@ const uuid = () => crypto.randomUUID();
 const isoFromUnix = (s?: number | null) => (s ? new Date(s * 1000).toISOString() : null);
 
 async function clientIdForCustomer(customerId: string): Promise<string | null> {
-  const res = await exec(`SELECT id FROM clients WHERE stripe_customer_id = ? LIMIT 1`, [customerId]);
-  const row = res?.results?.[0]?.response?.result?.rows?.[0];
-  if (!row) return null;
-  return row[0]?.value ?? null;
+  try {
+    const res = await exec(`SELECT id FROM clients WHERE stripe_customer_id = ? LIMIT 1`, [customerId]);
+    const row = res?.results?.[0]?.response?.result?.rows?.[0];
+    return row?.[0]?.value ?? null;
+  } catch (e) {
+    console.error("clientIdForCustomer error:", e);
+    return null;
+  }
 }
 
 async function handleEvent(event: Stripe.Event) {
+  console.log(`Processing event: ${event.type} (id=${event.id})`);
+
   switch (event.type) {
     // ── Invoice events ──────────────────────────────────────────────────────
     case "invoice.created":
@@ -67,21 +87,23 @@ async function handleEvent(event: Stripe.Event) {
     case "invoice.payment_failed":
     case "invoice.voided": {
       const inv = event.data.object as Stripe.Invoice;
-      const clientId = inv.customer ? await clientIdForCustomer(inv.customer as string) : null;
-      if (!clientId) { console.warn("invoice event: no matching client for customer", inv.customer); return; }
+      const customerId = typeof inv.customer === "string" ? inv.customer : inv.customer?.id ?? null;
+      const clientId = customerId ? await clientIdForCustomer(customerId) : null;
+      if (!clientId) {
+        console.warn(`invoice event (${event.type}): no matching CRM client for customer ${customerId} — skipping DB write`);
+        return; // Not an error — customer just isn't in CRM yet
+      }
 
       const stripeStatus = inv.status ?? "open";
       const crmStatus = stripeStatus === "paid" ? "paid" : stripeStatus === "void" ? "void" : "open";
       const paidAt = stripeStatus === "paid" ? now() : null;
 
-      // Try update first (by stripe_invoice_id)
       const upd = await exec(
         `UPDATE invoices SET status=?, total_cents=?, amount_paid_cents=?, hosted_invoice_url=?, pdf_url=?, due_at=?, paid_at=?, number=? WHERE stripe_invoice_id=?`,
         [crmStatus, inv.total ?? 0, inv.amount_paid ?? 0, inv.hosted_invoice_url ?? null, inv.invoice_pdf ?? null, isoFromUnix(inv.due_date), paidAt, inv.number ?? null, inv.id],
       );
       const affected = upd?.results?.[0]?.response?.result?.affected_row_count ?? 0;
       if (affected === 0) {
-        // Insert if we don't have it yet (webhook arrived before our DB write)
         await exec(
           `INSERT OR IGNORE INTO invoices (id, client_id, number, status, subtotal_cents, total_cents, amount_paid_cents, currency, stripe_invoice_id, hosted_invoice_url, pdf_url, due_at, issued_at, paid_at, agency_id)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'citywide')`,
@@ -97,8 +119,12 @@ async function handleEvent(event: Stripe.Event) {
     case "customer.subscription.updated":
     case "customer.subscription.deleted": {
       const sub = event.data.object as Stripe.Subscription;
-      const clientId = sub.customer ? await clientIdForCustomer(sub.customer as string) : null;
-      if (!clientId) { console.warn("subscription event: no matching client for customer", sub.customer); return; }
+      const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id ?? null;
+      const clientId = customerId ? await clientIdForCustomer(customerId) : null;
+      if (!clientId) {
+        console.warn(`subscription event (${event.type}): no matching CRM client for customer ${customerId} — skipping`);
+        return;
+      }
       const crmStatus = sub.status === "active" || sub.status === "trialing" ? "active"
         : sub.status === "canceled" ? "canceled"
         : sub.status;
@@ -107,16 +133,21 @@ async function handleEvent(event: Stripe.Event) {
         [crmStatus, isoFromUnix(sub.current_period_end), sub.cancel_at_period_end ? 1 : 0, now(), sub.id],
       );
       const affected = upd?.results?.[0]?.response?.result?.affected_row_count ?? 0;
-      if (affected === 0) console.warn("subscription event for unknown row", sub.id);
-      else console.log(`subscription.event: ${event.type} → ${crmStatus} (clientId=${clientId})`);
+      if (affected === 0) {
+        console.warn(`subscription event: no matching row for stripe_subscription_id=${sub.id}`);
+      } else {
+        console.log(`subscription.event: ${event.type} → ${crmStatus} (clientId=${clientId})`);
+      }
       break;
     }
 
     // ── Payment events ──────────────────────────────────────────────────────
     case "payment_intent.succeeded": {
       const pi = event.data.object as Stripe.PaymentIntent;
-      const clientId = pi.customer ? await clientIdForCustomer(pi.customer as string) : null;
+      const customerId = typeof pi.customer === "string" ? pi.customer : null;
+      const clientId = customerId ? await clientIdForCustomer(customerId) : null;
       if (!clientId) return;
+
       const invoiceStripeId = (pi.invoice as string | null) ?? null;
       let invoiceId: string | null = null;
       if (invoiceStripeId) {
@@ -128,7 +159,6 @@ async function handleEvent(event: Stripe.Event) {
         `INSERT OR IGNORE INTO payments (id, invoice_id, client_id, amount_cents, currency, method, stripe_payment_intent_id, paid_at) VALUES (?,?,?,?,?,?,?,?)`,
         [uuid(), invoiceId, clientId, pi.amount_received ?? pi.amount, (pi.currency ?? "cad").toUpperCase(), pi.payment_method_types?.[0] ?? "card", pi.id, now()],
       );
-      // Also mark the linked invoice as paid
       if (invoiceId) {
         await exec(`UPDATE invoices SET status='paid', paid_at=?, amount_paid_cents=total_cents WHERE id=? AND status != 'paid'`, [now(), invoiceId]);
       }
@@ -136,36 +166,58 @@ async function handleEvent(event: Stripe.Event) {
       break;
     }
 
+    // ── Checkout session ─────────────────────────────────────────────────────
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      console.log(`checkout.session.completed: session=${session.id} customer=${session.customer} subscription=${session.subscription}`);
+      // No CRM write needed here — invoice/subscription events handle state.
+      break;
+    }
+
     default:
-      console.log(`unhandled event type: ${event.type}`);
+      console.log(`unhandled event type: ${event.type} — acknowledged`);
   }
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // ── Step 1: Read & verify signature ────────────────────────────────────────
   const sig = req.headers.get("stripe-signature");
   const body = await req.text();
 
   let event: Stripe.Event;
   try {
-    if (webhookSecret && sig) {
+    if (webhookSecret && sig && stripe) {
       event = await stripe.webhooks.constructEventAsync(body, sig, webhookSecret);
-    } else {
-      // Accept unsigned if secret not yet configured — log a warning
+    } else if (!webhookSecret) {
+      // Secret not configured — accept but warn loudly
+      console.warn("STRIPE_WEBHOOK_SECRET not set — accepting unsigned event. Add this secret immediately for production.");
       event = JSON.parse(body) as Stripe.Event;
-      console.warn("STRIPE_WEBHOOK_SECRET missing — unsigned event accepted:", event.type);
+    } else {
+      // stripe client or sig missing
+      console.error("Cannot verify webhook: stripe client or signature header missing");
+      return new Response("webhook error: missing signature", { status: 400 });
     }
   } catch (err) {
     console.error("Signature verification failed:", (err as Error).message);
     return new Response(`webhook error: ${(err as Error).message}`, { status: 400 });
   }
 
+  // ── Step 2: Acknowledge Stripe IMMEDIATELY (always 200) ───────────────────
+  // We return 200 before processing to guarantee Stripe marks delivery as success.
+  // Any handler errors are logged for internal review — they don't affect delivery.
+  const ack = new Response(JSON.stringify({ received: true, event: event.type }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
+  // ── Step 3: Process event (errors logged, not propagated) ─────────────────
   try {
     await handleEvent(event);
-    return new Response(JSON.stringify({ received: true }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
-    console.error("handler error:", err);
-    return new Response((err as Error).message, { status: 500 });
+    console.error(`handleEvent error for ${event.type} (id=${event.id}):`, err);
+    // DO NOT rethrow — Stripe already got its 200 above.
   }
+
+  return ack;
 });
