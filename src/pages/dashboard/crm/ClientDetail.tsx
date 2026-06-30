@@ -1021,6 +1021,7 @@ interface GbpRecord {
   review_count: number | null;
   last_synced_at: string | null;
   zernio_profile_id: string | null;
+  synup_location_id: string | null;
 }
 
 function GbpPanel({ connectionId }: { connectionId: string }) {
@@ -1028,16 +1029,40 @@ function GbpPanel({ connectionId }: { connectionId: string }) {
   const [record, setRecord] = useState<GbpRecord | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [synupDraft, setSynupDraft] = useState("");
+  const [editingSynup, setEditingSynup] = useState(false);
+  const [savingSynup, setSavingSynup] = useState(false);
 
   const load = async () => {
     setLoading(true);
     const { data } = await supabase
       .from("gbp_connections")
-      .select("id,business_name,address,phone,website,category,rating,review_count,last_synced_at,zernio_profile_id")
+      .select("id,business_name,address,phone,website,category,rating,review_count,last_synced_at,zernio_profile_id,synup_location_id")
       .eq("id", connectionId)
       .maybeSingle();
-    if (data) setRecord(data as GbpRecord);
+    if (data) {
+      setRecord(data as GbpRecord);
+      setSynupDraft((data as GbpRecord).synup_location_id ?? "");
+    }
     setLoading(false);
+  };
+
+  const saveSynupId = async () => {
+    setSavingSynup(true);
+    try {
+      const val = synupDraft.trim() || null;
+      const { error } = await supabase
+        .from("gbp_connections")
+        .update({ synup_location_id: val })
+        .eq("id", connectionId);
+      if (error) throw error;
+      setRecord((r) => r ? { ...r, synup_location_id: val } : r);
+      setEditingSynup(false);
+      toast({ title: "Synup Location ID saved", description: val ? `ID: ${val}` : "Cleared." });
+    } catch (e) {
+      toast({ title: "Save failed", description: (e as Error).message, variant: "destructive" });
+    }
+    setSavingSynup(false);
   };
 
   useEffect(() => { load(); }, [connectionId]);
@@ -1121,6 +1146,71 @@ function GbpPanel({ connectionId }: { connectionId: string }) {
           <div className="text-2xl font-extrabold text-foreground">{record.review_count ?? 0}</div>
           <div className="text-xs text-muted-foreground uppercase tracking-wider font-bold mt-1">Reviews</div>
         </div>
+      </div>
+
+      {/* Synup Location ID */}
+      <div className="bg-card border border-border rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-1">
+          <div>
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider flex items-center gap-2">
+              <Globe className="w-3.5 h-3.5 text-primary" />
+              Synup Integration
+            </h3>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Link this location to Synup to enable live Listings, Reviews &amp; SEO in the client portal.
+            </p>
+          </div>
+          {!editingSynup && (
+            <button
+              onClick={() => { setSynupDraft(record.synup_location_id ?? ""); setEditingSynup(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg border border-border text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+            >
+              <Pencil className="w-3.5 h-3.5" />
+              {record.synup_location_id ? "Edit" : "Set ID"}
+            </button>
+          )}
+        </div>
+
+        {editingSynup ? (
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="text"
+              value={synupDraft}
+              onChange={(e) => setSynupDraft(e.target.value)}
+              placeholder="Paste Synup Location ID…"
+              className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 font-mono"
+              autoFocus
+            />
+            <button
+              onClick={saveSynupId}
+              disabled={savingSynup}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              <Check className="w-3.5 h-3.5" />
+              {savingSynup ? "Saving…" : "Save"}
+            </button>
+            <button
+              onClick={() => setEditingSynup(false)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold rounded-lg border border-border text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <div className="mt-3 flex items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border/50">
+            <Globe className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+            {record.synup_location_id ? (
+              <span className="text-sm font-mono text-foreground">{record.synup_location_id}</span>
+            ) : (
+              <span className="text-sm text-muted-foreground/60 italic">Not set — portal pages will show sample data</span>
+            )}
+            {record.synup_location_id && (
+              <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-emerald-500 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">
+                <Check className="w-3 h-3" /> Connected
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
