@@ -27,6 +27,8 @@ if (!webhookSecret) missingSecrets.push("STRIPE_WEBHOOK_SECRET");
 if (!BUNNY_TOKEN) missingSecrets.push("BUNNY_DB_AUTH_TOKEN");
 if (missingSecrets.length > 0) {
   console.warn("stripe-webhook: missing env vars:", missingSecrets.join(", "));
+} else {
+  console.log("stripe-webhook: all secrets present, signature verification active");
 }
 
 const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: "2024-04-10" }) : null;
@@ -91,7 +93,7 @@ async function handleEvent(event: Stripe.Event) {
       const clientId = customerId ? await clientIdForCustomer(customerId) : null;
       if (!clientId) {
         console.warn(`invoice event (${event.type}): no matching CRM client for customer ${customerId} — skipping DB write`);
-        return; // Not an error — customer just isn't in CRM yet
+        return;
       }
 
       const stripeStatus = inv.status ?? "open";
@@ -191,11 +193,9 @@ Deno.serve(async (req) => {
     if (webhookSecret && sig && stripe) {
       event = await stripe.webhooks.constructEventAsync(body, sig, webhookSecret);
     } else if (!webhookSecret) {
-      // Secret not configured — accept but warn loudly
-      console.warn("STRIPE_WEBHOOK_SECRET not set — accepting unsigned event. Add this secret immediately for production.");
+      console.warn("STRIPE_WEBHOOK_SECRET not set — accepting unsigned event.");
       event = JSON.parse(body) as Stripe.Event;
     } else {
-      // stripe client or sig missing
       console.error("Cannot verify webhook: stripe client or signature header missing");
       return new Response("webhook error: missing signature", { status: 400 });
     }
@@ -204,19 +204,16 @@ Deno.serve(async (req) => {
     return new Response(`webhook error: ${(err as Error).message}`, { status: 400 });
   }
 
-  // ── Step 2: Acknowledge Stripe IMMEDIATELY (always 200) ───────────────────
-  // We return 200 before processing to guarantee Stripe marks delivery as success.
-  // Any handler errors are logged for internal review — they don't affect delivery.
+  // ── Step 2: Always return 200 to Stripe ───────────────────────────────────
   const ack = new Response(JSON.stringify({ received: true, event: event.type }), {
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-  // ── Step 3: Process event (errors logged, not propagated) ─────────────────
+  // ── Step 3: Process (errors logged, never propagated as 5xx) ──────────────
   try {
     await handleEvent(event);
   } catch (err) {
     console.error(`handleEvent error for ${event.type} (id=${event.id}):`, err);
-    // DO NOT rethrow — Stripe already got its 200 above.
   }
 
   return ack;
