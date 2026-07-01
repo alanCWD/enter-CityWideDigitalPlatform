@@ -32,6 +32,14 @@ export interface Agency {
   /** Icon representing the agency brand */
   icon: LucideIcon;
   navItems: AgencyNavItem[];
+  /** Public-facing website URL */
+  url?: string;
+  /** Short brand description shown on the dashboard */
+  description?: string;
+  /** Key feature bullets */
+  features?: string[];
+  /** Hero stats */
+  stats?: { value: string; label: string }[];
 }
 
 // ── Shared nav building blocks ───────────────────────────────────────────────
@@ -98,6 +106,18 @@ export const AGENCIES: Agency[] = [
     tagline: "Creator & professional portfolios",
     accent: "purple",
     icon: UserCircle,
+    url: "https://oneprofile.citywidedigital.ca",
+    description: "The narrative-driven identity hub for authors, chefs, brewers, vintners, sommeliers, and every creative who deserves more than a generic portfolio site. Post once, distribute everywhere.",
+    features: [
+      "Narrative Hub — origin story, philosophy, key influences, and creative context",
+      "Portfolio Engine — profession-specific metadata for books, dishes, releases, and tastings",
+      "Social Syndication — LinkedIn, Instagram, and Facebook in platform-native formats",
+    ],
+    stats: [
+      { value: "2,400+", label: "Creative Profiles" },
+      { value: "6",      label: "Profession Categories" },
+      { value: "12+",    label: "Social Platforms" },
+    ],
     navItems: [
       { name: "Dashboard",       path: "/dashboard",  icon: Building2, end: true },
       { name: "Analytics",       path: "/analytics",  icon: BarChart3            },

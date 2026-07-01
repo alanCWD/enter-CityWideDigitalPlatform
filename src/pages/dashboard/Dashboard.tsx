@@ -6,7 +6,6 @@ import {
   Building2,
   DollarSign,
   CheckCircle2,
-  AlertCircle,
   Plus,
   ExternalLink,
 } from "lucide-react";
@@ -184,18 +183,65 @@ export function Dashboard() {
               </ResponsiveContainer>
             </motion.div>
           ) : (
-            /* Placeholder for non-chart agencies */
+            /* Brand info panel for non-chart agencies */
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.3 }}
-              className={`lg:col-span-2 rounded-xl p-6 border flex items-center justify-center ${accent.bg} ${accent.border}`}
+              className={`lg:col-span-2 rounded-xl p-6 border flex flex-col gap-5 ${accent.bg} ${accent.border}`}
             >
-              <div className="text-center">
-                <agency.icon className={`w-10 h-10 mx-auto mb-3 ${accent.text}`} />
-                <p className="text-sm font-bold text-foreground">{agency.name}</p>
-                <p className="text-xs text-muted-foreground mt-1">{agency.tagline}</p>
+              {/* Header */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${accent.bg} border ${accent.border}`}>
+                    <agency.icon className={`w-5 h-5 ${accent.text}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-foreground">{agency.name}</p>
+                    <p className="text-xs text-muted-foreground">{agency.tagline}</p>
+                  </div>
+                </div>
+                {agency.url && (
+                  <a
+                    href={agency.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider ${accent.text} hover:opacity-80 transition-opacity flex-shrink-0`}
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    {agency.url.replace(/^https?:\/\//, "")}
+                  </a>
+                )}
               </div>
+
+              {/* Description */}
+              {agency.description && (
+                <p className="text-xs text-muted-foreground leading-relaxed">{agency.description}</p>
+              )}
+
+              {/* Stats */}
+              {agency.stats && agency.stats.length > 0 && (
+                <div className="flex items-center gap-6">
+                  {agency.stats.map((s) => (
+                    <div key={s.label}>
+                      <div className={`text-xl font-extrabold ${accent.text}`}>{s.value}</div>
+                      <div className="text-[10px] text-muted-foreground mt-0.5">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Features */}
+              {agency.features && agency.features.length > 0 && (
+                <ul className="space-y-1.5">
+                  {agency.features.map((f) => (
+                    <li key={f} className="flex items-start gap-2 text-xs text-foreground/80">
+                      <span className={`mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0 ${accent.dot ?? accent.text.replace("text-","bg-")}`} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </motion.div>
           )}
 
