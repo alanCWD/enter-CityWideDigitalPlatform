@@ -243,30 +243,19 @@ async function sendSubscriptionInvoice(
   let pdfUrl: string | null = null;
 
   if (invoice.status === "draft") {
-    // Generate CRM invoice number (≥1000)
     const yr = new Date().getFullYear();
     const { rows: seqRows } = await exec({ sql: `SELECT COALESCE(MAX(CAST(SUBSTR(number, 5 + INSTR(SUBSTR(number, 5), '-')) AS INTEGER)), 999) AS max_seq FROM invoices WHERE number LIKE 'INV-%'` });
     const seq = Math.max(999, Number(seqRows[0]?.max_seq ?? 999)) + 1;
     const invoiceNum = `INV-${yr}-${seq}`;
-
-    // Stamp our number as a visible custom field on the Stripe invoice PDF/email
-    await stripe.invoices.update(invoice.id, {
-      custom_fields: [{ name: "Invoice No.", value: invoiceNum }],
-    });
+    await stripe.invoices.update(invoice.id, { custom_fields: [{ name: "Invoice No.", value: invoiceNum }] });
     const finalized = await stripe.invoices.finalizeInvoice(invoice.id);
     hostedUrl = finalized.hosted_invoice_url ?? null;
     pdfUrl = finalized.invoice_pdf ?? null;
-
-    // Create a CRM invoice record for tracking
     try {
       const crmInvoiceId = uuid();
-      await exec({
-        sql: `INSERT OR IGNORE INTO invoices (id, client_id, agency_id, number, subtotal_cents, tax_cents, total_cents, amount_cents, amount_paid_cents, currency, status, issued_at, sent_at, stripe_invoice_id, hosted_invoice_url, pdf_url) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-        args: [crmInvoiceId, clientId, agencyId, invoiceNum, invoice.subtotal ?? 0, invoice.tax ?? 0, invoice.total ?? 0, invoice.total ?? 0, 0, "CAD", "open", now(), now(), invoice.id, hostedUrl, pdfUrl],
-      });
+      await exec({ sql: `INSERT OR IGNORE INTO invoices (id, client_id, agency_id, number, subtotal_cents, tax_cents, total_cents, amount_cents, amount_paid_cents, currency, status, issued_at, sent_at, stripe_invoice_id, hosted_invoice_url, pdf_url) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [crmInvoiceId, clientId, agencyId, invoiceNum, invoice.subtotal ?? 0, invoice.tax ?? 0, invoice.total ?? 0, invoice.total ?? 0, 0, "CAD", "open", now(), now(), invoice.id, hostedUrl, pdfUrl] });
     } catch (e) { console.warn("Failed to save CRM invoice record:", e); }
   }
-
   await stripe.invoices.sendInvoice(invoice.id);
 }
 
@@ -398,7 +387,15 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     case "clients.list": {
       const status = payload.status as string | undefined;
       const search = (payload.q ?? payload.search) as string | undefined;
-      const where: string[] = [ts.sql]; const args: SqlValue[] = [...ts.args];
+      // Super-admin can pass agency_id to scope the query; 'all' means no scope
+      const payloadAgency = payload.agency_id as string | undefined;
+      let effectiveTsSql = ts.sql;
+      let effectiveTsArgs: SqlValue[] = [...ts.args];
+      if (ctx.isSuperAdmin && payloadAgency && payloadAgency !== "all") {
+        effectiveTsSql = "agency_id = ?";
+        effectiveTsArgs = [payloadAgency];
+      }
+      const where: string[] = [effectiveTsSql]; const args: SqlValue[] = [...effectiveTsArgs];
       if (status && status !== "all") { where.push("status = ?"); args.push(status); }
       else if (!status) { where.push("status != 'archived'"); }
       if (search) { where.push("(name LIKE ? OR billing_email LIKE ? OR city LIKE ?)"); const s = `%${search}%`; args.push(s, s, s); }
@@ -424,13 +421,17 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     }
     case "clients.create": {
       const id = (payload.id as string) || uuid();
-      await exec({ sql: `INSERT INTO clients (id, name, status, source, owner_id, billing_email, phone, address_line1, city, region, postal_code, country, gbp_connection_id, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.name as string, (payload.status as string) ?? "lead", (payload.source as string) ?? null, (payload.owner_id as string) ?? null, (payload.billing_email as string) ?? null, (payload.phone as string) ?? null, (payload.address_line1 as string) ?? null, (payload.city as string) ?? null, (payload.region as string) ?? null, (payload.postal_code as string) ?? null, (payload.country as string) ?? null, (payload.gbp_connection_id as string) ?? null, (payload.notes as string) ?? null, ctx.agencyId] });
+      // Super-admin can stamp a specific agency; otherwise use authenticated agency
+      const agencyId = (ctx.isSuperAdmin && payload.agency_id) ? (payload.agency_id as string) : ctx.agencyId;
+      await exec({ sql: `INSERT INTO clients (id, name, status, source, owner_id, billing_email, phone, address_line1, city, region, postal_code, country, gbp_connection_id, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.name as string, (payload.status as string) ?? "lead", (payload.source as string) ?? null, (payload.owner_id as string) ?? null, (payload.billing_email as string) ?? null, (payload.phone as string) ?? null, (payload.address_line1 as string) ?? null, (payload.city as string) ?? null, (payload.region as string) ?? null, (payload.postal_code as string) ?? null, (payload.country as string) ?? null, (payload.gbp_connection_id as string) ?? null, (payload.notes as string) ?? null, agencyId] });
       return { id };
     }
     case "clients.update": {
       const id = payload.id as string; await assertClientAccess(ctx, id);
       const fields: string[] = []; const args: SqlValue[] = [];
       const updatable = ["name","status","source","owner_id","billing_email","phone","address_line1","city","region","postal_code","country","gbp_connection_id","stripe_customer_id","notes"];
+      // Super-admin can re-assign a client to a different agency
+      if (ctx.isSuperAdmin) updatable.push("agency_id");
       for (const k of updatable) if (k in payload) { fields.push(`${k} = ?`); args.push((payload[k] as SqlValue) ?? null); }
       fields.push("updated_at = ?"); args.push(now()); args.push(id);
       await exec({ sql: `UPDATE clients SET ${fields.join(", ")} WHERE id = ?`, args });
@@ -499,7 +500,6 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
               metadata: { crm_subscription_id: id },
             });
             await exec({ sql: `UPDATE subscriptions SET stripe_subscription_id = ? WHERE id = ?`, args: [stripeSub.id, id] });
-            // Immediately finalize and send the first invoice for send_invoice — Stripe auto-delay can be up to 1 hour
             if (method === "send_invoice") {
               try { await sendSubscriptionInvoice(stripe, stripeSub, payload.client_id as string, ctx.agencyId); } catch (e) { console.warn("Failed to send first invoice:", e); }
             }

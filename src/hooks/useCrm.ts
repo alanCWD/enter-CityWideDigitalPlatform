@@ -18,7 +18,7 @@ export function useCrmMetrics() {
   return { data, loading, error, reload };
 }
 
-export function useCrmClients(opts: { q?: string; status?: string; page?: number; pageSize?: number } = {}) {
+export function useCrmClients(opts: { q?: string; status?: string; agency_id?: string; page?: number; pageSize?: number } = {}) {
   const [clients, setClients] = useState<CrmClient[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -31,6 +31,7 @@ export function useCrmClients(opts: { q?: string; status?: string; page?: number
       const data = await crm<{ clients: CrmClient[]; total: number }>("clients.list", {
         q: opts.q,
         status: opts.status,
+        agency_id: opts.agency_id,
         limit: pageSize,
         offset: page * pageSize,
       });
@@ -39,7 +40,7 @@ export function useCrmClients(opts: { q?: string; status?: string; page?: number
       setError(null);
     } catch (e) { setError((e as Error).message); }
     finally { setLoading(false); }
-  }, [opts.q, opts.status, page, pageSize]);
+  }, [opts.q, opts.status, opts.agency_id, page, pageSize]);
   useEffect(() => { reload(); }, [reload]);
   return { clients, total, loading, error, reload };
 }

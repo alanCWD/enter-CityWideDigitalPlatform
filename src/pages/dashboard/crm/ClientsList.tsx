@@ -1,40 +1,50 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, Plus, X, Upload, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Search, Plus, X, Upload, ChevronLeft, ChevronRight, Trash2, Building2 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClients } from "@/hooks/useCrm";
 import { crm } from "@/lib/crm";
 import { ImportClientsDialog } from "@/components/crm/ImportClientsDialog";
+import { useAgency } from "@/contexts/AgencyContext";
+import { AGENCIES, ACCENT_CLASSES, getAgency } from "@/lib/agencies";
 
 const PAGE_SIZE = 100;
 
 export function ClientsList() {
+  const { agency } = useAgency();
+  const isMaster = agency.slug === "citywide";
+
   const [params, setParams] = useSearchParams();
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [status, setStatus] = useState<string>("");
+  // CityWide master view: "all" = show everyone, or filter to a specific agency
+  const [agencyFilter, setAgencyFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
-  const { clients, total, loading, reload } = useCrmClients({
-    q: debouncedQ || undefined,
-    status: status || undefined,
-    page,
-    pageSize: PAGE_SIZE,
-  });
   const showNew = params.get("new") === "1";
   const showImport = params.get("import") === "1";
 
-  // Debounce search input — reset to page 0 when query changes
+  // Effective agency_id sent to the API
+  const effectiveAgencyId = isMaster
+    ? (agencyFilter === "all" ? "all" : agencyFilter)
+    : agency.slug;
+
+  const { clients, total, loading, reload } = useCrmClients({
+    q: debouncedQ || undefined,
+    status: status || undefined,
+    agency_id: effectiveAgencyId,
+    page,
+    pageSize: PAGE_SIZE,
+  });
+
+  // Debounce search input
   useEffect(() => {
-    const t = setTimeout(() => {
-      setDebouncedQ(q);
-      setPage(0);
-    }, 300);
+    const t = setTimeout(() => { setDebouncedQ(q); setPage(0); }, 300);
     return () => clearTimeout(t);
   }, [q]);
 
-  // Reset to page 0 when status filter changes
-  useEffect(() => { setPage(0); }, [status]);
+  useEffect(() => { setPage(0); }, [status, agencyFilter]);
 
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const start = total === 0 ? 0 : page * PAGE_SIZE + 1;
@@ -42,10 +52,8 @@ export function ClientsList() {
 
   const deleteClient = useCallback(async (id: string, name: string) => {
     if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
-    try {
-      await crm("clients.delete", { id });
-      reload();
-    } catch (e) { alert((e as Error).message); }
+    try { await crm("clients.delete", { id }); reload(); }
+    catch (e) { alert((e as Error).message); }
   }, [reload]);
 
   return (
@@ -95,6 +103,19 @@ export function ClientsList() {
             <option value="paused">Paused</option>
             <option value="churned">Churned</option>
           </select>
+          {/* Agency filter — CityWide master view only */}
+          {isMaster && (
+            <select
+              value={agencyFilter}
+              onChange={(e) => setAgencyFilter(e.target.value)}
+              className="bg-card border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:border-primary/50"
+            >
+              <option value="all">All brands</option>
+              {AGENCIES.map((a) => (
+                <option key={a.slug} value={a.slug}>{a.name}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Table */}
@@ -106,16 +127,17 @@ export function ClientsList() {
                 <Th>Email</Th>
                 <Th>Phone</Th>
                 <Th>Status</Th>
+                {isMaster && <Th>Brand</Th>}
                 <Th className="text-right">Created</Th>
                 <Th></Th>
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={6} className="py-8 text-center text-xs text-muted-foreground">Loading…</td></tr>
+                <tr><td colSpan={isMaster ? 7 : 6} className="py-8 text-center text-xs text-muted-foreground">Loading…</td></tr>
               )}
               {!loading && clients.length === 0 && (
-                <tr><td colSpan={6} className="py-12 text-center text-sm text-muted-foreground">
+                <tr><td colSpan={isMaster ? 7 : 6} className="py-12 text-center text-sm text-muted-foreground">
                   {q || status ? "No clients match your search." : "No clients yet. Click + New Client to add one."}
                 </td></tr>
               )}
@@ -131,6 +153,11 @@ export function ClientsList() {
                   <td className="px-4 py-3">
                     <StatusSelect clientId={c.id} status={c.status} onUpdated={reload} />
                   </td>
+                  {isMaster && (
+                    <td className="px-4 py-3">
+                      <AgencySelect clientId={c.id} agencyId={c.agency_id ?? "citywide"} onUpdated={reload} />
+                    </td>
+                  )}
                   <td className="px-4 py-3 text-right text-xs text-muted-foreground">
                     {new Date(c.created_at).toLocaleDateString()}
                   </td>
@@ -163,7 +190,6 @@ export function ClientsList() {
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              {/* Page number buttons — show window around current page */}
               {Array.from({ length: totalPages }, (_, i) => i)
                 .filter((i) => i === 0 || i === totalPages - 1 || Math.abs(i - page) <= 2)
                 .reduce<(number | "…")[]>((acc, i, idx, arr) => {
@@ -202,6 +228,7 @@ export function ClientsList() {
 
       {showNew && (
         <NewClientDialog
+          agencySlug={agency.slug}
           onClose={() => setParams({})}
           onCreated={() => { setParams({}); reload(); }}
         />
@@ -217,11 +244,11 @@ export function ClientsList() {
   );
 }
 
-function Th({ children, className }: { children: React.ReactNode; className?: string }) {
+function Th({ children, className }: { children?: React.ReactNode; className?: string }) {
   return <th className={`px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider text-muted-foreground ${className ?? ""}`}>{children}</th>;
 }
 
-function NewClientDialog({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+function NewClientDialog({ agencySlug, onClose, onCreated }: { agencySlug: string; onClose: () => void; onCreated: () => void }) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -238,7 +265,7 @@ function NewClientDialog({ onClose, onCreated }: { onClose: () => void; onCreate
     e.preventDefault();
     setBusy(true); setErr(null);
     try {
-      await crm("clients.create", { name, billing_email: email || null, phone: phone || null });
+      await crm("clients.create", { name, billing_email: email || null, phone: phone || null, agency_id: agencySlug });
       onCreated();
     } catch (e2) { setErr((e2 as Error).message); }
     finally { setBusy(false); }
@@ -313,7 +340,6 @@ function StatusSelect({ clientId, status, onUpdated }: { clientId: string; statu
       onUpdated();
     } catch (err) {
       setCurrent(prev);
-      // Stale row — reload the list to clear it
       if ((err as Error).message?.includes("not found")) onUpdated();
     }
     finally { setSaving(false); }
@@ -330,5 +356,41 @@ function StatusSelect({ clientId, status, onUpdated }: { clientId: string; statu
     >
       {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
     </select>
+  );
+}
+
+/** Inline agency re-assignment for the CityWide master view */
+function AgencySelect({ clientId, agencyId, onUpdated }: { clientId: string; agencyId: string; onUpdated: () => void }) {
+  const [current, setCurrent] = useState(agencyId);
+  const [saving, setSaving] = useState(false);
+  const ag = getAgency(current);
+  const accent = ACCENT_CLASSES[ag.accent];
+
+  const onChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const next = e.target.value;
+    const prev = current;
+    setCurrent(next);
+    setSaving(true);
+    try {
+      await crm("clients.update", { id: clientId, agency_id: next });
+      onUpdated();
+    } catch {
+      setCurrent(prev);
+    } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${accent.dot}`} />
+      <select
+        value={current}
+        onChange={onChange}
+        disabled={saving}
+        onClick={(e) => e.stopPropagation()}
+        className={`text-[10px] font-bold uppercase tracking-wider border rounded-full px-2 py-0.5 cursor-pointer focus:outline-none disabled:opacity-60 transition-colors appearance-none ${accent.bg} ${accent.text} ${accent.border}`}
+      >
+        {AGENCIES.map((a) => <option key={a.slug} value={a.slug}>{a.name}</option>)}
+      </select>
+    </div>
   );
 }

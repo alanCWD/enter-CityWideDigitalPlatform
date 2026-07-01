@@ -16,6 +16,7 @@ export interface CrmClient {
   postal_code: string | null;
   country: string | null;
   notes: string | null;
+  agency_id: string;
   created_at: string;
   updated_at: string;
 }
