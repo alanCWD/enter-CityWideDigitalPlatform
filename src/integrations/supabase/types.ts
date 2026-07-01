@@ -3130,6 +3130,30 @@ export type Database = {
         }
         Relationships: []
       }
+      agencies: {
+        Row: {
+          accent: string
+          created_at: string
+          name: string
+          slug: string
+          tagline: string
+        }
+        Insert: {
+          accent?: string
+          created_at?: string
+          name: string
+          slug: string
+          tagline?: string
+        }
+        Update: {
+          accent?: string
+          created_at?: string
+          name?: string
+          slug?: string
+          tagline?: string
+        }
+        Relationships: []
+      }
       billing_records: {
         Row: {
           agency_id: string
@@ -3200,6 +3224,7 @@ export type Database = {
         Row: {
           access_token: string | null
           address: string | null
+          agency_id: string
           business_name: string | null
           category: string | null
           client_label: string
@@ -3225,6 +3250,7 @@ export type Database = {
         Insert: {
           access_token?: string | null
           address?: string | null
+          agency_id?: string
           business_name?: string | null
           category?: string | null
           client_label: string
@@ -3250,6 +3276,7 @@ export type Database = {
         Update: {
           access_token?: string | null
           address?: string | null
+          agency_id?: string
           business_name?: string | null
           category?: string | null
           client_label?: string
@@ -3272,7 +3299,14 @@ export type Database = {
           website?: string | null
           zernio_profile_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "gbp_connections_agency_id_fkey"
+            columns: ["agency_id"]
+            referencedRelation: "agencies"
+            referencedColumns: ["slug"]
+          },
+        ]
       }
       gbp_posts: {
         Row: {

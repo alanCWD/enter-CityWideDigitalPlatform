@@ -1,0 +1,25 @@
+-- Agencies table
+CREATE TABLE IF NOT EXISTS agencies (
+  slug        text PRIMARY KEY,
+  name        text NOT NULL,
+  tagline     text NOT NULL DEFAULT '',
+  accent      text NOT NULL DEFAULT 'blue',
+  created_at  timestamp with time zone NOT NULL DEFAULT now()
+);
+
+ALTER TABLE agencies ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service role manages agencies" ON agencies FOR ALL USING (role() = 'service_role');
+CREATE POLICY "authenticated users read agencies" ON agencies FOR SELECT USING (auth.role() = 'authenticated');
+
+-- Seed the 4 agencies
+INSERT INTO agencies (slug, name, tagline, accent) VALUES
+  ('citywide',    'CityWide Digital',  'Full-service digital agency',          'blue'),
+  ('legacy_leaf', 'Legacy Leaf',       'Sovereign cannabis brand management',  'green'),
+  ('foodiio',     'Foodiio',           'Restaurants & hospitality tech',       'orange'),
+  ('oneprofile',  'OneProfile',        'Creator & professional portfolios',    'purple')
+ON CONFLICT (slug) DO NOTHING;
+
+-- Add agency_id to gbp_connections
+ALTER TABLE gbp_connections
+  ADD COLUMN IF NOT EXISTS agency_id text NOT NULL DEFAULT 'citywide'
+    REFERENCES agencies(slug) ON UPDATE CASCADE;

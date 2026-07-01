@@ -1,39 +1,10 @@
 import { NavLink } from "react-router-dom";
-import {
-  Building2,
-  LayoutTemplate,
-  Store,
-  BarChart3,
-  Bell,
-  Utensils,
-  X,
-  Menu,
-  TrendingUp,
-  MessagesSquare,
-  ExternalLink,
-  Receipt,
-  Users,
-  Package,
-  FileText,
-} from "lucide-react";
+import { X, Menu, TrendingUp, MessagesSquare, ExternalLink, Store } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { Logo, LogoOnDark } from "@/components/branding/Logo";
-import { useTheme } from "@/hooks/useTheme";
-
-const NAV_ITEMS = [
-  { name: "Dashboard", path: "/dashboard", icon: Building2 },
-  { name: "App Builder", path: "/builder", icon: LayoutTemplate },
-  { name: "GBP Integration", path: "/gbp", icon: Store },
-  { name: "Ordering & Menus", path: "/restaurant", icon: Utensils },
-  { name: "Analytics", path: "/analytics", icon: BarChart3 },
-  { name: "Leads & Alerts", path: "/leads", icon: Bell },
-  { name: "CRM & Billing", path: "/dashboard/crm", icon: Receipt },
-  { name: "Clients", path: "/dashboard/crm/clients", icon: Users },
-  { name: "Products & Plans", path: "/dashboard/crm/catalog", icon: Package },
-  { name: "Invoices", path: "/dashboard/crm/invoices", icon: FileText },
-];
+import { useAgency } from "@/contexts/AgencyContext";
+import { AgencySwitcher } from "./AgencySwitcher";
 
 export function Sidebar() {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
@@ -81,27 +52,21 @@ export function Sidebar() {
 }
 
 function SidebarContent({ onNav }: { onNav: () => void }) {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
+  const { agency } = useAgency();
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      {/* Logo */}
-      <div className="px-4 py-5 border-b border-sidebar-border flex items-center justify-between gap-2">
-        {isDark ? <LogoOnDark size="sm" /> : <Logo size="sm" />}
-        <div className="text-[#0078D7] text-[9px] font-bold uppercase tracking-wider whitespace-nowrap">
-          Command Center
-        </div>
-      </div>
+      {/* Agency Switcher — replaces logo area */}
+      <AgencySwitcher />
 
-      {/* Nav Items */}
+      {/* Nav Items — agency-specific */}
       <nav className="flex-1 p-3 space-y-0.5">
-        {NAV_ITEMS.map((item) => (
+        {agency.navItems.map((item) => (
           <NavLink
-            key={item.path}
+            key={item.path + item.name}
             to={item.path}
             onClick={onNav}
-            end={item.path === "/dashboard" || item.path === "/dashboard/crm"}
+            end={item.end ?? false}
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 w-full font-medium",
