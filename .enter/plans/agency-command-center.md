@@ -1,80 +1,101 @@
-# GBP Auto-Connect Plan
+# Agency Command Centre — Multi-Brand Selector Plan
 
 ## Context
-The OAuth infrastructure already exists and is fully functional:
-- `gbp-auth-url` → generates Google OAuth URL
-- `gbp-auth-callback` → after OAuth: exchanges tokens, fetches ALL GBP data (NAP, reviews, posts), upserts into `gbp_connections` + `gbp_reviews` + `gbp_posts`
-- `gbp-sync` → re-sync using stored refresh tokens
+The dashboard needs to support 4 white-label agency brands under CityWide Digital's master account:
+- **CityWide Digital** (slug: `citywide`) — broadest niche range, master agency
+- **Legacy Leaf** (slug: `legacy_leaf`) — sovereign cannabis shops (GBP optional)
+- **Foodiio** (slug: `foodiio`) — restaurants with GBP, menus, POS
+- **OneProfile** (slug: `oneprofile`) — individual creator portfolios, LinkedIn-fed
 
-**Two things are missing:**
-1. After OAuth, the CRM client's `gbp_connection_id` (in BunnyDB) is never set
-2. The portal `/portal/connect` page shows "Pending setup" — clients can't self-connect
+Each agency has its own clients (isolated via `agency_id`) but shares master service credentials (Zernio, Synup, bunny.net). The switcher lives at the top of the sidebar as a branded dropdown.
 
-## What changes
+---
 
-### 1. `supabase/functions/gbp-auth-url/index.ts`
-Accept `crmClientId` in the POST body and include it in the OAuth `state` payload.
+## Changes
+
+### 1. Database Migration
+- Add `agencies` table (slug PK, name, tagline, accent_color)
+- Add `agency_id text NOT NULL DEFAULT 'citywide'` to `gbp_connections`
+- Seed the 4 agencies
+
+### 2. New: `src/lib/agencies.ts`
+Static agency config with typed definitions:
+```ts
+export interface Agency {
+  slug: string          // DB key
+  name: string          // display name
+  tagline: string       // one-liner
+  accent: string        // tailwind color class e.g. "emerald"
+  navItems: NavItem[]   // sidebar nav specific to this agency
+}
 ```
-state = btoa(JSON.stringify({ clientLabel, frontendOrigin, linkUserId, crmClientId }))
-```
+Agency-specific nav items:
+| Agency | Nav items |
+|--------|-----------|
+| CityWide Digital | Dashboard, App Builder, GBP, Ordering & Menus, Analytics, Leads, CRM, Clients, Plans, Invoices |
+| Legacy Leaf | Dashboard, GBP, Analytics, Leads, CRM, Clients, Plans, Invoices |
+| Foodiio | Dashboard, GBP, Ordering & Menus, Social, Analytics, Leads, CRM, Clients, Plans, Invoices |
+| OneProfile | Dashboard, Social, Analytics, CRM, Clients, Plans, Invoices |
 
-### 2. `supabase/functions/gbp-auth-callback/index.ts`
-- Extract `crmClientId` from parsed state
-- After the `gbp_connections` row is created/updated (step 5 in existing code), if `crmClientId` is truthy:
-  - Use the same BunnyDB HTTP pipeline format as `bunny-rpc` to run:
-    `UPDATE clients SET gbp_connection_id = ?, updated_at = ? WHERE id = ?`
-  - Uses `BUNNY_DB_URL` + `BUNNY_DB_AUTH_TOKEN` env vars (shared across all edge functions)
-- Update redirect logic:
-  - If `crmClientId` AND no `linkUserId`: redirect to `/dashboard/crm/clients/{crmClientId}?gbp=connected`
-  - If `linkUserId`: existing behavior — redirect to `/portal/{connectionId}?status=connected`
-  - Default: existing `/gbp?status=connected` behavior
+### 3. New: `src/contexts/AgencyContext.tsx`
+- `AgencyContext` providing `{ agency, setAgency }`
+- Persists selected slug in `localStorage` key `cwd_active_agency`
+- Defaults to `'citywide'`
+- `AgencyProvider` wraps the app (added to `src/main.tsx` or `src/App.tsx`)
+- Export `useAgency()` hook
 
-### 3. `src/pages/portal/PortalConnect.tsx`
-Replace "Pending agency setup" with a real GBP connect flow:
-- Show "Connect Your Google Business Profile" button
-- On click: call `gbp-auth-url` with `{ clientLabel: user.email, frontendOrigin, linkUserId: user.id }`
-- Read optional `crmClientId` from URL search params (passed by agency when generating link)
-- Show a simple loading state while redirecting
+### 4. New: `src/components/dashboard/AgencySwitcher.tsx`
+Replaces the logo area at the top of the sidebar:
+- Shows current agency name + tagline + colored accent dot
+- Clicking opens a dropdown listing all 4 agencies
+- Each agency row: colored dot, name, tagline
+- Active agency has a checkmark
+- Logo shown below the switcher (smaller, secondary)
+- Closes on outside click
 
-### 4. `src/components/dashboard/crm/LinkZernioProfileDialog.tsx`
-Add a third view: "Connect with Google"
-- New tab/section: "Connect via Google OAuth"
-- On click: call `gbp-auth-url` with `{ clientLabel: clientName, frontendOrigin: window.location.origin, crmClientId }`
-- Redirect to Google OAuth → all data syncs → CRM client linked automatically
-- This replaces the manual "Create New Profile" form as the primary action
+### 5. Modified: `src/components/dashboard/Sidebar.tsx`
+- Replace logo+badge header block with `<AgencySwitcher />`
+- Replace static `NAV_ITEMS` with `agency.navItems` from `useAgency()`
+- Sidebar bottom "Lead Velocity" widget stays (relabeled contextually if needed)
 
-## Files to modify
-1. `supabase/functions/gbp-auth-url/index.ts`
-2. `supabase/functions/gbp-auth-callback/index.ts`
-3. `src/pages/portal/PortalConnect.tsx`
-4. `src/components/dashboard/crm/LinkZernioProfileDialog.tsx`
+### 6. Modified: `src/pages/dashboard/Dashboard.tsx`
+- Fix: `"Agency Command Center"` → `"Agency Command Centre"` (Canadian spelling)
+- Remove: `action={{ label: "+ Deploy New Restaurant" }}` from `<TopBar />`
+- KPI subtitle dynamically shows agency name and client count from DB
+- Client roster: `SELECT COUNT(*) FROM gbp_connections WHERE agency_id = {slug}` for count, full list for table
+- KPI cards adapt labels per agency (e.g., "Active Restaurant Sites" → "Active Clients" for CityWide; "Cannabis Shops" for Legacy Leaf; etc.)
+- Chart section: hide "Native vs Aggregator" chart for OneProfile and Legacy Leaf (not relevant); show only for Foodiio/CityWide
 
-## BunnyDB update format (reuse from bunny-rpc)
-```typescript
-const bunnyBase = (Deno.env.get("BUNNY_DB_URL") ?? "")
-  .trim().replace(/\/$/, "").replace(/^libsql:\/\//i, "https://");
-await fetch(`${bunnyBase}/v2/pipeline`, {
-  method: "POST",
-  headers: { "Authorization": `Bearer ${Deno.env.get("BUNNY_DB_AUTH_TOKEN")}`, "Content-Type": "application/json" },
-  body: JSON.stringify({ requests: [
-    { type: "execute", stmt: { sql: "UPDATE clients SET gbp_connection_id = ?, updated_at = ? WHERE id = ?",
-      args: [{ type: "text", value: connectionId }, { type: "text", value: new Date().toISOString() }, { type: "text", value: crmClientId }] } },
-    { type: "close" }
-  ]}),
-});
-```
+---
 
-## Result (end-to-end flows)
+## Files to Create/Edit
 
-**Agency-initiated (from CRM client page):**
-1. Agency opens HyperDrii → clicks "Link Business Profile" → "Connect with Google"
-2. Redirected to Google OAuth (agency signs in with management account)
-3. Callback: syncs all NAP/reviews/posts → updates BunnyDB `clients.gbp_connection_id`
-4. Redirected to `/dashboard/crm/clients/hyperdrii-2?gbp=connected`
-5. Client page reloads — portal now active, GBP tab visible, all data populated
+| File | Action |
+|------|--------|
+| DB migration | New — agencies table + agency_id on gbp_connections |
+| `src/lib/agencies.ts` | New |
+| `src/contexts/AgencyContext.tsx` | New |
+| `src/components/dashboard/AgencySwitcher.tsx` | New |
+| `src/components/dashboard/Sidebar.tsx` | Edit — swap header, use agency nav |
+| `src/pages/dashboard/Dashboard.tsx` | Edit — fix spelling, remove action, dynamic KPIs |
+| `src/App.tsx` or `src/main.tsx` | Edit — wrap with AgencyProvider |
 
-**Client self-connect (via portal):**
-1. Client receives portal invite → logs in → lands on `/portal/connect`
-2. Sees "Connect Google Business Profile" button (not "Pending setup")
-3. Clicks → Google OAuth with their own business Google account
-4. Callback: syncs all data → links `portal_users` → redirects to `/portal/{id}?status=connected`
+---
+
+## Key Patterns / Reuse
+- Existing `useTheme()` pattern → same pattern for `useAgency()`
+- `NavLink` with `end` prop already in Sidebar — reuse as-is
+- `TopBar` already accepts `subtitle` prop — pass agency name dynamically
+- DB `agency_id` already exists on `posts`, `billing_records`, `social_accounts` — consistent pattern
+- `supabase` client already imported in Dashboard area hooks — use for live client count
+
+---
+
+## Verification
+1. Sidebar top shows branded agency dropdown — clicking cycles through 4 agencies
+2. Nav items change when agency switches (e.g. OneProfile has no GBP or Ordering)
+3. Dashboard title reads "Agency Command Centre" (no action button)
+4. Subtitle shows active agency name and live client count from DB
+5. Switching from CityWide to Foodiio only shows Foodiio clients in roster
+6. Selection persists on page refresh (localStorage)
+7. New clients added via CRM get stamped with current `agency_id`
