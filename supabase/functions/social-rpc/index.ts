@@ -73,7 +73,6 @@ async function publishToZernio(
   }
 }
 
-/** Fetch a URL from Zernio and return parsed JSON + raw text */
 async function zernioGet(url: string, key: string): Promise<{ ok: boolean; status: number; data: unknown; raw: string }> {
   try {
     const res = await fetch(url, { headers: { Authorization: `Bearer ${key}` } });
@@ -101,16 +100,14 @@ Deno.serve(async (req) => {
     switch (action) {
 
       case "social.connect": {
-        const { platform, client_id } = payload as { platform: string; client_id: string };
-        if (platform !== "google_business") {
-          const { data: existing } = await supabase
-            .from("social_accounts").select("id")
-            .eq("client_id", client_id).eq("platform", "google_business").maybeSingle();
-          if (!existing) return json({ ok: false, error: "Google Business must be connected first." });
-        }
-        const profileId = await getOrCreateZernioProfile(client_id, zernioKey);
+        const { platform, client_id, profile_id: payloadProfileId, redirect_uri } = payload as {
+          platform: string; client_id?: string; profile_id?: string; redirect_uri?: string;
+        };
+        const effectiveClientId = client_id ?? "citywide";
+        const profileId = payloadProfileId ?? await getOrCreateZernioProfile(effectiveClientId, zernioKey);
         const origin = req.headers.get("origin") ?? "http://localhost:5173";
-        const redirectUri = encodeURIComponent(`${origin}/dashboard/social/profiles`);
+        const defaultRedirect = `${origin}/dashboard/social/calendar?tab=accounts&connected=true&platform=${platform}`;
+        const redirectUri = encodeURIComponent(redirect_uri ?? defaultRedirect);
         const zernioPlatform = platform === "google_business" ? "googlebusiness" : platform;
         const connectUrl = `https://zernio.com/api/v1/connect/${zernioPlatform}?profileId=${profileId}&redirectUri=${redirectUri}`;
         const response = await fetch(connectUrl, { headers: { Authorization: `Bearer ${zernioKey}` } });
@@ -219,7 +216,6 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
-      // ── Grant admin preview access to a portal connection ──
       case "portal.preview": {
         const { connection_id } = payload as { connection_id: string };
         const authHeader = req.headers.get("Authorization") ?? "";
@@ -234,8 +230,8 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
-      // ── List Zernio profiles from master account ──────
       case "zernio.profiles": {
+        const { agency_slug } = payload as { agency_slug?: string };
         const res = await fetch("https://zernio.com/api/v1/profiles", {
           headers: { Authorization: `Bearer ${zernioKey}` },
         });
@@ -243,70 +239,49 @@ Deno.serve(async (req) => {
         let data: unknown;
         try { data = JSON.parse(text); } catch { data = { raw: text }; }
         if (!res.ok) return json({ ok: false, error: `Zernio ${res.status}: ${text.slice(0, 200)}` });
-        return json({ ok: true, profiles: (data as { profiles?: unknown[] }).profiles ?? [] });
+        const profiles = (data as { profiles?: ZernioProfile[] }).profiles ?? [];
+        if (agency_slug) {
+          const profileName = `Profile for ${agency_slug}`;
+          const existing = profiles.find((p) => p.name === profileName || p.name.toLowerCase().includes(agency_slug.toLowerCase()));
+          if (existing) return json({ ok: true, profiles, profileId: existing._id });
+          try {
+            const createRes = await fetch("https://zernio.com/api/v1/profiles", {
+              method: "POST",
+              headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
+              body: JSON.stringify({ name: profileName, description: `Auto-created for ${agency_slug}` }),
+            });
+            if (createRes.ok) {
+              const created = await createRes.json() as { profile?: ZernioProfile };
+              if (created.profile?._id) return json({ ok: true, profiles, profileId: created.profile._id });
+            }
+          } catch (e) { console.error("Failed to create Zernio profile:", e); }
+        }
+        return json({ ok: true, profiles, profileId: profiles[0]?._id ?? null });
       }
 
-      // ── Debug: probe all Zernio endpoint patterns ──────
       case "zernio.debug": {
         const { zernio_profile_id } = payload as { zernio_profile_id?: string };
         const results: Record<string, unknown> = {};
-
-        // Always fetch profiles list
         const profilesRes = await zernioGet("https://zernio.com/api/v1/profiles", zernioKey);
         results.profiles_list = { status: profilesRes.status, data: profilesRes.data };
-
         if (zernio_profile_id) {
           const id = zernio_profile_id;
-
-          // Profile variants
-          for (const path of [
-            `/api/v1/profiles/${id}`,
-            `/api/v1/profiles/${id}/gbp`,
-            `/api/v1/profiles/${id}/location`,
-            `/api/v1/profiles/${id}/details`,
-            `/api/v1/gbp?profileId=${id}`,
-            `/api/v1/locations?profileId=${id}`,
-          ]) {
+          for (const path of [`/api/v1/profiles/${id}`,`/api/v1/profiles/${id}/gbp`,`/api/v1/gbp?profileId=${id}`,`/api/v1/locations?profileId=${id}`]) {
             const r = await zernioGet(`https://zernio.com${path}`, zernioKey);
             results[`profile__${path.replace(/[/?=]/g,"_")}`] = { status: r.status, raw: r.raw.slice(0, 300) };
           }
-
-          // Review variants
-          for (const path of [
-            `/api/v1/profiles/${id}/reviews`,
-            `/api/v1/reviews?profileId=${id}`,
-            `/api/v1/google-reviews?profileId=${id}`,
-            `/api/v1/reputation?profileId=${id}`,
-            `/api/v1/gbp/reviews?profileId=${id}`,
-            `/api/v1/reviews/google?profileId=${id}`,
-            `/api/v1/listings/${id}/reviews`,
-          ]) {
+          for (const path of [`/api/v1/google-reviews?profileId=${id}`,`/api/v1/reviews?profileId=${id}`,`/api/v1/profiles/${id}/reviews`]) {
             const r = await zernioGet(`https://zernio.com${path}`, zernioKey);
             results[`reviews__${path.replace(/[/?=]/g,"_")}`] = { status: r.status, raw: r.raw.slice(0, 300) };
           }
         }
-
         return json({ ok: true, debug: results });
       }
 
-      // ── Sync GBP data (NAP + reviews + posts) from Zernio ──
       case "zernio.syncProfile": {
-        const { connection_id, zernio_profile_id } = payload as {
-          connection_id: string;
-          zernio_profile_id: string;
-        };
-
+        const { connection_id, zernio_profile_id } = payload as { connection_id: string; zernio_profile_id: string };
         const syncLog: string[] = [];
-
-        // 1. Fetch profile info — try single profile, then gbp/location sub-paths
-        const profilePaths = [
-          `https://zernio.com/api/v1/profiles/${zernio_profile_id}`,
-          `https://zernio.com/api/v1/profiles/${zernio_profile_id}/gbp`,
-          `https://zernio.com/api/v1/profiles/${zernio_profile_id}/location`,
-          `https://zernio.com/api/v1/gbp?profileId=${zernio_profile_id}`,
-          `https://zernio.com/api/v1/locations?profileId=${zernio_profile_id}`,
-        ];
-        for (const url of profilePaths) {
+        for (const url of [`https://zernio.com/api/v1/profiles/${zernio_profile_id}`,`https://zernio.com/api/v1/gbp?profileId=${zernio_profile_id}`]) {
           const res = await zernioGet(url, zernioKey);
           if (res.ok && res.data) {
             const p = res.data as Record<string, unknown>;
@@ -320,104 +295,16 @@ Deno.serve(async (req) => {
             if (pd.rating != null) updateFields.rating = pd.rating;
             if (pd.reviewCount != null) updateFields.review_count = pd.reviewCount;
             if (pd.review_count != null) updateFields.review_count = pd.review_count;
-            if (pd.averageRating != null) updateFields.rating = pd.averageRating;
-            if (pd.totalReviews != null) updateFields.review_count = pd.totalReviews;
             await supabase.from("gbp_connections").update(updateFields).eq("id", connection_id);
-            syncLog.push(`profile (${url.split("/api/v1/")[1].split("?")[0]}): updated ${Object.keys(updateFields).length} fields`);
+            syncLog.push(`profile: updated ${Object.keys(updateFields).length} fields`);
             break;
           }
         }
-
-        // 2. Fetch reviews — try multiple endpoint patterns
-        let reviewsData: unknown[] = [];
-        const reviewPaths = [
-          `https://zernio.com/api/v1/google-reviews?profileId=${zernio_profile_id}`,
-          `https://zernio.com/api/v1/reputation?profileId=${zernio_profile_id}`,
-          `https://zernio.com/api/v1/gbp/reviews?profileId=${zernio_profile_id}`,
-          `https://zernio.com/api/v1/reviews/google?profileId=${zernio_profile_id}`,
-          `https://zernio.com/api/v1/listings/${zernio_profile_id}/reviews`,
-          `https://zernio.com/api/v1/profiles/${zernio_profile_id}/reviews`,
-          `https://zernio.com/api/v1/reviews?profileId=${zernio_profile_id}`,
-        ];
-        for (const url of reviewPaths) {
-          const res = await zernioGet(url, zernioKey);
-          if (res.ok && res.data) {
-            const rd = res.data as Record<string, unknown>;
-            const arr = rd.reviews ?? rd.data ?? rd.items ?? rd.results ?? (Array.isArray(res.data) ? res.data : null);
-            if (arr && Array.isArray(arr)) {
-              reviewsData = arr as unknown[];
-              syncLog.push(`reviews (${url.split("/api/v1/")[1].split("?")[0]}): ${reviewsData.length} found`);
-              break;
-            }
-          }
-        }
-        if (reviewsData.length === 0) {
-          syncLog.push(`reviews: not available on any endpoint`);
-        }
-
-        if (reviewsData.length > 0) {
-          const rows = reviewsData.map((r) => {
-            const rv = r as Record<string, unknown>;
-            return {
-              connection_id,
-              review_id: (rv._id ?? rv.id ?? crypto.randomUUID()) as string,
-              reviewer_name: (rv.reviewer_name ?? rv.reviewerName ?? rv.author ?? rv.name ?? "Anonymous") as string,
-              rating: (rv.rating ?? rv.starRating ?? rv.score ?? 0) as number,
-              comment: (rv.comment ?? rv.text ?? rv.body ?? rv.content ?? null) as string | null,
-              reply: (rv.reply ?? rv.response ?? rv.replyText ?? null) as string | null,
-              review_time: (rv.review_time ?? rv.reviewTime ?? rv.createdAt ?? rv.created_at ?? new Date().toISOString()) as string,
-            };
-          });
-          await supabase.from("gbp_reviews")
-            .upsert(rows, { onConflict: "connection_id,review_id" });
-          await supabase.from("gbp_connections")
-            .update({ review_count: rows.length })
-            .eq("id", connection_id);
-        }
-
-        // 3. Fetch posts
-        let postsData: unknown[] = [];
-        const postsPaths = [
-          `https://zernio.com/api/v1/posts?profileId=${zernio_profile_id}`,
-          `https://zernio.com/api/v1/profiles/${zernio_profile_id}/posts`,
-          `https://zernio.com/api/v1/gbp/posts?profileId=${zernio_profile_id}`,
-        ];
-        for (const url of postsPaths) {
-          const res = await zernioGet(url, zernioKey);
-          if (res.ok && res.data) {
-            const pd2 = res.data as Record<string, unknown>;
-            const arr = pd2.posts ?? pd2.data ?? pd2.items ?? (Array.isArray(res.data) ? res.data : null);
-            if (arr && Array.isArray(arr)) {
-              postsData = arr as unknown[];
-              syncLog.push(`posts (${url.split("/api/v1/")[1].split("?")[0]}): ${postsData.length} found`);
-              break;
-            }
-          }
-        }
-        if (postsData.length === 0) syncLog.push(`posts: not available`);
-
-        if (postsData.length > 0) {
-          const rows = postsData.map((p) => {
-            const pv = p as Record<string, unknown>;
-            return {
-              connection_id,
-              post_id: (pv._id ?? pv.id ?? crypto.randomUUID()) as string,
-              summary: (pv.summary ?? pv.content ?? pv.text ?? pv.body ?? null) as string | null,
-              topic_type: (pv.topic_type ?? pv.topicType ?? pv.type ?? "STANDARD") as string,
-              media_url: (pv.media_url ?? pv.mediaUrl ?? pv.image ?? null) as string | null,
-              post_time: (pv.post_time ?? pv.scheduledAt ?? pv.createdAt ?? pv.created_at ?? new Date().toISOString()) as string,
-            };
-          });
-          await supabase.from("gbp_posts")
-            .upsert(rows, { onConflict: "connection_id,post_id" });
-        }
-
         return json({ ok: true, synced: true, log: syncLog });
       }
 
-      // ── Link Zernio profile → CRM client ─────────────
       case "zernio.linkProfile": {
-        const { crm_client_id: _crmId, zernio_profile_id, profile_name, category, address, phone, website, rating, review_count } = payload as {
+        const { zernio_profile_id, profile_name, category, address, phone, website, rating, review_count } = payload as {
           crm_client_id: string; zernio_profile_id: string; profile_name: string;
           category?: string; address?: string; phone?: string; website?: string;
           rating?: number; review_count?: number;
@@ -427,25 +314,87 @@ Deno.serve(async (req) => {
         let connectionId: string;
         if (existing?.id) {
           connectionId = existing.id as string;
-          await supabase.from("gbp_connections").update({
-            client_label: profile_name, business_name: profile_name,
-            category: category ?? null, address: address ?? null,
-            phone: phone ?? null, website: website ?? null,
-            rating: rating ?? null, review_count: review_count ?? 0,
-            last_synced_at: new Date().toISOString(),
-          }).eq("id", connectionId);
+          await supabase.from("gbp_connections").update({ client_label: profile_name, business_name: profile_name, category: category ?? null, address: address ?? null, phone: phone ?? null, website: website ?? null, rating: rating ?? null, review_count: review_count ?? 0, last_synced_at: new Date().toISOString() }).eq("id", connectionId);
         } else {
-          const { data: inserted, error: insertErr } = await supabase.from("gbp_connections").insert({
-            client_label: profile_name, business_name: profile_name,
-            zernio_profile_id, category: category ?? null,
-            address: address ?? null, phone: phone ?? null,
-            website: website ?? null, rating: rating ?? null,
-            review_count: review_count ?? 0, last_synced_at: new Date().toISOString(),
-          }).select("id").single();
+          const { data: inserted, error: insertErr } = await supabase.from("gbp_connections").insert({ client_label: profile_name, business_name: profile_name, zernio_profile_id, category: category ?? null, address: address ?? null, phone: phone ?? null, website: website ?? null, rating: rating ?? null, review_count: review_count ?? 0, last_synced_at: new Date().toISOString() }).select("id").single();
           if (insertErr) return json({ ok: false, error: insertErr.message });
           connectionId = (inserted as { id: string }).id;
         }
         return json({ ok: true, connection_id: connectionId });
+      }
+
+      case "zernio.accounts.list": {
+        const { profile_id } = payload as { profile_id?: string };
+        const url = profile_id
+          ? `https://zernio.com/api/v1/accounts?profileId=${profile_id}`
+          : `https://zernio.com/api/v1/accounts`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${zernioKey}` } });
+        const text = await res.text();
+        let data: unknown;
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        if (!res.ok) return json({ ok: false, error: `Zernio ${res.status}: ${text.slice(0, 200)}` });
+        const d = data as { accounts?: unknown[] };
+        return json({ ok: true, accounts: d.accounts ?? [] });
+      }
+
+      case "zernio.posts.create": {
+        const { title: postTitle, content: postContent, accounts: postAccounts, scheduled_for, publish_now, media_urls: postMediaUrls } = payload as {
+          profile_id: string; title?: string; content: string;
+          accounts: { platform: string; accountId: string }[];
+          scheduled_for?: string; publish_now?: boolean; media_urls?: string[];
+        };
+        const body: Record<string, unknown> = {
+          title: postTitle,
+          content: postContent,
+          platforms: postAccounts.map((a) => ({
+            platform: a.platform === "google_business" ? "googlebusiness" : a.platform,
+            accountId: a.accountId,
+          })),
+        };
+        if (publish_now) body.publishNow = true;
+        else if (scheduled_for) body.scheduledFor = scheduled_for;
+        if (postMediaUrls && postMediaUrls.length > 0) {
+          body.mediaItems = postMediaUrls.map((url) => ({ type: "image", url }));
+        }
+        const res = await fetch("https://zernio.com/api/v1/posts", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const text = await res.text();
+        let data: unknown;
+        try { data = JSON.parse(text); } catch { data = text; }
+        if (!res.ok) return json({ ok: false, error: `Zernio ${res.status}: ${typeof data === "string" ? data : JSON.stringify(data).slice(0, 300)}` });
+        const d = data as { post?: { _id?: string }; _id?: string };
+        return json({ ok: true, postId: d.post?._id ?? d._id });
+      }
+
+      case "zernio.posts.list": {
+        const { profile_id: listProfileId } = payload as { profile_id?: string };
+        const url = listProfileId
+          ? `https://zernio.com/api/v1/posts?profileId=${listProfileId}`
+          : `https://zernio.com/api/v1/posts`;
+        const res = await fetch(url, { headers: { Authorization: `Bearer ${zernioKey}` } });
+        const text = await res.text();
+        let data: unknown;
+        try { data = JSON.parse(text); } catch { data = { raw: text }; }
+        if (!res.ok) return json({ ok: false, error: `Zernio ${res.status}: ${text.slice(0, 200)}` });
+        const d = data as { posts?: unknown[] };
+        return json({ ok: true, posts: d.posts ?? [] });
+      }
+
+      case "zernio.disconnect": {
+        const { account_id } = payload as { account_id: string };
+        const res = await fetch(`https://zernio.com/api/v1/accounts/${account_id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${zernioKey}` },
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          return json({ ok: false, error: `Zernio ${res.status}: ${text.slice(0, 200)}` });
+        }
+        await supabase.from("social_accounts").delete().eq("account_id", account_id);
+        return json({ ok: true });
       }
 
       default:
