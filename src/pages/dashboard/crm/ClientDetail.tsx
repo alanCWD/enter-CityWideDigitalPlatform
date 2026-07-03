@@ -56,12 +56,23 @@ export function ClientDetail() {
   }, [searchParams]);
 
   const previewPortal = async (connectionId: string) => {
+    // Open the tab immediately (synchronous, within the click event) so browsers
+    // don't block it as a popup. Then navigate once the edge function responds.
+    const tab = window.open("about:blank", "_blank");
     setPreviewing(true);
     try {
-      const { data } = await supabase.functions.invoke("social-rpc", {
+      const { data, error } = await supabase.functions.invoke("social-rpc", {
         body: { action: "portal.preview", payload: { connection_id: connectionId } },
       });
-      if (data?.ok) window.open(`/portal/${connectionId}`, "_blank");
+      if (data?.ok && tab) {
+        tab.location.href = `/portal/${connectionId}`;
+      } else {
+        tab?.close();
+        toast({ title: "Could not open portal", description: error?.message ?? "Unknown error", variant: "destructive" });
+      }
+    } catch (e) {
+      tab?.close();
+      toast({ title: "Could not open portal", description: String(e), variant: "destructive" });
     } finally {
       setPreviewing(false);
     }
