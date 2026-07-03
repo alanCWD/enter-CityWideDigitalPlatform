@@ -656,11 +656,27 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       });
       return { ok: true, stripe_status: stripeStatus, amount_paid: stripeInv.amount_paid, number: stripeInv.number };
     }
+    case "invoices.markStripePaid": {
+      const { rows } = await exec({ sql: `SELECT id, stripe_invoice_id FROM invoices WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      const inv = rows[0];
+      if (!inv?.stripe_invoice_id) throw new Error("No Stripe invoice linked to this record.");
+      if (!stripe) throw new Error("Stripe is not configured.");
+      try {
+        // paid_out_of_band = true marks the invoice paid without charging the customer through Stripe
+        await stripe.invoices.pay(inv.stripe_invoice_id as string, { paid_out_of_band: true });
+      } catch (e) {
+        const msg = ((e as Error).message ?? "").toLowerCase();
+        // Ignore "already paid" — that's our desired end state
+        if (!msg.includes("already") && !msg.includes("is paid")) throw e;
+      }
+      await exec({ sql: `UPDATE invoices SET status = 'paid', amount_paid_cents = total_cents, paid_at = COALESCE(paid_at, ?) WHERE id = ?`, args: [now(), inv.id as string] });
+      return { ok: true };
+    }
     case "invoices.list": {
       const invWhere: string[] = ["1=1"]; const invArgs: SqlValue[] = [];
       if (payload.client_id) { invWhere.push("i.client_id = ?"); invArgs.push(payload.client_id as string); }
       if (payload.status) { invWhere.push("i.status = ?"); invArgs.push(payload.status as string); }
-      const { rows } = await exec({ sql: `SELECT i.id, i.client_id, c.name as client_name, i.number, i.status, i.subtotal_cents, i.tax_cents, i.total_cents, i.amount_cents, i.amount_paid_cents, i.currency, i.line_items, i.issued_at, i.due_at as due_date, i.paid_at, i.sent_at, i.hosted_invoice_url, i.pdf_url, i.stripe_invoice_id, i.created_at FROM invoices i JOIN clients c ON c.id = i.client_id WHERE ${invWhere.join(" AND ")} ORDER BY i.issued_at DESC LIMIT 200`, args: invArgs });
+      const { rows } = await exec({ sql: `SELECT i.id, i.client_id, c.name as client_name, i.number, i.status, i.subtotal_cents, i.tax_cents, i.total_cents, i.amount_cents, i.amount_paid_cents, i.currency, i.line_items, i.issued_at, i.due_at as due_date, i.paid_at, i.sent_at, i.hosted_invoice_url, i.pdf_url, i.stripe_invoice_id, i.payment_method, i.payment_notes, i.created_at FROM invoices i JOIN clients c ON c.id = i.client_id WHERE ${invWhere.join(" AND ")} ORDER BY i.issued_at DESC LIMIT 200`, args: invArgs });
       return { invoices: rows };
     }
 

@@ -205,60 +205,100 @@ function MarkPaidDialog({ invoice, onClose, onSuccess }: MarkPaidDialogProps) {
   );
 }
 
-// ── Stripe sync badge ────────────────────────────────────────────────────────
+// ── Stripe actions cell (sync + close out-of-band) ──────────────────────────
 
-interface StripeSyncResult {
-  stripe_status: string;
-  amount_paid: number;
-}
-
-interface StripeSyncButtonProps {
+interface StripeActionsCellProps {
   invoice: CrmInvoice;
-  onSynced: () => void;
+  onRefresh: () => void;
 }
 
-function StripeSyncButton({ invoice, onSynced }: StripeSyncButtonProps) {
+function StripeActionsCell({ invoice, onRefresh }: StripeActionsCellProps) {
   const [syncing, setSyncing] = useState(false);
-  const [result, setResult] = useState<StripeSyncResult | null>(null);
+  const [stripeStatus, setStripeStatus] = useState<string | null>(null);
+  const [closing, setClosing] = useState(false);
+  const [closeOk, setCloseOk] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  if (!invoice.stripe_invoice_id) return null;
 
   const handleSync = async () => {
     setSyncing(true);
     setErr(null);
-    setResult(null);
     try {
-      const data = await crm<StripeSyncResult>("invoices.checkStripe", { id: invoice.id });
-      setResult(data);
-      onSynced();
+      const data = await crm<{ stripe_status: string }>("invoices.checkStripe", { id: invoice.id });
+      setStripeStatus(data.stripe_status);
+      onRefresh();
     } catch (e) {
-      setErr((e as Error).message ?? "Stripe sync failed");
+      setErr((e as Error).message ?? "Sync failed");
     } finally {
       setSyncing(false);
     }
   };
 
-  if (!invoice.stripe_invoice_id) return null;
+  const handleCloseInStripe = async () => {
+    setClosing(true);
+    setErr(null);
+    try {
+      await crm("invoices.markStripePaid", { id: invoice.id });
+      setStripeStatus("paid");
+      setCloseOk(true);
+      onRefresh();
+    } catch (e) {
+      setErr((e as Error).message ?? "Failed");
+    } finally {
+      setClosing(false);
+    }
+  };
 
-  const statusColor = result ? (STRIPE_STATUS_STYLES[result.stripe_status] ?? "text-muted-foreground") : "";
+  const statusColor = stripeStatus
+    ? stripeStatus === "paid" ? "text-green-500" : stripeStatus === "open" ? "text-blue-500" : "text-muted-foreground"
+    : "text-muted-foreground";
+
+  // Show "close in Stripe" when CRM is paid but Stripe still shows open
+  const needsStripeClose = invoice.status === "paid" && stripeStatus === "open" && !closeOk;
 
   return (
-    <div className="flex flex-col items-center gap-0.5">
-      <button
-        onClick={handleSync}
-        disabled={syncing}
-        title={result ? `Stripe: ${result.stripe_status}` : "Sync status from Stripe"}
-        className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
-      >
-        <CloudLightning className={`w-3.5 h-3.5 ${syncing ? "animate-pulse" : ""} ${result ? statusColor : ""}`} />
-      </button>
-      {result && (
-        <span className={`text-[9px] font-semibold leading-none ${statusColor}`}>
-          {result.stripe_status}
+    <div className="flex flex-col items-center gap-1 min-w-[60px]">
+      {/* Sync row */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={handleSync}
+          disabled={syncing || closing}
+          title="Check live payment status in Stripe"
+          className={`p-1 rounded hover:bg-muted transition-colors disabled:opacity-40 ${statusColor}`}
+        >
+          <CloudLightning className={`w-3.5 h-3.5 ${syncing ? "animate-pulse" : ""}`} />
+        </button>
+        {stripeStatus && (
+          <span className={`text-[10px] font-semibold ${statusColor}`}>
+            {stripeStatus === "paid" ? "Stripe paid" : stripeStatus === "open" ? "Stripe open" : `Stripe ${stripeStatus}`}
+          </span>
+        )}
+      </div>
+
+      {/* Close in Stripe — only shown when CRM paid but Stripe open */}
+      {needsStripeClose && (
+        <button
+          onClick={handleCloseInStripe}
+          disabled={closing}
+          title="Mark this invoice as paid in Stripe (out-of-band — no charge to client)"
+          className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors disabled:opacity-50 whitespace-nowrap"
+        >
+          <CheckCircle className={`w-3 h-3 ${closing ? "animate-pulse" : ""}`} />
+          {closing ? "Closing…" : "Close in Stripe"}
+        </button>
+      )}
+
+      {/* Initial prompt to sync (before any sync has happened) for paid CRM invoices */}
+      {!stripeStatus && invoice.status === "paid" && (
+        <span className="text-[9px] text-muted-foreground/60 text-center leading-tight">
+          Check Stripe status
         </span>
       )}
+
       {err && (
-        <span className="text-[9px] text-destructive leading-none max-w-[60px] text-center" title={err}>
-          error
+        <span className="text-[9px] text-destructive leading-none text-center max-w-[70px]" title={err}>
+          {err.slice(0, 40)}
         </span>
       )}
     </div>
@@ -464,9 +504,9 @@ export function InvoicesList() {
                             </button>
                           )}
 
-                          {/* Stripe sync — only if linked to Stripe */}
+                          {/* Stripe actions (sync + close out-of-band) — only if linked to Stripe */}
                           {inv.stripe_invoice_id && (
-                            <StripeSyncButton invoice={inv} onSynced={load} />
+                            <StripeActionsCell invoice={inv} onRefresh={load} />
                           )}
 
                           {/* Invoice / PDF links */}
@@ -505,10 +545,10 @@ export function InvoicesList() {
           )}
         </div>
 
-        {/* Legend for Stripe sync icon */}
+        {/* Legend */}
         <p className="text-xs text-muted-foreground/60 flex items-center gap-1">
           <CloudLightning className="w-3 h-3" />
-          Click the lightning icon to pull the latest payment status from Stripe for invoices sent via Stripe.
+          For invoices sent via Stripe: click the lightning icon to check live status, then "Close in Stripe" if the client paid outside Stripe (e-Transfer, cash, etc.).
         </p>
       </div>
 
