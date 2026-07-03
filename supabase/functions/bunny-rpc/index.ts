@@ -641,6 +641,21 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await exec({ sql: `UPDATE invoices SET status = 'open', paid_at = NULL, amount_paid_cents = 0 WHERE id = ?`, args: [payload.id as string] });
       return { ok: true };
     }
+    case "invoices.checkStripe": {
+      const { rows } = await exec({ sql: `SELECT id, stripe_invoice_id FROM invoices WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      const inv = rows[0];
+      if (!inv?.stripe_invoice_id) throw new Error("No Stripe invoice is linked to this record.");
+      if (!stripe) throw new Error("Stripe is not configured on this account.");
+      const stripeInv = await stripe.invoices.retrieve(inv.stripe_invoice_id as string);
+      const stripeStatus = stripeInv.status ?? "open";
+      const crmStatus = stripeStatus === "paid" ? "paid" : stripeStatus === "void" ? "void" : "open";
+      // Only update CRM if Stripe's status is more advanced (don't un-mark a manually paid invoice)
+      await exec({
+        sql: `UPDATE invoices SET amount_paid_cents = ?, hosted_invoice_url = COALESCE(?, hosted_invoice_url), pdf_url = COALESCE(?, pdf_url), status = CASE WHEN ? IN ('paid','void') THEN ? ELSE status END, paid_at = CASE WHEN ? = 'paid' AND paid_at IS NULL THEN ? ELSE paid_at END WHERE id = ?`,
+        args: [stripeInv.amount_paid ?? 0, stripeInv.hosted_invoice_url ?? null, stripeInv.invoice_pdf ?? null, crmStatus, crmStatus, crmStatus, now(), inv.id as string],
+      });
+      return { ok: true, stripe_status: stripeStatus, amount_paid: stripeInv.amount_paid, number: stripeInv.number };
+    }
     case "invoices.list": {
       const invWhere: string[] = ["1=1"]; const invArgs: SqlValue[] = [];
       if (payload.client_id) { invWhere.push("i.client_id = ?"); invArgs.push(payload.client_id as string); }

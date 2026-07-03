@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
-import { ExternalLink, FileText, Search, RefreshCw, CheckCircle } from "lucide-react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { ExternalLink, FileText, Search, RefreshCw, CheckCircle, CloudLightning } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { crm, fmtMoney, type CrmInvoice } from "@/lib/crm";
@@ -38,6 +38,14 @@ const STATUS_STYLES: Record<string, string> = {
   void:     "bg-muted text-muted-foreground border-border",
 };
 
+const STRIPE_STATUS_STYLES: Record<string, string> = {
+  paid:     "text-green-600 dark:text-green-400",
+  open:     "text-blue-500",
+  void:     "text-muted-foreground",
+  draft:    "text-muted-foreground",
+  uncollectible: "text-destructive",
+};
+
 const PAYMENT_METHODS = [
   { value: "e_transfer", label: "e-Transfer" },
   { value: "cash",       label: "Cash" },
@@ -52,6 +60,8 @@ function fmt(dateStr: string | null) {
   return new Date(dateStr).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
 }
 
+// ── Mark as Paid dialog ──────────────────────────────────────────────────────
+
 interface MarkPaidDialogProps {
   invoice: CrmInvoice | null;
   onClose: () => void;
@@ -63,16 +73,19 @@ function MarkPaidDialog({ invoice, onClose, onSuccess }: MarkPaidDialogProps) {
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Track whether Select is open so we can prevent dialog close during selection
+  const selectOpenRef = useRef(false);
 
-  // Reset state when dialog opens for a new invoice
+  // Reset state when a new invoice is opened
+  const invoiceId = invoice?.id;
   useEffect(() => {
-    if (invoice) {
+    if (invoiceId) {
       setMethod("e_transfer");
       setNotes("");
       setError(null);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [invoice?.id]);
+  }, [invoiceId]);
 
   const handleSubmit = async () => {
     if (!invoice) return;
@@ -95,19 +108,36 @@ function MarkPaidDialog({ invoice, onClose, onSuccess }: MarkPaidDialogProps) {
   const methodLabel = PAYMENT_METHODS.find((m) => m.value === method)?.label ?? method;
 
   return (
-    <Dialog open={!!invoice} onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={!!invoice} onOpenChange={(open) => { if (!open && !selectOpenRef.current) onClose(); }}>
+      <DialogContent
+        className="sm:max-w-md"
+        // Prevent the dialog from closing when the Select portal (or any radix portal) fires pointer-down outside
+        onPointerDownOutside={(e) => {
+          const target = e.target as Element | null;
+          if (target?.closest("[data-radix-popper-content-wrapper]")) {
+            e.preventDefault();
+          }
+        }}
+        onInteractOutside={(e) => {
+          const target = e.target as Element | null;
+          if (target?.closest("[data-radix-popper-content-wrapper]")) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Mark Invoice as Paid</DialogTitle>
         </DialogHeader>
 
         {invoice && (
-          <div className="space-y-4 py-1">
+          <div className="space-y-4 py-1 max-h-[60vh] overflow-y-auto pr-1">
             {/* Invoice summary */}
             <div className="bg-muted/50 border border-border rounded-lg px-4 py-3 space-y-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground font-medium">Invoice</span>
-                <span className="text-sm font-mono font-semibold text-foreground">{invoice.number ?? invoice.id.slice(0, 8)}</span>
+                <span className="text-sm font-mono font-semibold text-foreground">
+                  {invoice.number ?? invoice.id.slice(0, 8)}
+                </span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground font-medium">Client</span>
@@ -115,14 +145,20 @@ function MarkPaidDialog({ invoice, onClose, onSuccess }: MarkPaidDialogProps) {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted-foreground font-medium">Amount</span>
-                <span className="text-sm font-bold text-foreground">{fmtMoney(invoice.total_cents, invoice.currency)}</span>
+                <span className="text-sm font-bold text-foreground">
+                  {fmtMoney(invoice.total_cents, invoice.currency)}
+                </span>
               </div>
             </div>
 
             {/* Payment method */}
             <div className="space-y-1.5">
               <Label htmlFor="payment-method">Payment Method</Label>
-              <Select value={method} onValueChange={setMethod}>
+              <Select
+                value={method}
+                onValueChange={(v) => { setMethod(v); }}
+                onOpenChange={(open) => { selectOpenRef.current = open; }}
+              >
                 <SelectTrigger id="payment-method">
                   <SelectValue placeholder="Select method" />
                 </SelectTrigger>
@@ -134,28 +170,28 @@ function MarkPaidDialog({ invoice, onClose, onSuccess }: MarkPaidDialogProps) {
               </Select>
             </div>
 
-            {/* Deposit notes */}
+            {/* Deposit notes — rendered as native textarea to avoid portal issues */}
             <div className="space-y-1.5">
               <Label htmlFor="payment-notes">
                 Notes <span className="text-muted-foreground font-normal">(optional)</span>
               </Label>
               <Textarea
+                ref={textareaRef}
                 id="payment-notes"
                 placeholder={`e.g. Deposited via ${methodLabel} on ${new Date().toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
+                onClick={() => textareaRef.current?.focus()}
                 rows={3}
                 className="resize-none"
               />
             </div>
 
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
         )}
 
-        <DialogFooter className="gap-2">
+        <DialogFooter className="gap-2 pt-2">
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
@@ -168,6 +204,68 @@ function MarkPaidDialog({ invoice, onClose, onSuccess }: MarkPaidDialogProps) {
     </Dialog>
   );
 }
+
+// ── Stripe sync badge ────────────────────────────────────────────────────────
+
+interface StripeSyncResult {
+  stripe_status: string;
+  amount_paid: number;
+}
+
+interface StripeSyncButtonProps {
+  invoice: CrmInvoice;
+  onSynced: () => void;
+}
+
+function StripeSyncButton({ invoice, onSynced }: StripeSyncButtonProps) {
+  const [syncing, setSyncing] = useState(false);
+  const [result, setResult] = useState<StripeSyncResult | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    setErr(null);
+    setResult(null);
+    try {
+      const data = await crm<StripeSyncResult>("invoices.checkStripe", { id: invoice.id });
+      setResult(data);
+      onSynced();
+    } catch (e) {
+      setErr((e as Error).message ?? "Stripe sync failed");
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  if (!invoice.stripe_invoice_id) return null;
+
+  const statusColor = result ? (STRIPE_STATUS_STYLES[result.stripe_status] ?? "text-muted-foreground") : "";
+
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <button
+        onClick={handleSync}
+        disabled={syncing}
+        title={result ? `Stripe: ${result.stripe_status}` : "Sync status from Stripe"}
+        className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors disabled:opacity-50"
+      >
+        <CloudLightning className={`w-3.5 h-3.5 ${syncing ? "animate-pulse" : ""} ${result ? statusColor : ""}`} />
+      </button>
+      {result && (
+        <span className={`text-[9px] font-semibold leading-none ${statusColor}`}>
+          {result.stripe_status}
+        </span>
+      )}
+      {err && (
+        <span className="text-[9px] text-destructive leading-none max-w-[60px] text-center" title={err}>
+          error
+        </span>
+      )}
+    </div>
+  );
+}
+
+// ── Main list ────────────────────────────────────────────────────────────────
 
 export function InvoicesList() {
   const [invoices, setInvoices] = useState<CrmInvoice[]>([]);
@@ -239,7 +337,6 @@ export function InvoicesList() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Search */}
           <div className="relative flex-1 min-w-[220px] max-w-sm">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
@@ -251,7 +348,6 @@ export function InvoicesList() {
             />
           </div>
 
-          {/* Status tabs */}
           <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
             {STATUS_FILTERS.map((f) => (
               <button
@@ -268,7 +364,6 @@ export function InvoicesList() {
             ))}
           </div>
 
-          {/* Refresh */}
           <button
             onClick={load}
             disabled={loading}
@@ -289,7 +384,9 @@ export function InvoicesList() {
             <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
               <FileText className="w-10 h-10 opacity-30" />
               <p className="text-sm">No invoices found</p>
-              <p className="text-xs opacity-60">Invoices will appear here once subscriptions are created with "Send Invoice" billing</p>
+              <p className="text-xs opacity-60">
+                Invoices will appear here once subscriptions are created with "Send Invoice" billing
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -301,7 +398,6 @@ export function InvoicesList() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Amount</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Issued</th>
-                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sent</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Paid</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Actions</th>
                   </tr>
@@ -331,48 +427,55 @@ export function InvoicesList() {
                           </span>
                           {inv.status === "paid" && inv.payment_method && (
                             <span className="text-[10px] text-muted-foreground">
-                              {PAYMENT_METHODS.find((m) => m.value === inv.payment_method)?.label ?? inv.payment_method}
+                              via {PAYMENT_METHODS.find((m) => m.value === inv.payment_method)?.label ?? inv.payment_method}
                             </span>
                           )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-foreground tabular-nums">
                         {fmtMoney(inv.total_cents, inv.currency)}
-                        {inv.status === "paid" && inv.amount_paid_cents > 0 && inv.amount_paid_cents < inv.total_cents && (
+                        {inv.amount_paid_cents > 0 && inv.amount_paid_cents < inv.total_cents && (
                           <div className="text-[10px] text-muted-foreground">{fmtMoney(inv.amount_paid_cents)} paid</div>
                         )}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{fmt(inv.issued_at)}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">{fmt(inv.sent_at)}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">
-                        <div>
-                          {fmt(inv.paid_at)}
-                          {inv.payment_notes && (
-                            <div className="text-[10px] text-muted-foreground/70 max-w-[140px] truncate" title={inv.payment_notes}>
-                              {inv.payment_notes}
-                            </div>
-                          )}
-                        </div>
+                      <td className="px-4 py-3 text-xs">
+                        <div className="text-muted-foreground">{fmt(inv.paid_at)}</div>
+                        {inv.payment_notes && (
+                          <div
+                            className="text-[10px] text-muted-foreground/60 max-w-[140px] truncate mt-0.5"
+                            title={inv.payment_notes}
+                          >
+                            {inv.payment_notes}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {/* Mark as Paid button for open/past_due */}
+                        <div className="flex items-center justify-center gap-1">
+                          {/* Mark as Paid — only for open / past_due */}
                           {(inv.status === "open" || inv.status === "past_due") && (
                             <button
                               onClick={() => setMarkPaidTarget(inv)}
                               title="Mark as paid"
-                              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors whitespace-nowrap"
                             >
                               <CheckCircle className="w-3.5 h-3.5" />
                               Paid
                             </button>
                           )}
+
+                          {/* Stripe sync — only if linked to Stripe */}
+                          {inv.stripe_invoice_id && (
+                            <StripeSyncButton invoice={inv} onSynced={load} />
+                          )}
+
+                          {/* Invoice / PDF links */}
                           {inv.hosted_invoice_url && (
                             <a
                               href={inv.hosted_invoice_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title="View invoice"
+                              title="View invoice in Stripe"
                               className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
@@ -389,7 +492,7 @@ export function InvoicesList() {
                               <FileText className="w-3.5 h-3.5" />
                             </a>
                           )}
-                          {inv.status !== "open" && inv.status !== "past_due" && !inv.hosted_invoice_url && !inv.pdf_url && (
+                          {!inv.stripe_invoice_id && inv.status !== "open" && inv.status !== "past_due" && !inv.hosted_invoice_url && !inv.pdf_url && (
                             <span className="text-muted-foreground/40 text-xs">—</span>
                           )}
                         </div>
@@ -401,6 +504,12 @@ export function InvoicesList() {
             </div>
           )}
         </div>
+
+        {/* Legend for Stripe sync icon */}
+        <p className="text-xs text-muted-foreground/60 flex items-center gap-1">
+          <CloudLightning className="w-3 h-3" />
+          Click the lightning icon to pull the latest payment status from Stripe for invoices sent via Stripe.
+        </p>
       </div>
 
       {/* Mark as Paid dialog */}
