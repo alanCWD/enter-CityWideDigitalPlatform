@@ -672,6 +672,38 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await exec({ sql: `UPDATE invoices SET status = 'paid', amount_paid_cents = total_cents, paid_at = COALESCE(paid_at, ?) WHERE id = ?`, args: [now(), inv.id as string] });
       return { ok: true };
     }
+    case "invoices.closeStripeByInvoiceNumber": {
+      if (!stripe) throw new Error("Stripe is not configured.");
+      const crmInvoiceId = payload.id as string;
+      const stripeNumber = ((payload.stripe_number as string) ?? "").trim();
+      if (!stripeNumber) throw new Error("Stripe invoice number is required.");
+      const { rows: crmRows } = await exec({ sql: `SELECT id FROM invoices WHERE id = ? LIMIT 1`, args: [crmInvoiceId] });
+      if (!crmRows[0]) throw new Error("CRM invoice not found.");
+      // Search Stripe for the invoice by number
+      let stripeInv: Stripe.Invoice | null = null;
+      try {
+        const results = await stripe.invoices.search({ query: `number:"${stripeNumber}"`, limit: 1 });
+        stripeInv = results.data[0] ?? null;
+      } catch {
+        // Fallback: list recent invoices if search API is unavailable
+        const list = await stripe.invoices.list({ limit: 100 });
+        stripeInv = list.data.find((i) => i.number === stripeNumber) ?? null;
+      }
+      if (!stripeInv) throw new Error(`No Stripe invoice found with number "${stripeNumber}". Check the number in your Stripe dashboard.`);
+      if (stripeInv.status === "void") throw new Error("This Stripe invoice is voided and cannot be marked as paid.");
+      if (stripeInv.status === "open") {
+        await stripe.invoices.pay(stripeInv.id, { paid_out_of_band: true });
+      }
+      // Link and update the CRM record
+      await exec({ sql: `UPDATE invoices SET stripe_invoice_id = ?, status = 'paid', amount_paid_cents = total_cents, paid_at = COALESCE(paid_at, ?), hosted_invoice_url = COALESCE(?, hosted_invoice_url), pdf_url = COALESCE(?, pdf_url) WHERE id = ?`, args: [stripeInv.id, now(), stripeInv.hosted_invoice_url ?? null, stripeInv.invoice_pdf ?? null, crmInvoiceId] });
+      return { ok: true, stripe_status: "paid", stripe_invoice_id: stripeInv.id };
+    }
+    case "invoices.updatePaymentDetails": {
+      const { rows } = await exec({ sql: `SELECT id FROM invoices WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      if (!rows[0]) throw new Error("Invoice not found.");
+      await exec({ sql: `UPDATE invoices SET payment_method = ?, payment_notes = ? WHERE id = ?`, args: [(payload.payment_method as string) ?? null, (payload.notes as string) ?? null, payload.id as string] });
+      return { ok: true };
+    }
     case "invoices.list": {
       const invWhere: string[] = ["1=1"]; const invArgs: SqlValue[] = [];
       if (payload.client_id) { invWhere.push("i.client_id = ?"); invArgs.push(payload.client_id as string); }

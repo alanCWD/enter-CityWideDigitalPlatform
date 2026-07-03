@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ExternalLink, FileText, Search, RefreshCw, CheckCircle, CloudLightning } from "lucide-react";
+import { ExternalLink, FileText, Search, RefreshCw, CheckCircle, CloudLightning, Pencil } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { crm, fmtMoney, type CrmInvoice } from "@/lib/crm";
@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -205,7 +206,216 @@ function MarkPaidDialog({ invoice, onClose, onSuccess }: MarkPaidDialogProps) {
   );
 }
 
-// ── Stripe actions cell (sync + close out-of-band) ──────────────────────────
+// ── Close Stripe Invoice dialog (for invoices not yet linked to Stripe) ──────
+
+interface CloseStripeDialogProps {
+  invoice: CrmInvoice | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function CloseStripeDialog({ invoice, onClose, onSuccess }: CloseStripeDialogProps) {
+  const [stripeNumber, setStripeNumber] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const invoiceId = invoice?.id;
+  useEffect(() => {
+    if (invoiceId) { setStripeNumber(""); setError(null); }
+  }, [invoiceId]);
+
+  const handleSubmit = async () => {
+    if (!invoice) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await crm("invoices.closeStripeByInvoiceNumber", { id: invoice.id, stripe_number: stripeNumber.trim() });
+      onSuccess();
+    } catch (e) {
+      setError((e as Error).message ?? "Failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!invoice} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="sm:max-w-md"
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onOpenAutoFocus={() => { setTimeout(() => inputRef.current?.focus(), 50); }}
+      >
+        <DialogHeader>
+          <DialogTitle>Close Invoice in Stripe</DialogTitle>
+        </DialogHeader>
+        {invoice && (
+          <div className="space-y-4 py-1">
+            <div className="bg-muted/50 border border-border rounded-lg px-4 py-3 space-y-1">
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">CRM Invoice</span>
+                <span className="text-sm font-mono font-semibold">{invoice.number ?? "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">Client</span>
+                <span className="text-sm">{invoice.client_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">Amount</span>
+                <span className="text-sm font-bold">{fmtMoney(invoice.total_cents, invoice.currency)}</span>
+              </div>
+            </div>
+
+            <p className="text-sm text-muted-foreground">
+              Enter the Stripe invoice number exactly as shown in your Stripe dashboard (e.g. <span className="font-mono text-foreground">D2QNY51Q-0001</span>). This will mark it as paid without charging the client.
+            </p>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="stripe-inv-number">Stripe Invoice Number</Label>
+              <Input
+                ref={inputRef}
+                id="stripe-inv-number"
+                value={stripeNumber}
+                onChange={(e) => setStripeNumber(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && stripeNumber.trim()) handleSubmit(); }}
+                placeholder="D2QNY51Q-0001"
+                className="font-mono"
+              />
+            </div>
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+        )}
+        <DialogFooter className="gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={saving || !stripeNumber.trim()} className="gap-2">
+            <CloudLightning className="w-4 h-4" />
+            {saving ? "Finding & Closing…" : "Find & Close in Stripe"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Edit payment details dialog (for already-paid invoices) ──────────────────
+
+interface EditPaymentDialogProps {
+  invoice: CrmInvoice | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function EditPaymentDialog({ invoice, onClose, onSuccess }: EditPaymentDialogProps) {
+  const [method, setMethod] = useState("e_transfer");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const selectOpenRef = useRef(false);
+
+  const invoiceId = invoice?.id;
+  useEffect(() => {
+    if (invoice) {
+      setMethod(invoice.payment_method ?? "e_transfer");
+      setNotes(invoice.payment_notes ?? "");
+      setError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoiceId]);
+
+  const handleSubmit = async () => {
+    if (!invoice) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await crm("invoices.updatePaymentDetails", {
+        id: invoice.id,
+        payment_method: method,
+        notes: notes.trim() || null,
+      });
+      onSuccess();
+    } catch (e) {
+      setError((e as Error).message ?? "Failed");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <Dialog open={!!invoice} onOpenChange={(open) => { if (!open && !selectOpenRef.current) onClose(); }}>
+      <DialogContent
+        className="sm:max-w-md"
+        onPointerDownOutside={(e) => {
+          const t = e.target as Element | null;
+          if (t?.closest("[data-radix-popper-content-wrapper]")) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          const t = e.target as Element | null;
+          if (t?.closest("[data-radix-popper-content-wrapper]")) e.preventDefault();
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle>Edit Payment Details</DialogTitle>
+        </DialogHeader>
+        {invoice && (
+          <div className="space-y-4 py-1 max-h-[60vh] overflow-y-auto pr-1">
+            <div className="bg-muted/50 border border-border rounded-lg px-4 py-3 space-y-1">
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">Invoice</span>
+                <span className="text-sm font-mono font-semibold">{invoice.number ?? "—"}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">Client</span>
+                <span className="text-sm">{invoice.client_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-xs text-muted-foreground">Amount</span>
+                <span className="text-sm font-bold">{fmtMoney(invoice.total_cents, invoice.currency)}</span>
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>Payment Method</Label>
+              <Select value={method} onValueChange={setMethod} onOpenChange={(o) => { selectOpenRef.current = o; }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHODS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-pay-notes">
+                Notes <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Textarea
+                id="edit-pay-notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="e.g. e-Transfer received Jul 3, ref #12345"
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+
+            {error && <p className="text-sm text-destructive">{error}</p>}
+          </div>
+        )}
+        <DialogFooter className="gap-2 pt-2">
+          <Button variant="outline" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button onClick={handleSubmit} disabled={saving} className="gap-2">
+            <CheckCircle className="w-4 h-4" />
+            {saving ? "Saving…" : "Save Details"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ── Stripe actions cell (for invoices already linked to a Stripe invoice ID) ─
 
 interface StripeActionsCellProps {
   invoice: CrmInvoice;
@@ -313,6 +523,8 @@ export function InvoicesList() {
   const [statusFilter, setStatusFilter] = useState("");
   const [q, setQ] = useState("");
   const [markPaidTarget, setMarkPaidTarget] = useState<CrmInvoice | null>(null);
+  const [closeStripeTarget, setCloseStripeTarget] = useState<CrmInvoice | null>(null);
+  const [editPayTarget, setEditPayTarget] = useState<CrmInvoice | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -491,7 +703,7 @@ export function InvoicesList() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-center gap-1 flex-wrap">
                           {/* Mark as Paid — only for open / past_due */}
                           {(inv.status === "open" || inv.status === "past_due") && (
                             <button
@@ -504,7 +716,30 @@ export function InvoicesList() {
                             </button>
                           )}
 
-                          {/* Stripe actions (sync + close out-of-band) — only if linked to Stripe */}
+                          {/* Close in Stripe — for paid invoices NOT yet linked to Stripe */}
+                          {inv.status === "paid" && !inv.stripe_invoice_id && (
+                            <button
+                              onClick={() => setCloseStripeTarget(inv)}
+                              title="Find this invoice in Stripe and mark it paid (out-of-band)"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-violet-500/10 text-violet-600 dark:text-violet-400 hover:bg-violet-500/20 border border-violet-500/20 transition-colors whitespace-nowrap"
+                            >
+                              <CloudLightning className="w-3.5 h-3.5" />
+                              Close in Stripe
+                            </button>
+                          )}
+
+                          {/* Edit payment details — for all paid invoices */}
+                          {inv.status === "paid" && (
+                            <button
+                              onClick={() => setEditPayTarget(inv)}
+                              title="Edit payment method or notes"
+                              className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+
+                          {/* Stripe sync cell — only if already linked to Stripe */}
                           {inv.stripe_invoice_id && (
                             <StripeActionsCell invoice={inv} onRefresh={load} />
                           )}
@@ -532,7 +767,7 @@ export function InvoicesList() {
                               <FileText className="w-3.5 h-3.5" />
                             </a>
                           )}
-                          {!inv.stripe_invoice_id && inv.status !== "open" && inv.status !== "past_due" && !inv.hosted_invoice_url && !inv.pdf_url && (
+                          {inv.status !== "open" && inv.status !== "past_due" && inv.status !== "paid" && !inv.hosted_invoice_url && !inv.pdf_url && (
                             <span className="text-muted-foreground/40 text-xs">—</span>
                           )}
                         </div>
@@ -548,18 +783,25 @@ export function InvoicesList() {
         {/* Legend */}
         <p className="text-xs text-muted-foreground/60 flex items-center gap-1">
           <CloudLightning className="w-3 h-3" />
-          For invoices sent via Stripe: click the lightning icon to check live status, then "Close in Stripe" if the client paid outside Stripe (e-Transfer, cash, etc.).
+          Paid invoices: use <strong className="font-semibold">"Close in Stripe"</strong> to match Stripe, <Pencil className="w-3 h-3 inline mx-0.5" /> to update payment notes. Lightning icon syncs live Stripe status for linked invoices.
         </p>
       </div>
 
-      {/* Mark as Paid dialog */}
+      {/* Dialogs */}
       <MarkPaidDialog
         invoice={markPaidTarget}
         onClose={() => setMarkPaidTarget(null)}
-        onSuccess={() => {
-          setMarkPaidTarget(null);
-          load();
-        }}
+        onSuccess={() => { setMarkPaidTarget(null); load(); }}
+      />
+      <CloseStripeDialog
+        invoice={closeStripeTarget}
+        onClose={() => setCloseStripeTarget(null)}
+        onSuccess={() => { setCloseStripeTarget(null); load(); }}
+      />
+      <EditPaymentDialog
+        invoice={editPayTarget}
+        onClose={() => setEditPayTarget(null)}
+        onSuccess={() => { setEditPayTarget(null); load(); }}
       />
     </DashboardLayout>
   );
