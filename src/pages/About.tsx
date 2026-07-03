@@ -141,20 +141,20 @@ const faqSections = [
       },
       {
         q: "How does using Google Business Profile as a \"source of truth\" help my local visibility?",
-        a: null, // handled below with JSX
+        a: null,
         aJsx: (
           <p className="text-muted-foreground leading-relaxed">
-            When your GBP, website, and directory listings all show the same accurate information, search engines have
-            more confidence in your business and are more likely to surface you to nearby customers. Inconsistent name,
-            address, and phone data across platforms is one of the most common reasons local businesses underperform in
-            search.{" "}
+            A complete, accurate, and regularly updated Google Business Profile is one of the strongest signals for
+            local visibility in Google Search and Maps. By centralizing updates in CityWide Digital, you're far more
+            likely to keep your profile fully optimized — which supports better rankings in the Local Pack and more
+            discovery from "near me" searches. Your business{" "}
             <Link
               to="/gbp-source-of-truth"
-              className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80 font-medium transition-colors"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium transition-colors"
             >
-              Read our full guide on using GBP as your source of truth
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
+              source of truth
+            </Link>{" "}
+            helps your local visibility.
           </p>
         ),
       },
