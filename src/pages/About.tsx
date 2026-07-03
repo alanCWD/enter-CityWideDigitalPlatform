@@ -141,12 +141,12 @@ const faqSections = [
       },
       {
         q: "How does using Google Business Profile as a \"source of truth\" help my local visibility?",
-        a: null,
-        aJsx: (
+        a: "",
+        renderAnswer: () => (
           <p className="text-muted-foreground leading-relaxed">
             A complete, accurate, and regularly updated Google Business Profile is one of the strongest signals for
-            local visibility in Google Search and Maps. By centralizing updates in CityWide Digital, you're far more
-            likely to keep your profile fully optimized — which supports better rankings in the Local Pack and more
+            local visibility in Google Search and Maps. By centralising updates in CityWide Digital, you're far more
+            likely to keep your profile fully optimised — which supports better rankings in the Local Pack and more
             discovery from "near me" searches. Your business{" "}
             <Link
               to="/gbp-source-of-truth"
@@ -216,8 +216,8 @@ const faqSections = [
       },
       {
         q: "Where can I read the full article on this?",
-        a: null,
-        aJsx: (
+        a: "",
+        renderAnswer: () => (
           <p className="text-muted-foreground leading-relaxed">
             You can read the full explanation, with examples and best practices, in our detailed article here:{" "}
             <Link
@@ -317,8 +317,8 @@ export default function About() {
                           {item.q}
                         </AccordionTrigger>
                         <AccordionContent>
-                          {item.aJsx ? (
-                            item.aJsx
+                          {item.renderAnswer ? (
+                            item.renderAnswer()
                           ) : (
                             <p className="text-muted-foreground leading-relaxed">{item.a}</p>
                           )}
