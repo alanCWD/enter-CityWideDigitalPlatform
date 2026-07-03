@@ -13,6 +13,7 @@ import {
   Leaf,
   Utensils as Fork,
   UserCircle,
+  Inbox,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -66,6 +67,7 @@ export const AGENCIES: Agency[] = [
       { name: "Analytics",        path: "/analytics",  icon: BarChart3                },
       { name: "Leads & Alerts",   path: "/leads",      icon: Bell                     },
       { name: "Social",           path: "/dashboard/social/calendar", icon: Share2   },
+      { name: "Inbox",            path: "/dashboard/inbox",            icon: Inbox    },
       ...crmNav,
     ],
   },
@@ -81,6 +83,7 @@ export const AGENCIES: Agency[] = [
       { name: "Analytics",       path: "/analytics",  icon: BarChart3            },
       { name: "Leads & Alerts",  path: "/leads",      icon: Bell                 },
       { name: "Social",          path: "/dashboard/social/calendar", icon: Share2 },
+      { name: "Inbox",           path: "/dashboard/inbox",            icon: Inbox  },
       ...crmNav,
     ],
   },
@@ -97,6 +100,7 @@ export const AGENCIES: Agency[] = [
       { name: "Analytics",        path: "/analytics",  icon: BarChart3            },
       { name: "Leads & Alerts",   path: "/leads",      icon: Bell                 },
       { name: "Social",           path: "/dashboard/social/calendar", icon: Share2 },
+      { name: "Inbox",            path: "/dashboard/inbox",            icon: Inbox  },
       ...crmNav,
     ],
   },
@@ -122,6 +126,7 @@ export const AGENCIES: Agency[] = [
       { name: "Dashboard",       path: "/dashboard",  icon: Building2, end: true },
       { name: "Analytics",       path: "/analytics",  icon: BarChart3            },
       { name: "Social",          path: "/dashboard/social/calendar", icon: Share2 },
+      { name: "Inbox",           path: "/dashboard/inbox",            icon: Inbox  },
       ...crmNav,
     ],
   },

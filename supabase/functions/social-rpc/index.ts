@@ -397,6 +397,145 @@ Deno.serve(async (req) => {
         return json({ ok: true });
       }
 
+      // ── Inbox: Conversations ──────────────────────────────────────────────
+
+      case "inbox.conversations.list": {
+        const { profile_id, platform: filterPlatform, limit = 50 } = payload as {
+          profile_id?: string; platform?: string; limit?: number;
+        };
+        let url = `https://zernio.com/api/v1/inbox/conversations?limit=${limit}`;
+        if (profile_id) url += `&profileId=${profile_id}`;
+        if (filterPlatform) url += `&platform=${filterPlatform}`;
+        const r = await zernioGet(url, zernioKey);
+        if (!r.ok) return json({ ok: false, error: `Zernio ${r.status}: ${r.raw.slice(0, 200)}` });
+        const d = r.data as { conversations?: unknown[] };
+        return json({ ok: true, conversations: d.conversations ?? [] });
+      }
+
+      case "inbox.messages.list": {
+        const { conversation_id } = payload as { conversation_id: string };
+        const r = await zernioGet(
+          `https://zernio.com/api/v1/inbox/conversations/${conversation_id}/messages`,
+          zernioKey,
+        );
+        if (!r.ok) return json({ ok: false, error: `Zernio ${r.status}: ${r.raw.slice(0, 200)}` });
+        const d = r.data as { messages?: unknown[] };
+        return json({ ok: true, messages: d.messages ?? [] });
+      }
+
+      case "inbox.message.send": {
+        const { conversation_id, message } = payload as {
+          conversation_id: string; message: string;
+        };
+        const res = await fetch(
+          `https://zernio.com/api/v1/inbox/conversations/${conversation_id}/send`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ message }),
+          },
+        );
+        const text = await res.text();
+        let data: unknown;
+        try { data = JSON.parse(text); } catch { data = text; }
+        if (!res.ok) return json({ ok: false, error: `Zernio ${res.status}: ${text.slice(0, 200)}` });
+        return json({ ok: true, data });
+      }
+
+      case "inbox.conversation.markread": {
+        const { conversation_id } = payload as { conversation_id: string };
+        const res = await fetch(
+          `https://zernio.com/api/v1/inbox/conversations/${conversation_id}/read`,
+          {
+            method: "POST",
+            headers: { Authorization: `Bearer ${zernioKey}` },
+          },
+        );
+        if (!res.ok) {
+          const text = await res.text();
+          return json({ ok: false, error: `Zernio ${res.status}: ${text.slice(0, 200)}` });
+        }
+        return json({ ok: true });
+      }
+
+      // ── Inbox Pro: Broadcasts ─────────────────────────────────────────────
+
+      case "inbox.broadcasts.list": {
+        const { profile_id: broadcastProfileId } = payload as { profile_id?: string };
+        const url = broadcastProfileId
+          ? `https://zernio.com/api/v1/broadcasts?profileId=${broadcastProfileId}`
+          : `https://zernio.com/api/v1/broadcasts`;
+        const r = await zernioGet(url, zernioKey);
+        if (!r.ok) return json({ ok: false, error: `Zernio ${r.status}: ${r.raw.slice(0, 200)}` });
+        const d = r.data as { broadcasts?: unknown[] };
+        return json({ ok: true, broadcasts: d.broadcasts ?? [] });
+      }
+
+      case "inbox.broadcasts.create": {
+        const res = await fetch("https://zernio.com/api/v1/broadcasts", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const text = await res.text();
+        let data: unknown;
+        try { data = JSON.parse(text); } catch { data = text; }
+        if (!res.ok) return json({ ok: false, error: `Zernio ${res.status}: ${text.slice(0, 200)}` });
+        return json({ ok: true, data });
+      }
+
+      case "inbox.broadcasts.send": {
+        const { broadcast_id } = payload as { broadcast_id: string };
+        const res = await fetch(`https://zernio.com/api/v1/broadcasts/${broadcast_id}/send`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${zernioKey}` },
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          return json({ ok: false, error: `Zernio ${res.status}: ${text.slice(0, 200)}` });
+        }
+        return json({ ok: true });
+      }
+
+      // ── Inbox Pro: Sequences ──────────────────────────────────────────────
+
+      case "inbox.sequences.list": {
+        const { profile_id: seqProfileId } = payload as { profile_id?: string };
+        const url = seqProfileId
+          ? `https://zernio.com/api/v1/sequences?profileId=${seqProfileId}`
+          : `https://zernio.com/api/v1/sequences`;
+        const r = await zernioGet(url, zernioKey);
+        if (!r.ok) return json({ ok: false, error: `Zernio ${r.status}: ${r.raw.slice(0, 200)}` });
+        const d = r.data as { sequences?: unknown[] };
+        return json({ ok: true, sequences: d.sequences ?? [] });
+      }
+
+      // ── Inbox Pro: Automations ────────────────────────────────────────────
+
+      case "inbox.automations.list": {
+        const { profile_id: autoProfileId } = payload as { profile_id?: string };
+        const url = autoProfileId
+          ? `https://zernio.com/api/v1/automations?profileId=${autoProfileId}`
+          : `https://zernio.com/api/v1/automations`;
+        const r = await zernioGet(url, zernioKey);
+        if (!r.ok) return json({ ok: false, error: `Zernio ${r.status}: ${r.raw.slice(0, 200)}` });
+        const d = r.data as { automations?: unknown[] };
+        return json({ ok: true, automations: d.automations ?? [] });
+      }
+
+      case "inbox.automations.create": {
+        const res = await fetch("https://zernio.com/api/v1/automations", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${zernioKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const text = await res.text();
+        let data: unknown;
+        try { data = JSON.parse(text); } catch { data = text; }
+        if (!res.ok) return json({ ok: false, error: `Zernio ${res.status}: ${text.slice(0, 200)}` });
+        return json({ ok: true, data });
+      }
+
       default:
         return json({ ok: false, error: `Unknown action: ${action}` });
     }

@@ -36,6 +36,7 @@ import ContentCalendar from "./pages/dashboard/social/calendar";
 import SocialInbox from "./pages/dashboard/social/inbox";
 import { SmartCampaigns } from "./pages/dashboard/social/campaigns";
 import BillingAffiliates from "./pages/dashboard/billing/affiliates";
+import InboxPage from "./pages/dashboard/inbox/InboxPage";
 import { RequirePortalAuth } from "./components/portal/RequirePortalAuth";
 
 /** Wrap an element so unauthenticated users are redirected to /portal/login */
@@ -237,6 +238,11 @@ export const routers = [
     path: "/dashboard/billing/affiliates",
     name: "billing-affiliates",
     element: <Auth><BillingAffiliates /></Auth>,
+  },
+  {
+    path: "/dashboard/inbox",
+    name: "inbox",
+    element: <Auth><InboxPage /></Auth>,
   },
   /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
   {
