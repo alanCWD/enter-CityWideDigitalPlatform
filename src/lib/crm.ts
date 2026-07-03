@@ -82,6 +82,8 @@ export interface CrmInvoice {
   issued_at: string | null;
   paid_at: string | null;
   sent_at: string | null;
+  payment_method: string | null;
+  payment_notes: string | null;
   created_at: string;
 }
 

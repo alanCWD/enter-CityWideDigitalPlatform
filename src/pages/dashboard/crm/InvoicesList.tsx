@@ -1,9 +1,26 @@
 import { useEffect, useState, useCallback } from "react";
-import { ExternalLink, FileText, Search, RefreshCw } from "lucide-react";
+import { ExternalLink, FileText, Search, RefreshCw, CheckCircle } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { crm, fmtMoney, type CrmInvoice } from "@/lib/crm";
 import { Link } from "react-router-dom";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const STATUS_FILTERS = [
   { label: "All", value: "" },
@@ -21,9 +38,135 @@ const STATUS_STYLES: Record<string, string> = {
   void:     "bg-muted text-muted-foreground border-border",
 };
 
+const PAYMENT_METHODS = [
+  { value: "e_transfer", label: "e-Transfer" },
+  { value: "cash",       label: "Cash" },
+  { value: "cheque",     label: "Cheque" },
+  { value: "credit_card",label: "Credit Card" },
+  { value: "bank_wire",  label: "Bank Wire" },
+  { value: "other",      label: "Other" },
+];
+
 function fmt(dateStr: string | null) {
   if (!dateStr) return "—";
   return new Date(dateStr).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" });
+}
+
+interface MarkPaidDialogProps {
+  invoice: CrmInvoice | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function MarkPaidDialog({ invoice, onClose, onSuccess }: MarkPaidDialogProps) {
+  const [method, setMethod] = useState("e_transfer");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset state when dialog opens for a new invoice
+  useEffect(() => {
+    if (invoice) {
+      setMethod("e_transfer");
+      setNotes("");
+      setError(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [invoice?.id]);
+
+  const handleSubmit = async () => {
+    if (!invoice) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await crm("invoices.markPaid", {
+        id: invoice.id,
+        payment_method: method,
+        notes: notes.trim() || null,
+      });
+      onSuccess();
+    } catch (e) {
+      setError((e as Error).message ?? "Failed to mark as paid");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const methodLabel = PAYMENT_METHODS.find((m) => m.value === method)?.label ?? method;
+
+  return (
+    <Dialog open={!!invoice} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Mark Invoice as Paid</DialogTitle>
+        </DialogHeader>
+
+        {invoice && (
+          <div className="space-y-4 py-1">
+            {/* Invoice summary */}
+            <div className="bg-muted/50 border border-border rounded-lg px-4 py-3 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground font-medium">Invoice</span>
+                <span className="text-sm font-mono font-semibold text-foreground">{invoice.number ?? invoice.id.slice(0, 8)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground font-medium">Client</span>
+                <span className="text-sm text-foreground">{invoice.client_name ?? "—"}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground font-medium">Amount</span>
+                <span className="text-sm font-bold text-foreground">{fmtMoney(invoice.total_cents, invoice.currency)}</span>
+              </div>
+            </div>
+
+            {/* Payment method */}
+            <div className="space-y-1.5">
+              <Label htmlFor="payment-method">Payment Method</Label>
+              <Select value={method} onValueChange={setMethod}>
+                <SelectTrigger id="payment-method">
+                  <SelectValue placeholder="Select method" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PAYMENT_METHODS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Deposit notes */}
+            <div className="space-y-1.5">
+              <Label htmlFor="payment-notes">
+                Notes <span className="text-muted-foreground font-normal">(optional)</span>
+              </Label>
+              <Textarea
+                id="payment-notes"
+                placeholder={`e.g. Deposited via ${methodLabel} on ${new Date().toLocaleDateString("en-CA", { month: "short", day: "numeric" })}`}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                rows={3}
+                className="resize-none"
+              />
+            </div>
+
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+          </div>
+        )}
+
+        <DialogFooter className="gap-2">
+          <Button variant="outline" onClick={onClose} disabled={saving}>
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} disabled={saving} className="gap-2">
+            <CheckCircle className="w-4 h-4" />
+            {saving ? "Saving…" : "Mark as Paid"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export function InvoicesList() {
@@ -31,6 +174,7 @@ export function InvoicesList() {
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [q, setQ] = useState("");
+  const [markPaidTarget, setMarkPaidTarget] = useState<CrmInvoice | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,7 +303,7 @@ export function InvoicesList() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Issued</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Sent</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Paid</th>
-                    <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Links</th>
+                    <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -181,9 +325,16 @@ export function InvoicesList() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border ${STATUS_STYLES[inv.status] ?? STATUS_STYLES.draft}`}>
-                          {inv.status.replace("_", " ")}
-                        </span>
+                        <div className="flex flex-col gap-0.5">
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold border w-fit ${STATUS_STYLES[inv.status] ?? STATUS_STYLES.draft}`}>
+                            {inv.status.replace("_", " ")}
+                          </span>
+                          {inv.status === "paid" && inv.payment_method && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {PAYMENT_METHODS.find((m) => m.value === inv.payment_method)?.label ?? inv.payment_method}
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-foreground tabular-nums">
                         {fmtMoney(inv.total_cents, inv.currency)}
@@ -193,9 +344,29 @@ export function InvoicesList() {
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{fmt(inv.issued_at)}</td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{fmt(inv.sent_at)}</td>
-                      <td className="px-4 py-3 text-muted-foreground text-xs">{fmt(inv.paid_at)}</td>
+                      <td className="px-4 py-3 text-muted-foreground text-xs">
+                        <div>
+                          {fmt(inv.paid_at)}
+                          {inv.payment_notes && (
+                            <div className="text-[10px] text-muted-foreground/70 max-w-[140px] truncate" title={inv.payment_notes}>
+                              {inv.payment_notes}
+                            </div>
+                          )}
+                        </div>
+                      </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center justify-center gap-2">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {/* Mark as Paid button for open/past_due */}
+                          {(inv.status === "open" || inv.status === "past_due") && (
+                            <button
+                              onClick={() => setMarkPaidTarget(inv)}
+                              title="Mark as paid"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors"
+                            >
+                              <CheckCircle className="w-3.5 h-3.5" />
+                              Paid
+                            </button>
+                          )}
                           {inv.hosted_invoice_url && (
                             <a
                               href={inv.hosted_invoice_url}
@@ -218,7 +389,7 @@ export function InvoicesList() {
                               <FileText className="w-3.5 h-3.5" />
                             </a>
                           )}
-                          {!inv.hosted_invoice_url && !inv.pdf_url && (
+                          {inv.status !== "open" && inv.status !== "past_due" && !inv.hosted_invoice_url && !inv.pdf_url && (
                             <span className="text-muted-foreground/40 text-xs">—</span>
                           )}
                         </div>
@@ -231,6 +402,16 @@ export function InvoicesList() {
           )}
         </div>
       </div>
+
+      {/* Mark as Paid dialog */}
+      <MarkPaidDialog
+        invoice={markPaidTarget}
+        onClose={() => setMarkPaidTarget(null)}
+        onSuccess={() => {
+          setMarkPaidTarget(null);
+          load();
+        }}
+      />
     </DashboardLayout>
   );
 }

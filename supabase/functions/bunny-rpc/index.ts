@@ -132,8 +132,11 @@ async function bootstrap() {
     `ALTER TABLE invoices ADD COLUMN agency_id TEXT NOT NULL DEFAULT 'citywide'`,
     `ALTER TABLE invoices ADD COLUMN sent_at TEXT`,
     `ALTER TABLE invoices ADD COLUMN pdf_url TEXT`,
-    `CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, invoice_id TEXT, client_id TEXT NOT NULL, amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', method TEXT, status TEXT NOT NULL DEFAULT 'succeeded', stripe_payment_intent_id TEXT, paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS payments (id TEXT PRIMARY KEY, invoice_id TEXT, client_id TEXT NOT NULL, amount_cents INTEGER NOT NULL DEFAULT 0, currency TEXT NOT NULL DEFAULT 'CAD', method TEXT, notes TEXT, status TEXT NOT NULL DEFAULT 'succeeded', stripe_payment_intent_id TEXT, paid_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE payments ADD COLUMN amount_cents INTEGER NOT NULL DEFAULT 0`,
+    `ALTER TABLE payments ADD COLUMN notes TEXT`,
+    `ALTER TABLE invoices ADD COLUMN payment_method TEXT`,
+    `ALTER TABLE invoices ADD COLUMN payment_notes TEXT`,
     `CREATE TABLE IF NOT EXISTS vault_notes (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, agency_id TEXT NOT NULL DEFAULT 'citywide', title TEXT NOT NULL, body TEXT NOT NULL, visibility TEXT NOT NULL DEFAULT 'agency_only', pinned INTEGER NOT NULL DEFAULT 0, created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS vault_credentials (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, agency_id TEXT NOT NULL DEFAULT 'citywide', label TEXT NOT NULL, category TEXT, username TEXT, password TEXT, url TEXT, mfa_method TEXT, mfa_codes TEXT, notes TEXT, visibility TEXT NOT NULL DEFAULT 'agency_only', created_by TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE vault_credentials ADD COLUMN mfa_method TEXT`,
@@ -623,7 +626,15 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       return { ok: true, hosted_invoice_url: hostedUrl, pdf_url: pdfUrl, stripe_invoice_id: stripeInvoiceId };
     }
     case "invoices.markPaid": {
-      await exec({ sql: `UPDATE invoices SET status = 'paid', paid_at = ?, amount_paid_cents = total_cents WHERE id = ?`, args: [now(), payload.id as string] });
+      const paidAt = (payload.paid_at as string) || now();
+      const paymentMethod = (payload.payment_method as string) || null;
+      const paymentNotes = (payload.notes as string) || null;
+      const { rows: invRows } = await exec({ sql: `SELECT total_cents, currency, client_id FROM invoices WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      const inv = invRows[0];
+      await execMany([
+        { sql: `UPDATE invoices SET status = 'paid', paid_at = ?, amount_paid_cents = total_cents, payment_method = ?, payment_notes = ? WHERE id = ?`, args: [paidAt, paymentMethod, paymentNotes, payload.id as string] },
+        ...(inv ? [{ sql: `INSERT INTO payments (id, invoice_id, client_id, amount_cents, currency, method, notes, status, paid_at) VALUES (?,?,?,?,?,?,?,?,?)`, args: [uuid(), payload.id as string, inv.client_id as string, inv.total_cents as number, (inv.currency as string) || "CAD", paymentMethod, paymentNotes, "succeeded", paidAt] }] : []),
+      ]);
       return { ok: true };
     }
     case "invoices.markUnpaid": {
