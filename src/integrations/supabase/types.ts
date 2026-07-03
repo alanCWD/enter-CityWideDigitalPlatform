@@ -3622,6 +3622,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }
+      link_admin_to_portal: {
+        Args: { p_connection_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       app_role: "admin" | "agency" | "client"

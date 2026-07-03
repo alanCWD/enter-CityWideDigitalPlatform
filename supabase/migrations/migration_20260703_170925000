@@ -1,0 +1,14 @@
+-- Security-definer function: any authenticated user can link themselves to a portal connection.
+-- Used by admin to preview client portals without going through an edge function.
+CREATE OR REPLACE FUNCTION link_admin_to_portal(p_connection_id uuid)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  INSERT INTO portal_users (user_id, connection_id, role)
+  VALUES (auth.uid(), p_connection_id, 'owner')
+  ON CONFLICT (user_id, connection_id) DO NOTHING;
+END;
+$$;
