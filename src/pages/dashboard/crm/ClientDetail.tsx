@@ -89,6 +89,14 @@ export function ClientDetail() {
   if (loading) {
     return <DashboardLayout><TopBar title="Loading…" /></DashboardLayout>;
   }
+
+  // A valid portal connection must be a proper UUID (gbp_connections.id).
+  // Some clients may have a legacy/Zernio profile ID stored instead.
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const portalConnectionId = detail?.client?.gbp_connection_id && UUID_RE.test(detail.client.gbp_connection_id)
+    ? detail.client.gbp_connection_id
+    : null;
+
   if (!detail?.client) {
     return (
       <DashboardLayout>
@@ -131,9 +139,9 @@ export function ClientDetail() {
                 <h2 className="text-xl font-extrabold text-foreground dark:text-[#EEF1FA]">{c.name}</h2>
                 <StatusSelectPill clientId={c.id} status={c.status} onUpdated={reload} />
                 <div className="ml-auto flex items-center gap-1">
-                  {c.gbp_connection_id ? (
+                  {portalConnectionId ? (
                     <button
-                      onClick={() => previewPortal(c.gbp_connection_id!)}
+                      onClick={() => previewPortal(portalConnectionId)}
                       disabled={previewing}
                       title="Open client portal"
                       className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-[#0078D7]/10 text-[#0078D7] hover:bg-[#0078D7]/20 border border-[#0078D7]/20 transition-colors disabled:opacity-50"
@@ -171,8 +179,8 @@ export function ClientDetail() {
               <InfoLine icon={Mail} value={c.billing_email} />
               <InfoLine icon={Phone} value={c.phone} />
               <InfoLine icon={MapPin} value={[c.city, c.region, c.country].filter(Boolean).join(", ") || null} />
-              {c.gbp_connection_id && (
-                <button onClick={() => previewPortal(c.gbp_connection_id!)} disabled={previewing} className="text-xs text-[#0078D7] hover:underline inline-flex items-center gap-1 mt-2 disabled:opacity-50">
+              {portalConnectionId && (
+                <button onClick={() => previewPortal(portalConnectionId)} disabled={previewing} className="text-xs text-[#0078D7] hover:underline inline-flex items-center gap-1 mt-2 disabled:opacity-50">
                   <ExternalLink className="w-3 h-3" /> Open linked GBP portal
                 </button>
               )}
@@ -183,7 +191,7 @@ export function ClientDetail() {
         )}
 
         {/* Portal setup / link banner */}
-        {!c.gbp_connection_id ? (
+        {!portalConnectionId ? (
           <div className="flex items-center justify-between bg-amber-500/8 border border-amber-500/25 rounded-xl px-5 py-3.5">
             <div>
               <p className="text-sm font-bold text-amber-600 dark:text-amber-400">Client portal not connected</p>
@@ -223,7 +231,7 @@ export function ClientDetail() {
                 Invite Client
               </button>
               <button
-                onClick={() => previewPortal(c.gbp_connection_id!)}
+                onClick={() => previewPortal(portalConnectionId)}
                 disabled={previewing}
                 className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 border border-purple-500/25 transition-colors disabled:opacity-50"
               >
@@ -231,7 +239,7 @@ export function ClientDetail() {
                 {previewing ? "Opening…" : "Preview as Admin"}
               </button>
               <button
-                onClick={() => previewPortal(c.gbp_connection_id!)}
+                onClick={() => previewPortal(portalConnectionId)}
                 disabled={previewing}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold bg-[#0078D7] hover:bg-[#005FA3] text-white transition-colors disabled:opacity-50"
               >
@@ -309,9 +317,9 @@ export function ClientDetail() {
         />
       )}
 
-      {showInvite && c.gbp_connection_id && (
+      {showInvite && portalConnectionId && (
         <InviteClientDialog
-          connectionId={c.gbp_connection_id}
+          connectionId={portalConnectionId}
           businessName={c.name}
           onClose={() => setShowInvite(false)}
         />
