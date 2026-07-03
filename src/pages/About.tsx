@@ -190,6 +190,46 @@ const faqSections = [
         q: "What happens if I update something directly in Google instead of through the app?",
         a: "CityWide syncs with your Google Business Profile, so changes made directly in GBP are picked up by the platform. The relationship is flexible — you can manage from CityWide, from Google, or from both. What matters is that your GBP stays accurate, because that's what drives consistency across your entire presence.",
       },
+      {
+        q: "What does \"Google Business Profile as a source of truth\" mean?",
+        a: "It means your Google Business Profile (GBP) becomes the single, master record for your business details — such as name, address, phone number, hours, services, and photos. Everything else (your website, directories, and social channels) is kept in sync with that core profile.",
+      },
+      {
+        q: "How does this help my local visibility on Google?",
+        a: "A complete, accurate, and regularly updated GBP is one of the strongest signals Google uses for local search and Maps. When your profile is fully optimised and active, you're more likely to appear in the Local Pack and \"near me\" searches.",
+      },
+      {
+        q: "Why is consistency across platforms so important?",
+        a: "Google and customers both look for matching information across your website, Google listing, and directories. When your details are consistent everywhere, it builds trust and reduces confusion, which helps your local rankings and click-through rates.",
+      },
+      {
+        q: "How does CityWide Digital make this easier?",
+        a: "CityWide connects directly to your GBP and uses it to power your website, keep 40+ directories up to date, and syndicate posts to your social channels. You update once (in CityWide or GBP), and the platform takes care of the rest in the background.",
+      },
+      {
+        q: "What's the practical benefit for a busy local business?",
+        a: "Less admin, more impact. Instead of logging into multiple sites to change hours, promotions, or services, you update in one place. That single action improves your website, your Google presence, and your wider citation footprint all at once.",
+      },
+      {
+        q: "How does this approach help convert more customers?",
+        a: "When your GBP, website, and directories all show the same up-to-date information and reviews, customers gain confidence quickly. Clear details and strong social proof mean more calls, visits, and bookings from the people who find you online.",
+      },
+      {
+        q: "Where can I read the full article on this?",
+        a: null,
+        aJsx: (
+          <p className="text-muted-foreground leading-relaxed">
+            You can read the full explanation, with examples and best practices, in our detailed article here:{" "}
+            <Link
+              to="/gbp-source-of-truth"
+              className="inline-flex items-center gap-1 text-primary underline underline-offset-2 hover:text-primary/80 font-medium transition-colors"
+            >
+              Read the full guide on using Google Business Profile as your source of truth
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </p>
+        ),
+      },
     ],
   },
 ];
