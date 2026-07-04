@@ -232,6 +232,213 @@ const faqSections = [
       },
     ],
   },
+  {
+    id: "facebook-alone",
+    title: "Why Facebook Alone Isn't Enough For Local Visibility",
+    subtitle: "The limitations of relying on social media as your primary presence",
+    items: [
+      {
+        q: "What's the problem with running my business primarily through Facebook?",
+        a: "",
+        renderAnswer: () => (
+          <p className="text-muted-foreground leading-relaxed">
+            Facebook is not a primary local search listing, so it doesn't drive the same "near me" visibility in Google
+            Search and Maps that a well-optimised Google Business Profile does. If you depend on Facebook alone,{" "}
+            <a
+              href="https://www.flento.io/blog/facebook-business-page-vs-google-business-profile"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+            >
+              you're basically invisible to many high-intent searchers
+            </a>{" "}
+            who never see your Page.
+          </p>
+        ),
+      },
+      {
+        q: "Doesn't a Facebook Page act like a website and listing in one?",
+        a: "",
+        renderAnswer: () => (
+          <p className="text-muted-foreground leading-relaxed">
+            A Facebook Page can mimic a basic website, but it's{" "}
+            <a
+              href="https://www.integritive.com/drawbacks-of-facebook-as-business-site/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+            >
+              built on rented land
+            </a>
+            : you have limited control over layout, SEO, and data ownership. Visitors often need to log in, are
+            distracted by unrelated content, and can't always access core details cleanly on mobile — all of which
+            hurt conversion compared to a proper site powered by GBP data.
+          </p>
+        ),
+      },
+      {
+        q: "How does discovery differ between Facebook and Google?",
+        a: "",
+        renderAnswer: () => (
+          <p className="text-muted-foreground leading-relaxed">
+            Facebook relies on followers, shares, and the news feed algorithm, so{" "}
+            <a
+              href="https://studiovaliente.com/blog/facebook-groups-small-business"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+            >
+              reach can be unpredictable and can drop if Meta changes the rules
+            </a>
+            . Google Business Profile, on the other hand, is designed for intent-based local searches, and is
+            consistently one of the strongest drivers of new customer acquisition.
+          </p>
+        ),
+      },
+      {
+        q: "What are the risks of using Facebook groups instead of a structured local presence?",
+        a: "",
+        renderAnswer: () => (
+          <p className="text-muted-foreground leading-relaxed">
+            <a
+              href="https://studiovaliente.com/blog/facebook-groups-small-business"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+            >
+              Local Facebook groups are noisy, oversaturated environments
+            </a>{" "}
+            where messages compete with dozens of other posts and aren't targeted precisely at your ideal customers.
+            Relying on them means your visibility is fragile, and your brand is buried inside someone else's feed
+            rather than anchored to a clear, findable profile in Google.
+          </p>
+        ),
+      },
+      {
+        q: "Does social media activity directly improve my Google rankings?",
+        a: "",
+        renderAnswer: () => (
+          <p className="text-muted-foreground leading-relaxed">
+            No — social activity is a supporting signal, not a primary ranking factor. It can drive traffic and brand
+            awareness, but{" "}
+            <a
+              href="https://www.localseotactics.com/can-social-media-really-help-your-local-seo-heres-what-to-know/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+            >
+              without a strong Google Business Profile and consistent citations
+            </a>
+            , those visits don't translate into sustainable local search authority.
+          </p>
+        ),
+      },
+    ],
+  },
+  {
+    id: "gbp-foundation",
+    title: "Why GBP + CityWide Should Be Your Foundation",
+    subtitle: "The smarter strategy: GBP-first, with social as a distribution channel",
+    items: [
+      {
+        q: "Why is Google Business Profile more important than Facebook for local businesses?",
+        a: "",
+        renderAnswer: () => (
+          <p className="text-muted-foreground leading-relaxed">
+            GBP is the main citation Google uses to decide who appears in local Search and Maps results, especially
+            the Local Pack. For most businesses, it's{" "}
+            <a
+              href="https://www.coursera.org/articles/google-my-business-local-seo"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+            >
+              the single most effective acquisition channel for new local customers
+            </a>
+            ; Facebook is better for engagement and repeat touchpoints, not first discovery.
+          </p>
+        ),
+      },
+      {
+        q: "How does using GBP as a source of truth help my Facebook strategy?",
+        a: "",
+        renderAnswer: () => (
+          <p className="text-muted-foreground leading-relaxed">
+            When GBP is your source of truth, your core business details stay consistent everywhere, and{" "}
+            <a
+              href="https://citywidedigital.ca"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+            >
+              CityWide can push posts, updates, and promos out to Facebook and other socials
+            </a>{" "}
+            from one central profile. You get the best of both worlds: strong search visibility from GBP, plus social
+            reach from Facebook, without duplicating admin work.
+          </p>
+        ),
+      },
+      {
+        q: "Why is it risky to have mismatched information between Facebook and Google?",
+        a: "",
+        renderAnswer: () => (
+          <p className="text-muted-foreground leading-relaxed">
+            If your name, address, phone, or hours differ between Facebook and Google, Google may ignore those social
+            signals or even downgrade trust in your listing. Using GBP with CityWide keeps your NAP consistent across
+            social, website, and directories, which is a{" "}
+            <a
+              href="https://localdominator.co/local-citation-best-practices/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+            >
+              core requirement for effective local SEO
+            </a>.
+          </p>
+        ),
+      },
+      {
+        q: "How does CityWide improve on a \"Facebook-only\" model?",
+        a: "",
+        renderAnswer: () => (
+          <p className="text-muted-foreground leading-relaxed">
+            CityWide connects your Google Business Profile to a live website and to major directories, then lets you
+            syndicate content to Facebook, Instagram, X, and more from a{" "}
+            <a
+              href="https://dashboard.citywidedigital.ca/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+            >
+              single dashboard
+            </a>
+            . Instead of trying to run your business inside Facebook's ecosystem, you own your presence through GBP
+            and your site, and use Facebook as an amplifier — not the foundation.
+          </p>
+        ),
+      },
+      {
+        q: "What's the preferred strategy: GBP, Facebook, or both?",
+        a: "",
+        renderAnswer: () => (
+          <p className="text-muted-foreground leading-relaxed">
+            The optimal play is GBP-first, with Facebook and other socials used as distribution channels that pull
+            from your source of truth. Complete and maintain your GBP,{" "}
+            <a
+              href="https://citywidedigital.ca"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 transition-colors"
+            >
+              connect it to CityWide
+            </a>
+            , then let the platform push accurate information and promotions out to Facebook rather than trying to
+            build your entire digital presence inside a single social network.
+          </p>
+        ),
+      },
+    ],
+  },
 ];
 
 export default function About() {
