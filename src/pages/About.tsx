@@ -129,7 +129,21 @@ const faqSections = [
     items: [
       {
         q: "Why is Google Business Profile central to CityWide Digital?",
-        a: "Google Business Profile is where local customers find you — in Search, on Maps, and in the Local Pack. It's also the most complete, Google-verified record of your business. By connecting CityWide directly to your GBP, we ensure your entire online presence starts from the most authoritative source available and stays in sync with it automatically.",
+        a: "",
+        renderAnswer: () => (
+          <p className="text-muted-foreground leading-relaxed">
+            Google Business Profile is where local customers find you — in Search, on Maps, and in the Local Pack.
+            It's also the most complete, Google-verified record of your business. By connecting CityWide directly to
+            your GBP, we ensure your entire online presence starts from the most authoritative source available and
+            stays in sync with it automatically.{" "}
+            <Link
+              to="/gbp-local-listing"
+              className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium transition-colors"
+            >
+              Read our full guide on why GBP is your most important local listing →
+            </Link>
+          </p>
+        ),
       },
       {
         q: "How does the app simplify updating my business information on Google?",

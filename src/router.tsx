@@ -39,6 +39,7 @@ import BillingAffiliates from "./pages/dashboard/billing/affiliates";
 import InboxPage from "./pages/dashboard/inbox/InboxPage";
 import { RequirePortalAuth } from "./components/portal/RequirePortalAuth";
 import GbpSourceOfTruth from "./pages/GbpSourceOfTruth";
+import GbpLocalListing from "./pages/GbpLocalListing";
 
 /** Wrap an element so unauthenticated users are redirected to /portal/login */
 function Auth({ children }: { children: React.ReactNode }) {
@@ -75,6 +76,11 @@ export const routers = [
     path: "/gbp-source-of-truth",
     name: "gbp-source-of-truth",
     element: <GbpSourceOfTruth />,
+  },
+  {
+    path: "/gbp-local-listing",
+    name: "gbp-local-listing",
+    element: <GbpLocalListing />,
   },
   // Agency Command Center — Dashboard Routes (require authentication)
   {
