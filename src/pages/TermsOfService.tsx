@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Layout } from "@/components/layout/Layout";
+import Layout from "@/components/layout/Layout";
 import { FileText, Mail, Phone } from "lucide-react";
 
 const EFFECTIVE_DATE = "July 7, 2026";
