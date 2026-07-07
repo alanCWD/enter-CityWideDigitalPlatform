@@ -1,0 +1,44 @@
+
+-- QuickBooks Online connections per CRM client
+CREATE TABLE quickbooks_connections (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  crm_client_id text NOT NULL UNIQUE,
+  realm_id      text NOT NULL,
+  access_token  text NOT NULL,
+  refresh_token text NOT NULL,
+  token_expiry  timestamptz NOT NULL,
+  review_link   text,
+  created_at    timestamptz DEFAULT now(),
+  updated_at    timestamptz DEFAULT now()
+);
+
+ALTER TABLE quickbooks_connections ENABLE ROW LEVEL SECURITY;
+
+-- Authenticated agency users can read, update, and disconnect
+CREATE POLICY "auth_select_qbo_connections" ON quickbooks_connections
+  FOR SELECT TO authenticated USING (true);
+
+CREATE POLICY "auth_update_qbo_connections" ON quickbooks_connections
+  FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+
+CREATE POLICY "auth_delete_qbo_connections" ON quickbooks_connections
+  FOR DELETE TO authenticated USING (true);
+
+-- Log of sent review request emails
+CREATE TABLE review_requests (
+  id             uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  crm_client_id  text NOT NULL,
+  qbo_invoice_id text NOT NULL UNIQUE,
+  customer_name  text,
+  customer_email text NOT NULL,
+  review_link    text,
+  status         text NOT NULL DEFAULT 'sent',
+  error_message  text,
+  sent_at        timestamptz DEFAULT now()
+);
+
+ALTER TABLE review_requests ENABLE ROW LEVEL SECURITY;
+
+-- Authenticated agency users can read review requests
+CREATE POLICY "auth_select_review_requests" ON review_requests
+  FOR SELECT TO authenticated USING (true);

@@ -8,6 +8,7 @@ import { crm, fmtMoney, CrmClient, CrmInvoice } from "@/lib/crm";
 import { StatusPill } from "@/components/crm/StatusPill";
 import { VaultPanel } from "@/components/crm/vault/VaultPanel";
 import { HealthPanel } from "@/components/crm/health/HealthPanel";
+import { QuickBooksPanel } from "@/components/crm/quickbooks/QuickBooksPanel";
 import { LinkZernioProfileDialog } from "@/components/dashboard/crm/LinkZernioProfileDialog";
 import { InviteClientDialog } from "@/components/dashboard/InviteClientDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +33,7 @@ export function ClientDetail() {
   const { detail, loading, error, reload } = useCrmClient(id);
   const isAdmin = useIsAdmin();
   const { toast } = useToast();
-  const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp">("overview");
+  const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp" | "quickbooks">("overview");
   const [deleting, setDeleting] = useState(false);
   const [editingHeader, setEditingHeader] = useState(false);
   const [showLinkZernio, setShowLinkZernio] = useState(false);
@@ -51,6 +52,20 @@ export function ClientDetail() {
       setTab("gbp");
     } else if (gbpError) {
       toast({ title: "GBP connect failed", description: gbpError, variant: "destructive" });
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams]);
+
+  // Handle QBO OAuth redirect-back
+  useEffect(() => {
+    const qbo = searchParams.get("qbo");
+    const qboError = searchParams.get("qbo_error");
+    if (qbo === "connected") {
+      toast({ title: "QuickBooks Online connected", description: "Invoice-paid review requests are now active." });
+      setSearchParams({}, { replace: true });
+      setTab("quickbooks");
+    } else if (qboError) {
+      toast({ title: "QuickBooks connect failed", description: qboError, variant: "destructive" });
       setSearchParams({}, { replace: true });
     }
   }, [searchParams]);
@@ -260,6 +275,7 @@ export function ClientDetail() {
             { key: "subscriptions", label: "Subscriptions" },
             { key: "invoices", label: "Invoices" },
             { key: "payments", label: "Payments" },
+            { key: "quickbooks" as const, label: "QuickBooks" },
           ];
           return (
             <div className="flex flex-wrap gap-1 border-b border-border dark:border-white/10">
@@ -292,6 +308,9 @@ export function ClientDetail() {
         )}
         {tab === "gbp" && c.gbp_connection_id && (
           <GbpPanel connectionId={c.gbp_connection_id} />
+        )}
+        {tab === "quickbooks" && (
+          <QuickBooksPanel clientId={c.id} />
         )}
         {tab === "subscriptions" && (
           <SubscriptionsPanel detail={detail} reload={reload} isAdmin={isAdmin} />

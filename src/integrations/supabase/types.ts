@@ -3501,6 +3501,78 @@ export type Database = {
         }
         Relationships: []
       }
+      quickbooks_connections: {
+        Row: {
+          access_token: string
+          created_at: string | null
+          crm_client_id: string
+          id: string
+          realm_id: string
+          refresh_token: string
+          review_link: string | null
+          token_expiry: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_token: string
+          created_at?: string | null
+          crm_client_id: string
+          id?: string
+          realm_id: string
+          refresh_token: string
+          review_link?: string | null
+          token_expiry: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          created_at?: string | null
+          crm_client_id?: string
+          id?: string
+          realm_id?: string
+          refresh_token?: string
+          review_link?: string | null
+          token_expiry?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      review_requests: {
+        Row: {
+          crm_client_id: string
+          customer_email: string
+          customer_name: string | null
+          error_message: string | null
+          id: string
+          qbo_invoice_id: string
+          review_link: string | null
+          sent_at: string | null
+          status: string
+        }
+        Insert: {
+          crm_client_id: string
+          customer_email: string
+          customer_name?: string | null
+          error_message?: string | null
+          id?: string
+          qbo_invoice_id: string
+          review_link?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Update: {
+          crm_client_id?: string
+          customer_email?: string
+          customer_name?: string | null
+          error_message?: string | null
+          id?: string
+          qbo_invoice_id?: string
+          review_link?: string | null
+          sent_at?: string | null
+          status?: string
+        }
+        Relationships: []
+      }
       scheduled_posts: {
         Row: {
           client_id: string

@@ -40,6 +40,7 @@ import InboxPage from "./pages/dashboard/inbox/InboxPage";
 import { RequirePortalAuth } from "./components/portal/RequirePortalAuth";
 import GbpSourceOfTruth from "./pages/GbpSourceOfTruth";
 import GbpLocalListing from "./pages/GbpLocalListing";
+import { QboCallback } from "./pages/QboCallback";
 
 /** Wrap an element so unauthenticated users are redirected to /portal/login */
 function Auth({ children }: { children: React.ReactNode }) {
@@ -102,6 +103,11 @@ export const routers = [
     path: "/gbp/callback",
     name: "gbp-callback",
     element: <Auth><GbpCallback /></Auth>,
+  },
+  {
+    path: "/qbo/callback",
+    name: "qbo-callback",
+    element: <Auth><QboCallback /></Auth>,
   },
   {
     path: "/restaurant",
