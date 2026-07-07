@@ -41,6 +41,8 @@ import { RequirePortalAuth } from "./components/portal/RequirePortalAuth";
 import GbpSourceOfTruth from "./pages/GbpSourceOfTruth";
 import GbpLocalListing from "./pages/GbpLocalListing";
 import { QboCallback } from "./pages/QboCallback";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsOfService from "./pages/TermsOfService";
 
 /** Wrap an element so unauthenticated users are redirected to /portal/login */
 function Auth({ children }: { children: React.ReactNode }) {
@@ -82,6 +84,16 @@ export const routers = [
     path: "/gbp-local-listing",
     name: "gbp-local-listing",
     element: <GbpLocalListing />,
+  },
+  {
+    path: "/privacy",
+    name: "privacy-policy",
+    element: <PrivacyPolicy />,
+  },
+  {
+    path: "/terms",
+    name: "terms-of-service",
+    element: <TermsOfService />,
   },
   // Agency Command Center — Dashboard Routes (require authentication)
   {

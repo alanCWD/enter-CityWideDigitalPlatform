@@ -19,8 +19,8 @@ const footerLinks = {
   Support: [
     { label: "Help Center", href: "/contact" },
     { label: "Book a Demo", href: "https://calendly.com/alan-citywidedigital/30min", external: true },
-    { label: "Privacy Policy", href: "/contact" },
-    { label: "Terms of Service", href: "/contact" },
+    { label: "Privacy Policy", href: "/privacy" },
+    { label: "Terms of Service", href: "/terms" },
   ],
 };
 
@@ -97,6 +97,8 @@ export default function Footer() {
             &copy; {new Date().getFullYear()} CityWide Digital. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
+            <Link to="/privacy" className="text-xs text-[rgba(238,241,250,0.4)] hover:text-[#0078D7] transition-colors">Privacy Policy</Link>
+            <Link to="/terms" className="text-xs text-[rgba(238,241,250,0.4)] hover:text-[#0078D7] transition-colors">Terms of Service</Link>
             {[
               { icon: Facebook, href: "https://facebook.com" },
               { icon: Instagram, href: "https://instagram.com" },
