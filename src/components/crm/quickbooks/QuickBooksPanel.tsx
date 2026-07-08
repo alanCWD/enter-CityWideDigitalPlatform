@@ -4,7 +4,7 @@ import { useQboConnection, useReviewRequests } from "@/hooks/useQuickbooks";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Link2, CheckCircle2, Unlink, Save, RefreshCw,
-  Mail, AlertCircle, ExternalLink, Star, Copy, Send, X,
+  Mail, AlertCircle, ExternalLink, Star, Copy, Send, X, Eye, EyeOff,
 } from "lucide-react";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,6 +16,33 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function buildReviewEmailHtml(customerName: string, reviewLink: string) {
+  return `<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 20px;">
+  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    <h2 style="color: #111; font-size: 22px; margin: 0 0 16px;">Thank you, ${customerName}!</h2>
+    <p style="color: #555; line-height: 1.7; margin: 0 0 16px;">
+      We truly appreciate your business. Your experience matters to us, and we'd love to hear your feedback.
+    </p>
+    <p style="color: #555; line-height: 1.7; margin: 0 0 24px;">
+      Would you mind taking a moment to leave us a review? It helps us improve and helps others discover our services.
+    </p>
+    ${reviewLink ? `
+    <div style="text-align: center; margin: 0 0 24px;">
+      <a href="${reviewLink}" style="display: inline-block; background: #0078D7; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">
+        Leave a Review
+      </a>
+    </div>
+    ` : `<p style="color:#aaa; font-style:italic; text-align:center; margin: 0 0 24px;">(Google review button will appear here once you save a review link)</p>`}
+    <p style="color: #999; font-size: 12px; margin: 0;">
+      Thank you for choosing us. We look forward to serving you again!
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
 export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; clientEmail?: string | null }) {
   const { connection, loading, reload } = useQboConnection(clientId);
   const { requests, loading: loadingRequests, reload: reloadRequests } = useReviewRequests(clientId);
@@ -25,6 +52,7 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
   const [reviewLink, setReviewLink] = useState("");
   const [fromName, setFromName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   // Share link state
   const [authUrl, setAuthUrl] = useState<string | null>(null);
@@ -215,7 +243,14 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
               </div>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => setShowPreview((v) => !v)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-muted/50 border border-border transition-colors"
+              >
+                {showPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                {showPreview ? "Hide Email Preview" : "Preview Review Email"}
+              </button>
               <button
                 disabled={saving}
                 onClick={saveSettings}
@@ -225,6 +260,26 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
                 {saving ? "Saving…" : "Save Settings"}
               </button>
             </div>
+
+            {/* Email preview */}
+            {showPreview && (
+              <div className="rounded-xl border border-border overflow-hidden">
+                <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-2">
+                  <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground">
+                    <span className="font-bold">From:</span> {fromName || "CityWide Reviews"} &lt;reviews@citywidedigital.ca&gt;
+                  </span>
+                  <span className="ml-auto text-[10px] text-muted-foreground italic">Preview — uses sample customer name</span>
+                </div>
+                <iframe
+                  srcDoc={buildReviewEmailHtml("John Smith", reviewLink)}
+                  className="w-full border-0"
+                  style={{ height: "420px" }}
+                  title="Review email preview"
+                  sandbox="allow-same-origin"
+                />
+              </div>
+            )}
 
             {/* Webhook URL */}
             <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 px-4 py-3">
