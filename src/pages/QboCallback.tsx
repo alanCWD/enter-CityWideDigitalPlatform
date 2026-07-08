@@ -1,11 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export function QboCallback() {
   const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("Connecting to QuickBooks Online…");
   const ran = useRef(false);
@@ -19,27 +18,15 @@ export function QboCallback() {
     const realmId = searchParams.get("realmId");
     const error = searchParams.get("error");
 
-    const getCrmId = () => {
-      if (!state) return null;
-      try { return JSON.parse(atob(state)).crmClientId; } catch { return null; }
-    };
-
     if (error) {
       setStatus("error");
       setMessage(`QuickBooks error: ${error}`);
-      const crmId = getCrmId();
-      setTimeout(() => navigate(
-        crmId
-          ? `/dashboard/crm/clients/${crmId}?qbo_error=${encodeURIComponent(error)}`
-          : `/dashboard?qbo_error=${encodeURIComponent(error)}`
-      ), 2500);
       return;
     }
 
     if (!code || !realmId) {
       setStatus("error");
       setMessage("Missing authorization code or company ID.");
-      setTimeout(() => navigate("/dashboard?qbo_error=no_code"), 2500);
       return;
     }
 
@@ -61,43 +48,24 @@ export function QboCallback() {
           } catch { msg = fnError.message || msg; }
           setStatus("error");
           setMessage(msg);
-          const crmId = getCrmId();
-          setTimeout(() => navigate(
-            crmId
-              ? `/dashboard/crm/clients/${crmId}?qbo_error=${encodeURIComponent(msg)}`
-              : `/dashboard?qbo_error=${encodeURIComponent(msg)}`
-          ), 2500);
           return;
         }
 
         if (data?.success) {
           setStatus("success");
-          setMessage("QuickBooks Online connected! Review requests are now active.");
-          const crmId = data.crmClientId;
-          setTimeout(() => navigate(
-            crmId
-              ? `/dashboard/crm/clients/${crmId}?qbo=connected`
-              : `/dashboard?qbo=connected`
-          ), 1500);
+          setMessage("QuickBooks Online connected! Review requests are now active. You can close this window.");
         } else {
           setStatus("error");
           setMessage(data?.error || "Connection failed.");
-          const crmId = data?.crmClientId || getCrmId();
-          setTimeout(() => navigate(
-            crmId
-              ? `/dashboard/crm/clients/${crmId}?qbo_error=${encodeURIComponent(data?.error || "exchange_failed")}`
-              : `/dashboard?qbo_error=exchange_failed`
-          ), 2500);
         }
       } catch {
         setStatus("error");
         setMessage("Unexpected error during connection.");
-        setTimeout(() => navigate("/dashboard?qbo_error=unexpected"), 2500);
       }
     };
 
     exchange();
-  }, [searchParams, navigate]);
+  }, [searchParams]);
 
   return (
     <div className="min-h-screen bg-[#0D1526] flex items-center justify-center">

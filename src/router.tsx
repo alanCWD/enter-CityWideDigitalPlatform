@@ -120,7 +120,7 @@ export const routers = [
   {
     path: "/qbo/callback",
     name: "qbo-callback",
-    element: <Auth><QboCallback /></Auth>,
+    element: <QboCallback />,
   },
   {
     path: "/restaurant",
