@@ -3508,9 +3508,11 @@ export type Database = {
           crm_client_id: string
           from_name: string | null
           id: string
+          last_error: string | null
           realm_id: string
           refresh_token: string
           review_link: string | null
+          status: string
           token_expiry: string
           updated_at: string | null
         }
@@ -3520,9 +3522,11 @@ export type Database = {
           crm_client_id: string
           from_name?: string | null
           id?: string
+          last_error?: string | null
           realm_id: string
           refresh_token: string
           review_link?: string | null
+          status?: string
           token_expiry: string
           updated_at?: string | null
         }
@@ -3532,9 +3536,11 @@ export type Database = {
           crm_client_id?: string
           from_name?: string | null
           id?: string
+          last_error?: string | null
           realm_id?: string
           refresh_token?: string
           review_link?: string | null
+          status?: string
           token_expiry?: string
           updated_at?: string | null
         }

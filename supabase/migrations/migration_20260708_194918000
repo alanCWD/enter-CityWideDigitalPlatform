@@ -1,0 +1,30 @@
+-- Track connection health so we can detect and notify on QuickBooks token expiry
+ALTER TABLE quickbooks_connections ADD COLUMN IF NOT EXISTS status text NOT NULL DEFAULT 'active';
+ALTER TABLE quickbooks_connections ADD COLUMN IF NOT EXISTS last_error text;
+
+-- Unschedule any prior job with the same name so this migration is safe to re-run
+DO $$
+BEGIN
+  PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'qbo-refresh-tokens-daily';
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+-- Proactively refresh every QuickBooks connection's token once a day.
+-- QBO refresh tokens are valid ~100 days but get renewed to a fresh 100-day
+-- lifespan every time they're used — so a daily refresh keeps active
+-- connections alive indefinitely, and immediately surfaces real expirations
+-- (revoked access, etc.) instead of waiting for a customer invoice to fail.
+SELECT cron.schedule(
+  'qbo-refresh-tokens-daily',
+  '0 13 * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/functions/v1/qbo-refresh-tokens',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNwYi10NG4xdzJqOWp3aGhjN2g2IiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzcxNDAzMzksImV4cCI6MjA5MjcxNjMzOX0.KE2fNZckvo-20zds7KR1wv7a0kNUVA-vgO7HJ6gQbMo'
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);

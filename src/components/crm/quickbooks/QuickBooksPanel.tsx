@@ -191,15 +191,84 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
             </p>
           </div>
           {connection ? (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20">
-              <CheckCircle2 className="w-3.5 h-3.5" /> Connected
-            </span>
+            connection.status === "expired" ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20">
+                <AlertCircle className="w-3.5 h-3.5" /> Expired
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Connected
+              </span>
+            )
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-muted text-muted-foreground border border-border">
               Not Connected
             </span>
           )}
         </div>
+
+        {connection?.status === "expired" && (
+          <div className="rounded-xl bg-red-500/5 border border-red-500/20 px-4 py-3 mb-4 space-y-3">
+            <div>
+              <p className="text-xs font-bold text-red-400 mb-1">Connection expired</p>
+              <p className="text-xs text-red-400/70">
+                {connection.last_error || "The QuickBooks authorization has expired or was revoked."} Generate a new connection link and send it to the client to restore review requests.
+              </p>
+            </div>
+
+            {!authUrl ? (
+              <button
+                disabled={busy}
+                onClick={generateLink}
+                className="bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5 transition-colors"
+              >
+                {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Link2 className="w-3.5 h-3.5" />}
+                {busy ? "Generating…" : "Generate New Connection Link"}
+              </button>
+            ) : (
+              <div className="rounded-lg border border-red-500/30 bg-background p-3 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Share New Connection Link</p>
+                  <button
+                    onClick={() => setAuthUrl(null)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title="Dismiss"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-muted/40 border border-border rounded-lg px-3 py-2 text-xs font-mono text-muted-foreground truncate">
+                    {authUrl.slice(0, 60)}…
+                  </div>
+                  <button
+                    onClick={copyLink}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-background border border-border text-foreground hover:border-red-400 hover:text-red-400 transition-colors"
+                  >
+                    <Copy className="w-3.5 h-3.5" /> Copy
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={emailTo}
+                    onChange={(e) => setEmailTo(e.target.value)}
+                    placeholder="client@example.com"
+                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-red-400"
+                  />
+                  <button
+                    disabled={sending || !emailTo.trim()}
+                    onClick={sendEmail}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white transition-colors"
+                  >
+                    {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    {sending ? "Sending…" : "Send"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {connection ? (
           <div className="space-y-4">

@@ -10,6 +10,8 @@ export interface QboConnection {
   token_expiry: string;
   review_link: string | null;
   from_name: string | null;
+  status: string;
+  last_error: string | null;
   created_at: string;
   updated_at: string;
 }
