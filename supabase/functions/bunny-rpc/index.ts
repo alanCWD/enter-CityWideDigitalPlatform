@@ -256,7 +256,8 @@ async function sendSubscriptionInvoice(
     pdfUrl = finalized.invoice_pdf ?? null;
     try {
       const crmInvoiceId = uuid();
-      await exec({ sql: `INSERT OR IGNORE INTO invoices (id, client_id, agency_id, number, subtotal_cents, tax_cents, total_cents, amount_cents, amount_paid_cents, currency, status, issued_at, sent_at, stripe_invoice_id, hosted_invoice_url, pdf_url) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [crmInvoiceId, clientId, agencyId, invoiceNum, invoice.subtotal ?? 0, invoice.tax ?? 0, invoice.total ?? 0, invoice.total ?? 0, 0, "CAD", "open", now(), now(), invoice.id, hostedUrl, pdfUrl] });
+      const dueAt = finalized.due_date ? new Date(finalized.due_date * 1000).toISOString() : null;
+      await exec({ sql: `INSERT OR IGNORE INTO invoices (id, client_id, agency_id, number, subtotal_cents, tax_cents, total_cents, amount_cents, amount_paid_cents, currency, status, issued_at, due_at, sent_at, stripe_invoice_id, hosted_invoice_url, pdf_url) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [crmInvoiceId, clientId, agencyId, invoiceNum, invoice.subtotal ?? 0, invoice.tax ?? 0, invoice.total ?? 0, invoice.total ?? 0, 0, "CAD", "open", now(), dueAt, now(), invoice.id, hostedUrl, pdfUrl] });
     } catch (e) { console.warn("Failed to save CRM invoice record:", e); }
   }
   await stripe.invoices.sendInvoice(invoice.id);

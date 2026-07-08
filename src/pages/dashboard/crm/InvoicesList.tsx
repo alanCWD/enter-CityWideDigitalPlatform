@@ -650,6 +650,7 @@ export function InvoicesList() {
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Status</th>
                     <th className="text-right px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Amount</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Issued</th>
+                    <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Due</th>
                     <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Paid</th>
                     <th className="text-center px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Actions</th>
                   </tr>
@@ -691,6 +692,13 @@ export function InvoicesList() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground text-xs">{fmt(inv.issued_at)}</td>
+                      <td className={`px-4 py-3 text-xs ${
+                        inv.due_date && (inv.status === "open" || inv.status === "past_due") && new Date(inv.due_date) < new Date()
+                          ? "text-destructive font-medium"
+                          : "text-muted-foreground"
+                      }`}>
+                        {fmt(inv.due_date)}
+                      </td>
                       <td className="px-4 py-3 text-xs">
                         <div className="text-muted-foreground">{fmt(inv.paid_at)}</div>
                         {inv.payment_notes && (
