@@ -5,6 +5,9 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Must match EXACTLY what is registered in the Intuit Developer Portal → Keys & Credentials → Redirect URIs
+const REDIRECT_URI = "https://citywidedigital.ca/qbo/callback";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
@@ -19,7 +22,6 @@ Deno.serve(async (req) => {
     }
 
     const origin = (frontendOrigin || "").replace(/\/$/, "");
-    const redirectUri = `${origin}/qbo/callback`;
 
     const state = btoa(JSON.stringify({
       crmClientId: crmClientId || null,
@@ -28,14 +30,14 @@ Deno.serve(async (req) => {
 
     const params = new URLSearchParams({
       client_id: clientId,
-      redirect_uri: redirectUri,
+      redirect_uri: REDIRECT_URI,
       response_type: "code",
       scope: "com.intuit.quickbooks.accounting",
       state,
     });
 
     const url = `https://appcenter.intuit.com/connect/oauth2?${params}`;
-    return new Response(JSON.stringify({ url, redirectUri }), {
+    return new Response(JSON.stringify({ url, redirectUri: REDIRECT_URI }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (err) {

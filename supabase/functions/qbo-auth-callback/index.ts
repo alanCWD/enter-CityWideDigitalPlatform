@@ -7,6 +7,9 @@ const cors = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+// Must match EXACTLY what was sent to Intuit in qbo-auth-url (and what is registered in the portal)
+const REDIRECT_URI = "https://citywidedigital.ca/qbo/callback";
+
 const ok = (body: unknown) =>
   new Response(JSON.stringify(body), {
     status: 200,
@@ -17,11 +20,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { code, state, realmId, redirectUri } = await req.json();
+    const { code, state, realmId } = await req.json();
 
     if (!code) return ok({ success: false, error: "no_code" });
     if (!realmId) return ok({ success: false, error: "no_realm_id" });
-    if (!redirectUri) return ok({ success: false, error: "missing_redirect_uri" });
 
     let crmClientId: string | null = null;
     try {
@@ -37,6 +39,7 @@ Deno.serve(async (req) => {
     );
 
     // Exchange authorization code for tokens
+    // redirect_uri must exactly match what was sent in the initial auth request
     const credentials = btoa(`${clientId}:${clientSecret}`);
     const tokenRes = await fetch("https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer", {
       method: "POST",
@@ -48,7 +51,7 @@ Deno.serve(async (req) => {
       body: new URLSearchParams({
         grant_type: "authorization_code",
         code,
-        redirect_uri: redirectUri,
+        redirect_uri: REDIRECT_URI,
       }),
     });
 
@@ -75,7 +78,6 @@ Deno.serve(async (req) => {
 
     const tokenExpiry = new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString();
 
-    // Upsert into quickbooks_connections
     const payload = {
       crm_client_id: crmClientId || `realm_${realmId}`,
       realm_id: realmId,
@@ -94,7 +96,7 @@ Deno.serve(async (req) => {
       return ok({ success: false, error: `DB error: ${dbErr.message}` });
     }
 
-    console.log("[qbo-auth-callback] connection stored for crmClientId:", crmClientId, "realmId:", realmId);
+    console.log("[qbo-auth-callback] connected — crmClientId:", crmClientId, "realmId:", realmId);
     return ok({ success: true, crmClientId, realmId });
   } catch (err) {
     console.error("[qbo-auth-callback] exception:", err);
