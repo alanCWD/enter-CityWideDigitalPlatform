@@ -708,11 +708,11 @@ export function InvoicesList() {
                           {(inv.status === "open" || inv.status === "past_due") && (
                             <button
                               onClick={() => setMarkPaidTarget(inv)}
-                              title="Mark as paid"
-                              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400 hover:bg-green-500/20 border border-green-500/20 transition-colors whitespace-nowrap"
+                              title="Record a manual payment (e.g. e-transfer, cash) for this invoice"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground border border-border transition-colors whitespace-nowrap"
                             >
                               <CheckCircle className="w-3.5 h-3.5" />
-                              Paid
+                              Mark Paid
                             </button>
                           )}
 
