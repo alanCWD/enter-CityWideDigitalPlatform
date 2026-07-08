@@ -1,2 +1,1 @@
-// Disabled — was a temporary one-off backfill/diagnostic tool, no longer needed.
-Deno.serve(() => new Response("Gone", { status: 410 }));
+Deno.serve(() => new Response(JSON.stringify({ marker: "TEST123-FRESH" }), { headers: { "Content-Type": "application/json" } }));

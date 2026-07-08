@@ -606,24 +606,32 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       let hostedUrl = inv.hosted_invoice_url as string | null;
       let pdfUrl = inv.pdf_url as string | null;
       let stripeInvoiceId = inv.stripe_invoice_id as string | null;
+      let stripeStatus = "open";
+      let stripeTotal = inv.total_cents as number;
       if (stripe) {
-        try {
-          const customerId = await ensureStripeCustomer(inv.client_id as string);
-          type LineItem = { description: string; quantity: number; unit_amount_cents: number };
-          const lineItems: LineItem[] = JSON.parse((inv.line_items as string) || "[]");
-          const dueDays = Math.max(1, Math.round((new Date(inv.due_at as string).getTime() - Date.now()) / 86400000)) || 14;
-          for (const item of lineItems) {
-            await stripe.invoiceItems.create({ customer: customerId, amount: Math.round((item.unit_amount_cents ?? 0) * (item.quantity ?? 1)), currency: ((inv.currency as string) || "CAD").toLowerCase(), description: item.description || "Service" });
-          }
-          const stripeInv = await stripe.invoices.create({ customer: customerId, collection_method: "send_invoice", days_until_due: dueDays, custom_fields: [{ name: "Invoice No.", value: inv.number as string }], metadata: { crm_invoice_id: inv.id as string } });
-          stripeInvoiceId = stripeInv.id;
-          const finalized = await stripe.invoices.finalizeInvoice(stripeInv.id);
-          hostedUrl = finalized.hosted_invoice_url ?? null;
-          pdfUrl = finalized.invoice_pdf ?? null;
-          await stripe.invoices.sendInvoice(stripeInv.id);
-        } catch (stripeErr) { console.error("Stripe invoice send failed:", stripeErr); }
+        const customerId = await ensureStripeCustomer(inv.client_id as string);
+        type LineItem = { description: string; quantity: number; unit_amount_cents: number };
+        const lineItems: LineItem[] = JSON.parse((inv.line_items as string) || "[]");
+        const dueDays = Math.max(1, Math.round((new Date(inv.due_at as string).getTime() - Date.now()) / 86400000)) || 14;
+        for (const item of lineItems) {
+          await stripe.invoiceItems.create({ customer: customerId, amount: Math.round((item.unit_amount_cents ?? 0) * (item.quantity ?? 1)), currency: ((inv.currency as string) || "CAD").toLowerCase(), description: item.description || "Service" });
+        }
+        const stripeInv = await stripe.invoices.create({ customer: customerId, collection_method: "send_invoice", days_until_due: dueDays, pending_invoice_items_behavior: "include", custom_fields: [{ name: "Invoice No.", value: inv.number as string }], metadata: { crm_invoice_id: inv.id as string } });
+        stripeInvoiceId = stripeInv.id;
+        const finalized = await stripe.invoices.finalizeInvoice(stripeInv.id);
+        // Safety check: a $0 finalized invoice means the line items never attached to it (Stripe
+        // auto-marks $0 invoices "paid" and there is nothing to collect) — do not email the client.
+        if ((finalized.total ?? 0) <= 0 && (inv.total_cents as number) > 0) {
+          try { await stripe.invoices.voidInvoice(stripeInv.id); } catch { /* best effort */ }
+          throw new Error("Stripe created this invoice with a $0 total (line items failed to attach). The invoice was voided and NOT sent — please try again.");
+        }
+        hostedUrl = finalized.hosted_invoice_url ?? null;
+        pdfUrl = finalized.invoice_pdf ?? null;
+        stripeStatus = finalized.status ?? "open";
+        stripeTotal = finalized.total ?? stripeTotal;
+        await stripe.invoices.sendInvoice(stripeInv.id);
       }
-      await exec({ sql: `UPDATE invoices SET status = 'open', sent_at = ?, stripe_invoice_id = ?, hosted_invoice_url = ?, pdf_url = ? WHERE id = ?`, args: [now(), stripeInvoiceId, hostedUrl, pdfUrl, payload.id as string] });
+      await exec({ sql: `UPDATE invoices SET status = ?, total_cents = ?, amount_cents = ?, sent_at = ?, stripe_invoice_id = ?, hosted_invoice_url = ?, pdf_url = ? WHERE id = ?`, args: [stripeStatus, stripeTotal, stripeTotal, now(), stripeInvoiceId, hostedUrl, pdfUrl, payload.id as string] });
       return { ok: true, hosted_invoice_url: hostedUrl, pdf_url: pdfUrl, stripe_invoice_id: stripeInvoiceId };
     }
     case "invoices.markPaid": {
