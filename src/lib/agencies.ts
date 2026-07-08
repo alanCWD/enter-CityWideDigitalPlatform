@@ -14,6 +14,7 @@ import {
   Utensils as Fork,
   UserCircle,
   Inbox,
+  Star,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -68,6 +69,7 @@ export const AGENCIES: Agency[] = [
       { name: "Leads & Alerts",   path: "/leads",      icon: Bell                     },
       { name: "Social",           path: "/dashboard/social/calendar", icon: Share2   },
       { name: "Inbox",            path: "/dashboard/inbox",            icon: Inbox    },
+      { name: "Review Requests",  path: "/dashboard/reviews",          icon: Star     },
       ...crmNav,
     ],
   },

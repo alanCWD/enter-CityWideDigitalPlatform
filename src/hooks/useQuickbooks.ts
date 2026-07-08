@@ -9,6 +9,7 @@ export interface QboConnection {
   refresh_token: string;
   token_expiry: string;
   review_link: string | null;
+  from_name: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -67,4 +68,41 @@ export function useReviewRequests(clientId: string | undefined) {
 
   useEffect(() => { reload(); }, [reload]);
   return { requests, loading, reload };
+}
+
+export function useAllReviewRequests() {
+  const [requests, setRequests] = useState<ReviewRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    const { data } = await db
+      .from("review_requests")
+      .select("*")
+      .order("sent_at", { ascending: false })
+      .limit(500);
+    setRequests(data ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+  return { requests, loading, reload };
+}
+
+export function useAllQboConnections() {
+  const [connections, setConnections] = useState<QboConnection[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(async () => {
+    setLoading(true);
+    const { data } = await db
+      .from("quickbooks_connections")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setConnections(data ?? []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { reload(); }, [reload]);
+  return { connections, loading, reload };
 }

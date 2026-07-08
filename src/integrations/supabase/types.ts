@@ -3506,6 +3506,7 @@ export type Database = {
           access_token: string
           created_at: string | null
           crm_client_id: string
+          from_name: string | null
           id: string
           realm_id: string
           refresh_token: string
@@ -3517,6 +3518,7 @@ export type Database = {
           access_token: string
           created_at?: string | null
           crm_client_id: string
+          from_name?: string | null
           id?: string
           realm_id: string
           refresh_token: string
@@ -3528,6 +3530,7 @@ export type Database = {
           access_token?: string
           created_at?: string | null
           crm_client_id?: string
+          from_name?: string | null
           id?: string
           realm_id?: string
           refresh_token?: string

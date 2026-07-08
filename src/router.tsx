@@ -43,6 +43,7 @@ import GbpLocalListing from "./pages/GbpLocalListing";
 import { QboCallback } from "./pages/QboCallback";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
+import { ReviewRequestsDashboard } from "./pages/dashboard/ReviewRequests";
 
 /** Wrap an element so unauthenticated users are redirected to /portal/login */
 function Auth({ children }: { children: React.ReactNode }) {
@@ -273,6 +274,11 @@ export const routers = [
     path: "/dashboard/inbox",
     name: "inbox",
     element: <Auth><InboxPage /></Auth>,
+  },
+  {
+    path: "/dashboard/reviews",
+    name: "review-requests",
+    element: <Auth><ReviewRequestsDashboard /></Auth>,
   },
   /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
   {

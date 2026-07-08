@@ -43,7 +43,6 @@ Deno.serve(async (req) => {
   const clientSecret = Deno.env.get("QBO_CLIENT_SECRET")!;
   const resendApiKey = Deno.env.get("RESEND_API_KEY")!;
 
-  // eventNotifications: [{ realmId, dataChangeEvent: { entities: [{ name, id, operation }] } }]
   const notifications = (payload.eventNotifications as Array<Record<string, unknown>>) || [];
 
   for (const notification of notifications) {
@@ -55,12 +54,10 @@ Deno.serve(async (req) => {
       const entityName = entity.name as string;
       const entityId = entity.id as string;
 
-      // Only process Invoice entities
       if (entityName !== "Invoice") continue;
 
       console.log(`[qbo-webhook] Invoice ${entityId} changed in realm ${realmId}`);
 
-      // Look up the connection for this realm
       const { data: conn } = await supabase
         .from("quickbooks_connections")
         .select("*")
@@ -72,7 +69,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Idempotency check — skip if already sent
+      // Idempotency check
       const { data: existing } = await supabase
         .from("review_requests")
         .select("id")
@@ -117,7 +114,7 @@ Deno.serve(async (req) => {
         }).eq("id", conn.id);
       }
 
-      // Fetch the full invoice from QBO API
+      // Fetch the full invoice from QBO
       const invoiceRes = await fetch(
         `https://quickbooks.api.intuit.com/v3/company/${realmId}/invoice/${entityId}?minorversion=65`,
         {
@@ -133,9 +130,9 @@ Deno.serve(async (req) => {
           Id: string;
           Balance: number;
           BillEmail?: { Address?: string };
-          CustomerRef?: { name?: string; value?: string };
+          CustomerRef?: { name?: string };
         };
-        Fault?: { Error: Array<{ Message: string; Detail?: string }> };
+        Fault?: { Error: Array<{ Message: string }> };
       };
 
       if (invoiceData.Fault) {
@@ -146,7 +143,6 @@ Deno.serve(async (req) => {
       const invoice = invoiceData.Invoice;
       if (!invoice) continue;
 
-      // Only process fully paid invoices (Balance === 0)
       if (invoice.Balance !== 0) {
         console.log(`[qbo-webhook] Invoice ${entityId} not fully paid (Balance: ${invoice.Balance}) — skipping`);
         continue;
@@ -161,6 +157,9 @@ Deno.serve(async (req) => {
       }
 
       const reviewLink = conn.review_link || "";
+      const fromName = conn.from_name || "CityWide Reviews";
+      const fromAddress = `${fromName} <reviews@citywidedigital.ca>`;
+
       let status: "sent" | "failed" = "sent";
       let errorMessage: string | null = null;
 
@@ -197,7 +196,7 @@ Deno.serve(async (req) => {
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            from: "reviews@citywidedigital.ca",
+            from: fromAddress,
             to: [customerEmail],
             subject: "Thanks for your business — leave us a review?",
             html: emailHtml,
@@ -208,14 +207,13 @@ Deno.serve(async (req) => {
         if (!emailRes.ok) {
           throw new Error(emailResult.message || emailResult.name || `Resend HTTP ${emailRes.status}`);
         }
-        console.log(`[qbo-webhook] Review request email sent to ${customerEmail} (id: ${emailResult.id})`);
+        console.log(`[qbo-webhook] Review request sent to ${customerEmail} from "${fromAddress}" (id: ${emailResult.id})`);
       } catch (e) {
         status = "failed";
         errorMessage = (e as Error).message;
         console.error("[qbo-webhook] Email send failed:", errorMessage);
       }
 
-      // Log to review_requests
       await supabase.from("review_requests").insert({
         crm_client_id: conn.crm_client_id,
         qbo_invoice_id: entityId,

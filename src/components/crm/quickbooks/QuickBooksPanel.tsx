@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { useQboConnection, useReviewRequests } from "@/hooks/useQuickbooks";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Link2, CheckCircle2, Unlink, Save, RefreshCw,
-  Mail, AlertCircle, ExternalLink, Star,
+  Mail, AlertCircle, ExternalLink, Star, Copy,
 } from "lucide-react";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
+
+const WEBHOOK_URL = `${SUPABASE_URL}/functions/v1/qbo-webhook`;
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
@@ -21,12 +23,13 @@ export function QuickBooksPanel({ clientId }: { clientId: string }) {
 
   const [busy, setBusy] = useState(false);
   const [reviewLink, setReviewLink] = useState("");
-  const [savingLink, setSavingLink] = useState(false);
+  const [fromName, setFromName] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  // Sync reviewLink state when connection loads
   useEffect(() => {
     setReviewLink(connection?.review_link || "");
-  }, [connection?.review_link]);
+    setFromName(connection?.from_name || "");
+  }, [connection?.review_link, connection?.from_name]);
 
   const connect = async () => {
     setBusy(true);
@@ -59,19 +62,28 @@ export function QuickBooksPanel({ clientId }: { clientId: string }) {
     }
   };
 
-  const saveReviewLink = async () => {
-    setSavingLink(true);
+  const saveSettings = async () => {
+    setSaving(true);
     try {
       await db.from("quickbooks_connections")
-        .update({ review_link: reviewLink.trim() || null, updated_at: new Date().toISOString() })
+        .update({
+          review_link: reviewLink.trim() || null,
+          from_name: fromName.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
         .eq("crm_client_id", clientId);
       await reload();
-      toast({ title: "Review link saved" });
+      toast({ title: "Settings saved" });
     } catch (e) {
       toast({ title: "Save failed", description: (e as Error).message, variant: "destructive" });
     } finally {
-      setSavingLink(false);
+      setSaving(false);
     }
+  };
+
+  const copyWebhook = () => {
+    navigator.clipboard.writeText(WEBHOOK_URL);
+    toast({ title: "Webhook URL copied" });
   };
 
   if (loading) {
@@ -110,7 +122,7 @@ export function QuickBooksPanel({ clientId }: { clientId: string }) {
         {connection ? (
           <div className="space-y-4">
             {/* Company info */}
-            <div className="rounded-xl bg-muted/40 dark:bg-white/3 border border-border dark:border-white/8 px-4 py-3 flex flex-wrap items-center gap-4">
+            <div className="rounded-xl bg-muted/40 dark:bg-white/3 border border-border dark:border-white/8 px-4 py-3 flex flex-wrap items-center gap-6">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Company ID (Realm)</p>
                 <p className="text-sm font-mono text-foreground dark:text-[#EEF1FA]">{connection.realm_id}</p>
@@ -125,56 +137,85 @@ export function QuickBooksPanel({ clientId }: { clientId: string }) {
               </div>
             </div>
 
-            {/* Review link editor */}
-            <div>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">
-                Google Review Link
-              </label>
-              <p className="text-xs text-muted-foreground mb-2">
-                Paste the GBP short review URL (e.g. <code className="font-mono bg-muted px-1 rounded">https://g.page/r/XXXX/review</code>). This link is included in every review request email.
-              </p>
-              <div className="flex gap-2">
+            {/* Settings fields */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Sender name */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">
+                  Sender Name
+                </label>
                 <input
-                  type="url"
-                  value={reviewLink}
-                  onChange={(e) => setReviewLink(e.target.value)}
-                  placeholder="https://g.page/r/XXXX/review"
-                  className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#0078D7]"
+                  type="text"
+                  value={fromName}
+                  onChange={(e) => setFromName(e.target.value)}
+                  placeholder="e.g. Acme Plumbing Reviews"
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#0078D7]"
                 />
-                {reviewLink && (
-                  <a
-                    href={reviewLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-2 text-muted-foreground hover:text-[#0078D7] transition-colors"
-                    title="Open link"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-                )}
-                <button
-                  disabled={savingLink}
-                  onClick={saveReviewLink}
-                  className="bg-[#0078D7] hover:bg-[#005FA3] disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5 transition-colors"
-                >
-                  <Save className="w-3.5 h-3.5" />
-                  {savingLink ? "Saving…" : "Save"}
-                </button>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Appears as the "From" name in the email. Defaults to "CityWide Reviews".
+                </p>
+              </div>
+
+              {/* Review link */}
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">
+                  Google Review Link
+                </label>
+                <div className="flex gap-1.5">
+                  <input
+                    type="url"
+                    value={reviewLink}
+                    onChange={(e) => setReviewLink(e.target.value)}
+                    placeholder="https://g.page/r/XXXX/review"
+                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#0078D7]"
+                  />
+                  {reviewLink && (
+                    <a
+                      href={reviewLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 text-muted-foreground hover:text-[#0078D7] transition-colors"
+                      title="Open link"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Included as a button in every review request email.
+                </p>
               </div>
             </div>
 
-            {/* Webhook URL info */}
+            <div className="flex justify-end">
+              <button
+                disabled={saving}
+                onClick={saveSettings}
+                className="bg-[#0078D7] hover:bg-[#005FA3] disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5 transition-colors"
+              >
+                <Save className="w-3.5 h-3.5" />
+                {saving ? "Saving…" : "Save Settings"}
+              </button>
+            </div>
+
+            {/* Webhook URL */}
             <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 px-4 py-3">
-              <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mb-1">Webhook URL</p>
+              <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mb-1">Intuit Webhook URL</p>
               <p className="text-xs text-amber-600/70 dark:text-amber-400/60 mb-2">
-                Register this URL in your Intuit Developer app under <strong>Webhooks</strong>. Select the <strong>Invoice</strong> entity.
+                Register this in your Intuit Developer app → <strong>Webhooks</strong>. Subscribe to the <strong>Invoice</strong> entity.
               </p>
-              <code className="text-[11px] font-mono bg-background border border-border rounded px-2 py-1 block break-all text-foreground">
-                {`${window.location.origin.replace(window.location.origin, "https://<project>.supabase.co")}/functions/v1/qbo-webhook`}
-              </code>
-              <p className="text-[10px] text-muted-foreground mt-1">
-                (Replace with your actual Supabase project URL from the dashboard)
-              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-[11px] font-mono bg-background border border-border rounded px-2 py-1.5 break-all text-foreground">
+                  {WEBHOOK_URL}
+                </code>
+                <button
+                  onClick={copyWebhook}
+                  className="shrink-0 p-1.5 rounded text-muted-foreground hover:text-[#0078D7] hover:bg-[#0078D7]/10 transition-colors"
+                  title="Copy"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             {/* Disconnect */}
@@ -191,19 +232,19 @@ export function QuickBooksPanel({ clientId }: { clientId: string }) {
           </div>
         ) : (
           <div className="flex flex-col items-start gap-3">
-            <div className="rounded-xl bg-muted/30 border border-border dark:border-white/8 px-4 py-3 text-xs text-muted-foreground space-y-1 w-full">
+            <div className="rounded-xl bg-muted/30 border border-border dark:border-white/8 px-4 py-3 text-xs text-muted-foreground space-y-1.5 w-full">
               <p className="font-bold text-foreground dark:text-[#EEF1FA] text-sm mb-2">How it works</p>
               <div className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#2CA01C]/15 text-[#2CA01C] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span>
-                <span>Click <strong>Connect QuickBooks</strong> and sign in with the client's QuickBooks Online account.</span>
+                <span>Click <strong>Connect QuickBooks</strong> and sign in with the client's QBO account.</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#2CA01C]/15 text-[#2CA01C] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
-                <span>Enter the client's Google review link so it appears in the email button.</span>
+                <span>Enter the client's Google review link and optionally a sender name.</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#2CA01C]/15 text-[#2CA01C] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</span>
-                <span>When an invoice is marked paid in QBO, the customer is automatically emailed a review request.</span>
+                <span>When an invoice is paid in QBO, the customer is automatically emailed a review request.</span>
               </div>
             </div>
             <button
@@ -264,7 +305,7 @@ export function QuickBooksPanel({ clientId }: { clientId: string }) {
                 </thead>
                 <tbody className="divide-y divide-border dark:divide-white/5">
                   {requests.map((r) => (
-                    <tr key={r.id} className="group">
+                    <tr key={r.id}>
                       <td className="py-2.5 pr-4 text-xs text-muted-foreground whitespace-nowrap">{fmtDate(r.sent_at)}</td>
                       <td className="py-2.5 pr-4 text-xs text-foreground dark:text-[#EEF1FA] font-medium">{r.customer_name || "—"}</td>
                       <td className="py-2.5 pr-4">
