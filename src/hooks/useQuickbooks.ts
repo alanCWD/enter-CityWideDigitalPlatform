@@ -28,6 +28,16 @@ export interface ReviewRequest {
   sent_at: string;
 }
 
+export interface QboConnectionAttempt {
+  id: string;
+  crm_client_id: string | null;
+  realm_id: string | null;
+  stage: string;
+  message: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
 
@@ -107,4 +117,25 @@ export function useAllQboConnections() {
 
   useEffect(() => { reload(); }, [reload]);
   return { connections, loading, reload };
+}
+
+export function useQboConnectionAttempts(clientId: string | undefined) {
+  const [attempts, setAttempts] = useState<QboConnectionAttempt[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(async () => {
+    if (!clientId) { setLoading(false); return; }
+    setLoading(true);
+    const { data } = await db
+      .from("qbo_connection_attempts")
+      .select("*")
+      .eq("crm_client_id", clientId)
+      .order("created_at", { ascending: false })
+      .limit(20);
+    setAttempts(data ?? []);
+    setLoading(false);
+  }, [clientId]);
+
+  useEffect(() => { reload(); }, [reload]);
+  return { attempts, loading, reload };
 }

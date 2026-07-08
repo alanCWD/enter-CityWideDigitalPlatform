@@ -1,0 +1,1 @@
+DELETE FROM qbo_connection_attempts WHERE crm_client_id = 'test-diagnostic';

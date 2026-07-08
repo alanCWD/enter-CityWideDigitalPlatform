@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
-import { useQboConnection, useReviewRequests } from "@/hooks/useQuickbooks";
+import { useQboConnection, useReviewRequests, useQboConnectionAttempts } from "@/hooks/useQuickbooks";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Link2, CheckCircle2, Unlink, Save, RefreshCw,
-  Mail, AlertCircle, ExternalLink, Star, Copy, Send, X, Eye, EyeOff,
+  Mail, AlertCircle, ExternalLink, Star, Copy, Send, X, Eye, EyeOff, Activity,
 } from "lucide-react";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -15,6 +15,21 @@ const WEBHOOK_URL = `${SUPABASE_URL}/functions/v1/qbo-webhook`;
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
 }
+
+function fmtDateTime(iso: string) {
+  return new Date(iso).toLocaleString("en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+}
+
+const STAGE_LABELS: Record<string, { label: string; tone: "ok" | "error" | "info" }> = {
+  landed: { label: "Client opened the link", tone: "info" },
+  error_param: { label: "QuickBooks returned an error before redirecting", tone: "error" },
+  no_code: { label: "Redirected back without an authorization code", tone: "error" },
+  callback_invoking: { label: "Exchanging authorization code…", tone: "info" },
+  callback_error: { label: "Token exchange failed", tone: "error" },
+  callback_failed: { label: "Connection could not be saved", tone: "error" },
+  success: { label: "Connected successfully", tone: "ok" },
+  exception: { label: "Unexpected error in browser", tone: "error" },
+};
 
 function buildReviewEmailHtml(customerName: string, reviewLink: string) {
   return `<!DOCTYPE html>
@@ -71,6 +86,7 @@ function buildAuthInviteEmailHtml(authUrl: string, clientName?: string) {
 export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; clientEmail?: string | null }) {
   const { connection, loading, reload } = useQboConnection(clientId);
   const { requests, loading: loadingRequests, reload: reloadRequests } = useReviewRequests(clientId);
+  const { attempts, loading: loadingAttempts, reload: reloadAttempts } = useQboConnectionAttempts(clientId);
   const { toast } = useToast();
 
   const [busy, setBusy] = useState(false);
@@ -78,6 +94,7 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
   const [fromName, setFromName] = useState("");
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   // Share link state
   const [authUrl, setAuthUrl] = useState<string | null>(null);
@@ -518,6 +535,78 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
           </div>
         )}
       </div>
+
+      {/* Connection attempt diagnostics — helps answer "client says they clicked authorize but nothing happened" */}
+      {attempts.length > 0 && (
+        <div className="bg-card dark:bg-[#111E33] border border-border dark:border-white/10 rounded-2xl p-5">
+          <button
+            onClick={() => setShowDiagnostics((v) => !v)}
+            className="w-full flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-sm font-bold text-foreground dark:text-[#EEF1FA] uppercase tracking-wider">
+                Connection Attempts
+              </h3>
+              <span className="text-xs text-muted-foreground">({attempts.length})</span>
+            </div>
+            {showDiagnostics ? <EyeOff className="w-3.5 h-3.5 text-muted-foreground" /> : <Eye className="w-3.5 h-3.5 text-muted-foreground" />}
+          </button>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            A log of every step the client's browser went through while authorizing. Useful when a client says they clicked "Authorize" but the connection didn't complete.
+          </p>
+
+          {showDiagnostics && (
+            <div className="mt-4 space-y-2">
+              <div className="flex justify-end">
+                <button
+                  onClick={() => reloadAttempts()}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-[#0078D7] hover:bg-[#0078D7]/10 transition-colors"
+                  title="Refresh"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingAttempts ? "animate-spin" : ""}`} />
+                </button>
+              </div>
+              {attempts.map((a) => {
+                const info = STAGE_LABELS[a.stage] || { label: a.stage, tone: "info" as const };
+                return (
+                  <div
+                    key={a.id}
+                    className={`rounded-lg border px-3 py-2 flex items-start gap-2 ${
+                      info.tone === "error"
+                        ? "border-red-500/20 bg-red-500/5"
+                        : info.tone === "ok"
+                        ? "border-[#22C55E]/20 bg-[#22C55E]/5"
+                        : "border-border bg-muted/20"
+                    }`}
+                  >
+                    {info.tone === "error" ? (
+                      <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                    ) : info.tone === "ok" ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-[#22C55E] shrink-0 mt-0.5" />
+                    ) : (
+                      <Activity className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className={`text-xs font-bold ${
+                          info.tone === "error" ? "text-red-400" : info.tone === "ok" ? "text-[#22C55E]" : "text-foreground dark:text-[#EEF1FA]"
+                        }`}>
+                          {info.label}
+                        </p>
+                        <span className="text-[10px] text-muted-foreground whitespace-nowrap shrink-0">{fmtDateTime(a.created_at)}</span>
+                      </div>
+                      {a.message && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5 break-all">{a.message}</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Review requests log */}
       {connection && (

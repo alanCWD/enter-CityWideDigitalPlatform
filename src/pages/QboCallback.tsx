@@ -3,6 +3,19 @@ import { useSearchParams } from "react-router-dom";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
+// Fire-and-forget diagnostic log so we can see exactly where the OAuth flow
+// broke down, even if the client closes the tab before the exchange finishes
+// or a browser extension blocks the follow-up request.
+function logAttempt(stage: string, crmClientId: string | null, realmId: string | null, message?: string) {
+  try {
+    supabase.functions.invoke("qbo-log-attempt", {
+      body: { stage, crmClientId, realmId, message },
+    });
+  } catch {
+    // Never let logging break the actual flow
+  }
+}
+
 export function QboCallback() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
@@ -18,15 +31,25 @@ export function QboCallback() {
     const realmId = searchParams.get("realmId");
     const error = searchParams.get("error");
 
+    const getCrmId = () => {
+      if (!state) return null;
+      try { return JSON.parse(atob(state)).crmClientId ?? null; } catch { return null; }
+    };
+    const crmClientId = getCrmId();
+
+    logAttempt("landed", crmClientId, realmId, `url=${window.location.href}`);
+
     if (error) {
       setStatus("error");
       setMessage(`QuickBooks error: ${error}`);
+      logAttempt("error_param", crmClientId, realmId, error);
       return;
     }
 
     if (!code || !realmId) {
       setStatus("error");
       setMessage("Missing authorization code or company ID.");
+      logAttempt("no_code", crmClientId, realmId);
       return;
     }
 
@@ -35,6 +58,7 @@ export function QboCallback() {
     const exchange = async () => {
       try {
         setMessage("Exchanging authorization code…");
+        logAttempt("callback_invoking", crmClientId, realmId);
 
         const { data, error: fnError } = await supabase.functions.invoke("qbo-auth-callback", {
           body: { code, state: state || "", realmId, redirectUri },
@@ -48,19 +72,23 @@ export function QboCallback() {
           } catch { msg = fnError.message || msg; }
           setStatus("error");
           setMessage(msg);
+          logAttempt("callback_error", crmClientId, realmId, msg);
           return;
         }
 
         if (data?.success) {
           setStatus("success");
           setMessage("QuickBooks Online connected! Review requests are now active. You can close this window.");
+          logAttempt("success", crmClientId, realmId);
         } else {
           setStatus("error");
           setMessage(data?.error || "Connection failed.");
+          logAttempt("callback_failed", crmClientId, realmId, data?.error);
         }
-      } catch {
+      } catch (e) {
         setStatus("error");
         setMessage("Unexpected error during connection.");
+        logAttempt("exception", crmClientId, realmId, (e as Error).message);
       }
     };
 

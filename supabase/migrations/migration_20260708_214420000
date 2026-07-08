@@ -1,0 +1,21 @@
+-- Tracks every step of the QuickBooks OAuth callback so we can diagnose
+-- "client says they authorized but nothing happened" cases without guessing.
+CREATE TABLE IF NOT EXISTS qbo_connection_attempts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  crm_client_id text,
+  realm_id text,
+  stage text NOT NULL, -- 'landed' | 'error_param' | 'no_code' | 'callback_received' | 'success' | 'token_error' | 'db_error' | 'exception'
+  message text,
+  user_agent text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE qbo_connection_attempts ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "service role manages qbo_connection_attempts" ON qbo_connection_attempts
+  FOR ALL USING (auth.role() = 'service_role');
+
+CREATE POLICY "authenticated users view qbo_connection_attempts" ON qbo_connection_attempts
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+CREATE INDEX IF NOT EXISTS qbo_connection_attempts_client_idx ON qbo_connection_attempts (crm_client_id, created_at DESC);

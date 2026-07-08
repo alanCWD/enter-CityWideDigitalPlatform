@@ -3501,6 +3501,36 @@ export type Database = {
         }
         Relationships: []
       }
+      qbo_connection_attempts: {
+        Row: {
+          created_at: string
+          crm_client_id: string | null
+          id: string
+          message: string | null
+          realm_id: string | null
+          stage: string
+          user_agent: string | null
+        }
+        Insert: {
+          created_at?: string
+          crm_client_id?: string | null
+          id?: string
+          message?: string | null
+          realm_id?: string | null
+          stage: string
+          user_agent?: string | null
+        }
+        Update: {
+          created_at?: string
+          crm_client_id?: string | null
+          id?: string
+          message?: string | null
+          realm_id?: string | null
+          stage?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       quickbooks_connections: {
         Row: {
           access_token: string
