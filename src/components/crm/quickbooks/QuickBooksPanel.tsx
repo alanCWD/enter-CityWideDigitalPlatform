@@ -43,6 +43,31 @@ function buildReviewEmailHtml(customerName: string, reviewLink: string) {
 </html>`;
 }
 
+// Mirrors the template sent by the qbo-send-auth-email edge function
+function buildAuthInviteEmailHtml(authUrl: string, clientName?: string) {
+  const greeting = clientName ? `Hi ${clientName},` : "Hi,";
+  return `<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; padding: 20px;">
+  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+    <h2 style="color: #111827; font-size: 20px; margin: 0 0 16px;">Connect your QuickBooks account</h2>
+    <p style="color: #4B5563; line-height: 1.7; margin: 0 0 12px;">${greeting}</p>
+    <p style="color: #4B5563; line-height: 1.7; margin: 0 0 24px;">
+      Please click the button below to securely connect your QuickBooks Online account. This allows us to automatically send review requests to your customers when an invoice is marked as paid.
+    </p>
+    <div style="text-align: center; margin: 0 0 24px;">
+      <a href="${authUrl}" style="display: inline-block; background: #2CA01C; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">
+        Connect QuickBooks
+      </a>
+    </div>
+    <p style="color: #6B7280; font-size: 12px; line-height: 1.6; margin: 0;">
+      This link is unique to your account. If you did not expect this email, you can safely ignore it.
+    </p>
+  </div>
+</body>
+</html>`;
+}
+
 export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; clientEmail?: string | null }) {
   const { connection, loading, reload } = useQboConnection(clientId);
   const { requests, loading: loadingRequests, reload: reloadRequests } = useReviewRequests(clientId);
@@ -58,6 +83,7 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
   const [authUrl, setAuthUrl] = useState<string | null>(null);
   const [emailTo, setEmailTo] = useState(clientEmail || "");
   const [sending, setSending] = useState(false);
+  const [showAuthPreview, setShowAuthPreview] = useState(false);
 
   useEffect(() => {
     setReviewLink(connection?.review_link || "");
@@ -391,6 +417,33 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
                     {sending ? "Sending…" : "Send"}
                   </button>
                 </div>
+
+                <button
+                  onClick={() => setShowAuthPreview((v) => !v)}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#2CA01C] hover:text-[#238a15] transition-colors"
+                >
+                  {showAuthPreview ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  {showAuthPreview ? "Hide Email Preview" : "Preview This Email"}
+                </button>
+
+                {showAuthPreview && (
+                  <div className="rounded-xl border border-border overflow-hidden">
+                    <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-2">
+                      <Mail className="w-3.5 h-3.5 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        <span className="font-bold">To:</span> {emailTo || "client@example.com"} &nbsp;
+                        <span className="font-bold">Subject:</span> Action required: Connect your QuickBooks account
+                      </span>
+                    </div>
+                    <iframe
+                      srcDoc={buildAuthInviteEmailHtml(authUrl)}
+                      className="w-full border-0"
+                      style={{ height: "360px" }}
+                      title="QuickBooks invite email preview"
+                      sandbox="allow-same-origin"
+                    />
+                  </div>
+                )}
               </div>
             )}
           </div>
