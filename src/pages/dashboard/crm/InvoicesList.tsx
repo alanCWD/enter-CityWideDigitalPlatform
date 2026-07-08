@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from "react";
-import { ExternalLink, FileText, Search, RefreshCw, CheckCircle, CloudLightning, Pencil } from "lucide-react";
+import { ExternalLink, FileText, Search, RefreshCw, CheckCircle, CloudLightning, Pencil, Send } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { crm, fmtMoney, type CrmInvoice } from "@/lib/crm";
@@ -415,6 +415,45 @@ function EditPaymentDialog({ invoice, onClose, onSuccess }: EditPaymentDialogPro
   );
 }
 
+// ── Resend invoice button (re-emails the client; recreates in Stripe if the linked invoice is broken) ─
+
+function ResendInvoiceButton({ invoice, onRefresh }: { invoice: CrmInvoice; onRefresh: () => void }) {
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const handleResend = async () => {
+    setSending(true);
+    setErr(null);
+    try {
+      await crm("invoices.resend", { id: invoice.id });
+      onRefresh();
+    } catch (e) {
+      setErr((e as Error).message ?? "Resend failed");
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      <button
+        onClick={handleResend}
+        disabled={sending}
+        title="Resend this invoice email to the client (recreates it in Stripe if the current one is broken)"
+        className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground border border-border transition-colors disabled:opacity-50 whitespace-nowrap"
+      >
+        <Send className={`w-3.5 h-3.5 ${sending ? "animate-pulse" : ""}`} />
+        {sending ? "Sending…" : "Resend"}
+      </button>
+      {err && (
+        <span className="text-[9px] text-destructive leading-none text-center max-w-[90px] mt-1" title={err}>
+          {err.slice(0, 60)}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ── Stripe actions cell (for invoices already linked to a Stripe invoice ID) ─
 
 interface StripeActionsCellProps {
@@ -712,6 +751,11 @@ export function InvoicesList() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1 flex-wrap">
+                          {/* Resend — for sent, unpaid invoices linked to Stripe */}
+                          {(inv.status === "open" || inv.status === "past_due") && inv.stripe_invoice_id && (
+                            <ResendInvoiceButton invoice={inv} onRefresh={load} />
+                          )}
+
                           {/* Mark as Paid — only for open / past_due */}
                           {(inv.status === "open" || inv.status === "past_due") && (
                             <button

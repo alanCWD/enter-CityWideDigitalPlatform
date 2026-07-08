@@ -634,6 +634,58 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await exec({ sql: `UPDATE invoices SET status = ?, total_cents = ?, amount_cents = ?, sent_at = ?, stripe_invoice_id = ?, hosted_invoice_url = ?, pdf_url = ? WHERE id = ?`, args: [stripeStatus, stripeTotal, stripeTotal, now(), stripeInvoiceId, hostedUrl, pdfUrl, payload.id as string] });
       return { ok: true, hosted_invoice_url: hostedUrl, pdf_url: pdfUrl, stripe_invoice_id: stripeInvoiceId };
     }
+    case "invoices.resend": {
+      const { rows } = await exec({ sql: `SELECT * FROM invoices WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      const inv = rows[0];
+      if (!inv) throw new Error("Invoice not found");
+      if (!stripe) throw new Error("Stripe is not configured.");
+
+      const existingStripeId = inv.stripe_invoice_id as string | null;
+      let brokenZeroTotal = false;
+      if (existingStripeId) {
+        try {
+          const existing = await stripe.invoices.retrieve(existingStripeId);
+          // A linked Stripe invoice with $0 total while the CRM record expects a real amount means
+          // the line items never attached when it was created (see invoices.send safety check).
+          brokenZeroTotal = (existing.total ?? 0) <= 0 && (inv.total_cents as number) > 0;
+          if (!brokenZeroTotal) {
+            if (existing.status === "paid" || existing.status === "void") {
+              throw new Error(`This invoice is already ${existing.status} in Stripe — nothing to resend.`);
+            }
+            await stripe.invoices.sendInvoice(existingStripeId);
+            await exec({ sql: `UPDATE invoices SET sent_at = ? WHERE id = ?`, args: [now(), payload.id as string] });
+            return { ok: true, stripe_invoice_id: existingStripeId, hosted_invoice_url: existing.hosted_invoice_url ?? inv.hosted_invoice_url };
+          }
+          // Void the broken $0 invoice before creating its replacement.
+          try { await stripe.invoices.voidInvoice(existingStripeId); } catch { /* may already be finalized/paid at $0, ignore */ }
+        } catch (e) {
+          if (!brokenZeroTotal) throw e;
+        }
+      }
+
+      // No usable Stripe invoice yet, or the linked one was broken — create a fresh one from the
+      // CRM's stored line items (same path invoices.send uses).
+      const customerId = await ensureStripeCustomer(inv.client_id as string);
+      type LineItem = { description: string; quantity: number; unit_amount_cents: number };
+      const lineItems: LineItem[] = JSON.parse((inv.line_items as string) || "[]");
+      if (lineItems.length === 0) throw new Error("This invoice has no stored line items — cannot recreate it in Stripe. Contact support.");
+      const dueDays = Math.max(1, Math.round((new Date(inv.due_at as string).getTime() - Date.now()) / 86400000)) || 14;
+      for (const item of lineItems) {
+        await stripe.invoiceItems.create({ customer: customerId, amount: Math.round((item.unit_amount_cents ?? 0) * (item.quantity ?? 1)), currency: ((inv.currency as string) || "CAD").toLowerCase(), description: item.description || "Service" });
+      }
+      const stripeInv = await stripe.invoices.create({ customer: customerId, collection_method: "send_invoice", days_until_due: dueDays, pending_invoice_items_behavior: "include", custom_fields: [{ name: "Invoice No.", value: inv.number as string }], metadata: { crm_invoice_id: inv.id as string } });
+      const finalized = await stripe.invoices.finalizeInvoice(stripeInv.id);
+      if ((finalized.total ?? 0) <= 0) {
+        try { await stripe.invoices.voidInvoice(stripeInv.id); } catch { /* best effort */ }
+        throw new Error("Stripe created this replacement invoice with a $0 total again. The invoice was voided and NOT sent — please check the product price and try again.");
+      }
+      await stripe.invoices.sendInvoice(stripeInv.id);
+      await exec({
+        sql: `UPDATE invoices SET status = 'open', total_cents = ?, amount_cents = ?, amount_paid_cents = 0, paid_at = NULL, sent_at = ?, stripe_invoice_id = ?, hosted_invoice_url = ?, pdf_url = ? WHERE id = ?`,
+        args: [finalized.total ?? inv.total_cents, finalized.total ?? inv.amount_cents, now(), stripeInv.id, finalized.hosted_invoice_url ?? null, finalized.invoice_pdf ?? null, payload.id as string],
+      });
+      return { ok: true, stripe_invoice_id: stripeInv.id, hosted_invoice_url: finalized.hosted_invoice_url, recreated: true };
+    }
     case "invoices.markPaid": {
       const paidAt = (payload.paid_at as string) || now();
       const paymentMethod = (payload.payment_method as string) || null;
