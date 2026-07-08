@@ -236,7 +236,7 @@ export function QuickBooksPanel({ clientId }: { clientId: string }) {
               <p className="font-bold text-foreground dark:text-[#EEF1FA] text-sm mb-2">How it works</p>
               <div className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#2CA01C]/15 text-[#2CA01C] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span>
-                <span>Click <strong>Connect QuickBooks</strong> and sign in with the client's QBO account.</span>
+                <span>Click <strong>Connect QuickBooks</strong> — a secure authorization link opens. Share it with your client so <em>they</em> can log in and approve access on their own device. You never need their credentials.</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#2CA01C]/15 text-[#2CA01C] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
