@@ -310,7 +310,7 @@ export function ClientDetail() {
           <GbpPanel connectionId={c.gbp_connection_id} />
         )}
         {tab === "quickbooks" && (
-          <QuickBooksPanel clientId={c.id} />
+          <QuickBooksPanel clientId={c.id} clientEmail={c.billing_email} />
         )}
         {tab === "subscriptions" && (
           <SubscriptionsPanel detail={detail} reload={reload} isAdmin={isAdmin} />

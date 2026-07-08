@@ -4,7 +4,7 @@ import { useQboConnection, useReviewRequests } from "@/hooks/useQuickbooks";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Link2, CheckCircle2, Unlink, Save, RefreshCw,
-  Mail, AlertCircle, ExternalLink, Star, Copy,
+  Mail, AlertCircle, ExternalLink, Star, Copy, Send, X,
 } from "lucide-react";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -16,7 +16,7 @@ function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
 }
 
-export function QuickBooksPanel({ clientId }: { clientId: string }) {
+export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; clientEmail?: string | null }) {
   const { connection, loading, reload } = useQboConnection(clientId);
   const { requests, loading: loadingRequests, reload: reloadRequests } = useReviewRequests(clientId);
   const { toast } = useToast();
@@ -26,12 +26,17 @@ export function QuickBooksPanel({ clientId }: { clientId: string }) {
   const [fromName, setFromName] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Share link state
+  const [authUrl, setAuthUrl] = useState<string | null>(null);
+  const [emailTo, setEmailTo] = useState(clientEmail || "");
+  const [sending, setSending] = useState(false);
+
   useEffect(() => {
     setReviewLink(connection?.review_link || "");
     setFromName(connection?.from_name || "");
   }, [connection?.review_link, connection?.from_name]);
 
-  const connect = async () => {
+  const generateLink = async () => {
     setBusy(true);
     try {
       const { data, error } = await supabase.functions.invoke("qbo-auth-url", {
@@ -41,10 +46,33 @@ export function QuickBooksPanel({ clientId }: { clientId: string }) {
         toast({ title: "Failed to get QuickBooks auth URL", description: error?.message, variant: "destructive" });
         return;
       }
-      window.location.href = data.url;
+      setAuthUrl(data.url);
     } catch (e) {
       toast({ title: "Unexpected error", description: (e as Error).message, variant: "destructive" });
+    } finally {
       setBusy(false);
+    }
+  };
+
+  const copyLink = () => {
+    if (!authUrl) return;
+    navigator.clipboard.writeText(authUrl);
+    toast({ title: "Link copied to clipboard" });
+  };
+
+  const sendEmail = async () => {
+    if (!authUrl || !emailTo) return;
+    setSending(true);
+    try {
+      const { error } = await supabase.functions.invoke("qbo-send-auth-email", {
+        body: { recipientEmail: emailTo.trim(), authUrl },
+      });
+      if (error) throw new Error(error.message);
+      toast({ title: "Email sent!", description: `Authorization link sent to ${emailTo}` });
+    } catch (e) {
+      toast({ title: "Failed to send email", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setSending(false);
     }
   };
 
@@ -236,7 +264,7 @@ export function QuickBooksPanel({ clientId }: { clientId: string }) {
               <p className="font-bold text-foreground dark:text-[#EEF1FA] text-sm mb-2">How it works</p>
               <div className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#2CA01C]/15 text-[#2CA01C] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">1</span>
-                <span>Click <strong>Connect QuickBooks</strong> — a secure authorization link opens. Share it with your client so <em>they</em> can log in and approve access on their own device. You never need their credentials.</span>
+                <span>Click <strong>Generate Connection Link</strong> — a secure authorization link is created. Copy it or email it directly to your client so <em>they</em> can log in and approve access on their own device. You never need their credentials.</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#2CA01C]/15 text-[#2CA01C] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
@@ -247,14 +275,69 @@ export function QuickBooksPanel({ clientId }: { clientId: string }) {
                 <span>When an invoice is paid in QBO, the customer is automatically emailed a review request.</span>
               </div>
             </div>
-            <button
-              disabled={busy}
-              onClick={connect}
-              className="bg-[#2CA01C] hover:bg-[#238a15] disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-lg inline-flex items-center gap-2 transition-colors"
-            >
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
-              {busy ? "Redirecting…" : "Connect QuickBooks"}
-            </button>
+
+            {!authUrl ? (
+              <button
+                disabled={busy}
+                onClick={generateLink}
+                className="bg-[#2CA01C] hover:bg-[#238a15] disabled:opacity-50 text-white text-sm font-bold px-5 py-2.5 rounded-lg inline-flex items-center gap-2 transition-colors"
+              >
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+                {busy ? "Generating…" : "Generate Connection Link"}
+              </button>
+            ) : (
+              <div className="w-full rounded-xl border border-[#2CA01C]/30 bg-[#2CA01C]/5 p-4 space-y-3">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-xs font-bold text-[#2CA01C] uppercase tracking-wider">Share Connection Link</p>
+                  <button
+                    onClick={() => setAuthUrl(null)}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                    title="Dismiss"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+
+                {/* Copy row */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-xs font-mono text-muted-foreground truncate">
+                    {authUrl.slice(0, 60)}…
+                  </div>
+                  <button
+                    onClick={copyLink}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold bg-background border border-border text-foreground hover:border-[#2CA01C] hover:text-[#2CA01C] transition-colors"
+                  >
+                    <Copy className="w-3.5 h-3.5" /> Copy
+                  </button>
+                </div>
+
+                {/* Divider */}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-border" />
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider">or send via email</span>
+                  <div className="flex-1 h-px bg-border" />
+                </div>
+
+                {/* Email row */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    value={emailTo}
+                    onChange={(e) => setEmailTo(e.target.value)}
+                    placeholder="client@example.com"
+                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#2CA01C]"
+                  />
+                  <button
+                    disabled={sending || !emailTo.trim()}
+                    onClick={sendEmail}
+                    className="shrink-0 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold bg-[#2CA01C] hover:bg-[#238a15] disabled:opacity-50 text-white transition-colors"
+                  >
+                    {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                    {sending ? "Sending…" : "Send"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
