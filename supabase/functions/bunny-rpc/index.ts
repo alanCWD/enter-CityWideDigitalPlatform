@@ -1,4 +1,5 @@
 // CRM gateway with Vault (notes, credentials, files) + multi-agency tenancy.
+// (redeploy trigger: invoices.resend action)
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14.21.0?target=deno";
 
