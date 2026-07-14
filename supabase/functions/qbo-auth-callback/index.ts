@@ -8,7 +8,7 @@ const cors = {
 };
 
 // Must match EXACTLY what was sent to Intuit in qbo-auth-url (and what is registered in the portal)
-const REDIRECT_URI = "https://citywidedigital.ca/qbo/callback";
+const REDIRECT_URI = "https://dashboard.citywidedigital.ca/qbo/callback";
 const NOTIFY_EMAIL = "alan@citywidedigital.ca";
 
 const ok = (body: unknown) =>

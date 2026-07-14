@@ -6,7 +6,7 @@ const cors = {
 };
 
 // Must match EXACTLY what is registered in the Intuit Developer Portal → Keys & Credentials → Redirect URIs
-const REDIRECT_URI = "https://citywidedigital.ca/qbo/callback";
+const REDIRECT_URI = "https://dashboard.citywidedigital.ca/qbo/callback";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
