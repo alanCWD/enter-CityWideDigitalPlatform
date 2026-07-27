@@ -3,5 +3,8 @@ project_id = "spb-t4n1w2j9jwhhc7h6"
 [functions.stripe-webhook]
 verify_jwt = false
 
+[functions.qbo-webhook]
+verify_jwt = false
+
 [functions.__jwt_test_probe__]
 verify_jwt = false
