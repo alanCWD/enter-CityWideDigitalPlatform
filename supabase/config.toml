@@ -1,10 +1,7 @@
 project_id = "spb-t4n1w2j9jwhhc7h6"
 
+# Note: verify_jwt = false has no effect on this platform's gateway — every
+# backend function requires an Authorization header regardless of this setting.
+# Kept here only in case that changes; do not rely on it for public endpoints.
 [functions.stripe-webhook]
-verify_jwt = false
-
-[functions.qbo-webhook]
-verify_jwt = false
-
-[functions.__jwt_test_probe__]
 verify_jwt = false

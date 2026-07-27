@@ -1,16 +1,14 @@
 import { useEffect, useState } from "react";
-import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { useQboConnection, useReviewRequests, useQboConnectionAttempts } from "@/hooks/useQuickbooks";
 import { useToast } from "@/hooks/use-toast";
 import {
   Loader2, Link2, CheckCircle2, Unlink, Save, RefreshCw,
-  Mail, AlertCircle, ExternalLink, Star, Copy, Send, X, Eye, EyeOff, Activity,
+  Mail, AlertCircle, ExternalLink, Star, Send, X, Eye, EyeOff, Activity, Clock,
 } from "lucide-react";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const db = supabase as any;
-
-const WEBHOOK_URL = `${SUPABASE_URL}/functions/v1/qbo-webhook`;
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" });
@@ -393,23 +391,14 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
               </div>
             )}
 
-            {/* Webhook URL */}
-            <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 px-4 py-3">
-              <p className="text-xs font-bold text-amber-600 dark:text-amber-400 mb-1">Intuit Webhook URL</p>
-              <p className="text-xs text-amber-600/70 dark:text-amber-400/60 mb-2">
-                Register this in your Intuit Developer app → <strong>Webhooks</strong>. Subscribe to the <strong>Invoice</strong> entity.
-              </p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-[11px] font-mono bg-background border border-border rounded px-2 py-1.5 break-all text-foreground">
-                  {WEBHOOK_URL}
-                </code>
-                <button
-                  onClick={copyWebhook}
-                  className="shrink-0 p-1.5 rounded text-muted-foreground hover:text-[#0078D7] hover:bg-[#0078D7]/10 transition-colors"
-                  title="Copy"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                </button>
+            {/* Sync info */}
+            <div className="rounded-xl bg-[#0078D7]/5 border border-[#0078D7]/20 px-4 py-3 flex items-start gap-2.5">
+              <Clock className="w-4 h-4 text-[#0078D7] shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-[#0078D7] mb-1">Daily automatic sync</p>
+                <p className="text-xs text-[#0078D7]/70">
+                  Once a day, we check QuickBooks for invoices that were marked paid and automatically send a review request for each one. No setup needed in QuickBooks — connecting the account above is all that's required.
+                </p>
               </div>
             </div>
 
@@ -439,7 +428,7 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
               </div>
               <div className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#2CA01C]/15 text-[#2CA01C] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</span>
-                <span>When an invoice is paid in QBO, the customer is automatically emailed a review request.</span>
+                <span>Once a day, paid invoices are checked automatically and the customer is emailed a review request.</span>
               </div>
             </div>
 
