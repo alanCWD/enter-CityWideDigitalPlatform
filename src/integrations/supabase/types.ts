@@ -3539,6 +3539,7 @@ export type Database = {
           from_name: string | null
           id: string
           last_error: string | null
+          last_invoice_sync_at: string | null
           realm_id: string
           refresh_token: string
           review_link: string | null
@@ -3553,6 +3554,7 @@ export type Database = {
           from_name?: string | null
           id?: string
           last_error?: string | null
+          last_invoice_sync_at?: string | null
           realm_id: string
           refresh_token: string
           review_link?: string | null
@@ -3567,6 +3569,7 @@ export type Database = {
           from_name?: string | null
           id?: string
           last_error?: string | null
+          last_invoice_sync_at?: string | null
           realm_id?: string
           refresh_token?: string
           review_link?: string | null
