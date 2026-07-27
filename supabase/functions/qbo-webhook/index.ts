@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return new Response("Method not allowed", { status: 405 });
 
   const body = await req.text();
-  console.log("[qbo-webhook] incoming request, body length:", body.length, "headers:", JSON.stringify(Object.fromEntries(req.headers.entries())));
+  console.log("[qbo-webhook] incoming request, body length:", body.length);
 
   const signature = req.headers.get("intuit-signature") || "";
   const verifierToken = Deno.env.get("QBO_WEBHOOK_VERIFIER_TOKEN") || "";
