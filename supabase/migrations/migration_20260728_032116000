@@ -1,0 +1,81 @@
+-- Dedupe pre-existing review_requests rows (from before per-customer uniqueness existed)
+-- before enforcing the new constraint. Keep the earliest row per (client, email).
+DELETE FROM review_requests a USING review_requests b
+WHERE a.crm_client_id = b.crm_client_id
+  AND lower(a.customer_email) = lower(b.customer_email)
+  AND a.sent_at > b.sent_at;
+
+-- QuickBooks review-request enhancements: configurable delay, per-customer dedup,
+-- multi-platform review links, per-client branding, and editable email copy.
+
+-- 1. quickbooks_connections: delay, platforms, editable email text
+ALTER TABLE quickbooks_connections ADD COLUMN IF NOT EXISTS review_delay_days integer NOT NULL DEFAULT 7;
+ALTER TABLE quickbooks_connections ADD COLUMN IF NOT EXISTS review_platforms jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE quickbooks_connections ADD COLUMN IF NOT EXISTS email_subject text;
+ALTER TABLE quickbooks_connections ADD COLUMN IF NOT EXISTS email_intro text;
+
+-- 2. client_brand_assets: one row per CRM client (logo set + tagline)
+CREATE TABLE IF NOT EXISTS client_brand_assets (
+  crm_client_id        text PRIMARY KEY,
+  logo_square_url      text,
+  logo_rect_url        text,
+  logo_square_dark_url text,
+  logo_rect_dark_url   text,
+  tagline              text,
+  updated_at           timestamptz NOT NULL DEFAULT now()
+);
+
+ALTER TABLE client_brand_assets ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  CREATE POLICY "auth_select_brand_assets" ON client_brand_assets
+    FOR SELECT TO authenticated USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "auth_insert_brand_assets" ON client_brand_assets
+    FOR INSERT TO authenticated WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "auth_update_brand_assets" ON client_brand_assets
+    FOR UPDATE TO authenticated USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "auth_delete_brand_assets" ON client_brand_assets
+    FOR DELETE TO authenticated USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 3. public brand-assets storage bucket (mirrors post-media)
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('brand-assets', 'brand-assets', true)
+ON CONFLICT (id) DO NOTHING;
+
+DO $$ BEGIN
+  CREATE POLICY "brand_assets_public_read" ON storage.objects
+    FOR SELECT USING (bucket_id = 'brand-assets');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "brand_assets_insert" ON storage.objects
+    FOR INSERT TO authenticated WITH CHECK (bucket_id = 'brand-assets');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "brand_assets_update" ON storage.objects
+    FOR UPDATE TO authenticated USING (bucket_id = 'brand-assets') WITH CHECK (bucket_id = 'brand-assets');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+DO $$ BEGIN
+  CREATE POLICY "brand_assets_delete" ON storage.objects
+    FOR DELETE TO authenticated USING (bucket_id = 'brand-assets');
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
+
+-- 4. review_requests: dedup per customer instead of per invoice.
+DO $$ BEGIN
+  ALTER TABLE review_requests DROP CONSTRAINT IF EXISTS review_requests_qbo_invoice_id_key;
+EXCEPTION WHEN OTHERS THEN NULL; END $$;
+
+CREATE UNIQUE INDEX IF NOT EXISTS review_requests_client_email_uniq
+  ON review_requests (crm_client_id, lower(customer_email));

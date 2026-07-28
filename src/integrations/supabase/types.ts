@@ -3178,6 +3178,36 @@ export type Database = {
         }
         Relationships: []
       }
+      client_brand_assets: {
+        Row: {
+          crm_client_id: string
+          logo_rect_dark_url: string | null
+          logo_rect_url: string | null
+          logo_square_dark_url: string | null
+          logo_square_url: string | null
+          tagline: string | null
+          updated_at: string
+        }
+        Insert: {
+          crm_client_id: string
+          logo_rect_dark_url?: string | null
+          logo_rect_url?: string | null
+          logo_square_dark_url?: string | null
+          logo_square_url?: string | null
+          tagline?: string | null
+          updated_at?: string
+        }
+        Update: {
+          crm_client_id?: string
+          logo_rect_dark_url?: string | null
+          logo_rect_url?: string | null
+          logo_square_dark_url?: string | null
+          logo_square_url?: string | null
+          tagline?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       client_leads: {
         Row: {
           connection_id: string
@@ -3536,13 +3566,17 @@ export type Database = {
           access_token: string
           created_at: string | null
           crm_client_id: string
+          email_intro: string | null
+          email_subject: string | null
           from_name: string | null
           id: string
           last_error: string | null
           last_invoice_sync_at: string | null
           realm_id: string
           refresh_token: string
+          review_delay_days: number
           review_link: string | null
+          review_platforms: Json
           status: string
           token_expiry: string
           updated_at: string | null
@@ -3551,13 +3585,17 @@ export type Database = {
           access_token: string
           created_at?: string | null
           crm_client_id: string
+          email_intro?: string | null
+          email_subject?: string | null
           from_name?: string | null
           id?: string
           last_error?: string | null
           last_invoice_sync_at?: string | null
           realm_id: string
           refresh_token: string
+          review_delay_days?: number
           review_link?: string | null
+          review_platforms?: Json
           status?: string
           token_expiry: string
           updated_at?: string | null
@@ -3566,13 +3604,17 @@ export type Database = {
           access_token?: string
           created_at?: string | null
           crm_client_id?: string
+          email_intro?: string | null
+          email_subject?: string | null
           from_name?: string | null
           id?: string
           last_error?: string | null
           last_invoice_sync_at?: string | null
           realm_id?: string
           refresh_token?: string
+          review_delay_days?: number
           review_link?: string | null
+          review_platforms?: Json
           status?: string
           token_expiry?: string
           updated_at?: string | null
