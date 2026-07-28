@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQboConnection, useReviewRequests, useQboConnectionAttempts } from "@/hooks/useQuickbooks";
+import {
+  useQboConnection,
+  useReviewRequests,
+  useQboConnectionAttempts,
+  useClientBrandAssets,
+  type ReviewPlatform,
+  type ReviewPlatformKey,
+} from "@/hooks/useQuickbooks";
 import { useToast } from "@/hooks/use-toast";
+import { BrandAssetsUploader } from "./BrandAssetsUploader";
 import {
   Loader2, Link2, CheckCircle2, Unlink, Save, RefreshCw,
-  Mail, AlertCircle, ExternalLink, Star, Send, X, Eye, EyeOff, Activity, Clock,
+  Mail, AlertCircle, Star, Send, X, Eye, EyeOff, Activity, Clock,
+  Globe, Facebook, Building2, Copy,
 } from "lucide-react";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,31 +38,73 @@ const STAGE_LABELS: Record<string, { label: string; tone: "ok" | "error" | "info
   exception: { label: "Unexpected error in browser", tone: "error" },
 };
 
-function buildReviewEmailHtml(customerName: string, reviewLink: string) {
-  return `<!DOCTYPE html>
-<html>
-<body style="font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 20px;">
-  <div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-    <h2 style="color: #111; font-size: 22px; margin: 0 0 16px;">Thank you, ${customerName}!</h2>
-    <p style="color: #555; line-height: 1.7; margin: 0 0 16px;">
-      We truly appreciate your business. Your experience matters to us, and we'd love to hear your feedback.
-    </p>
-    <p style="color: #555; line-height: 1.7; margin: 0 0 24px;">
-      Would you mind taking a moment to leave us a review? It helps us improve and helps others discover our services.
-    </p>
-    ${reviewLink ? `
-    <div style="text-align: center; margin: 0 0 24px;">
-      <a href="${reviewLink}" style="display: inline-block; background: #0078D7; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">
-        Leave a Review
-      </a>
-    </div>
-    ` : `<p style="color:#aaa; font-style:italic; text-align:center; margin: 0 0 24px;">(Google review button will appear here once you save a review link)</p>`}
-    <p style="color: #999; font-size: 12px; margin: 0;">
-      Thank you for choosing us. We look forward to serving you again!
-    </p>
-  </div>
-</body>
-</html>`;
+const PLATFORM_ROWS: { key: ReviewPlatformKey; label: string; icon: typeof Globe; placeholder: string }[] = [
+  { key: "google", label: "Google", icon: Globe, placeholder: "https://g.page/r/XXXX/review" },
+  { key: "facebook", label: "Facebook", icon: Facebook, placeholder: "https://facebook.com/yourpage/reviews" },
+  { key: "bbb", label: "BBB", icon: Building2, placeholder: "https://bbb.org/profile/your-business" },
+  { key: "yelp", label: "Yelp", icon: Star, placeholder: "https://yelp.com/biz/your-business" },
+];
+
+const PLATFORM_EMAIL_UI: Record<ReviewPlatformKey, { bg: string; label: string }> = {
+  google: { bg: "#4285F4", label: "Review us on Google" },
+  facebook: { bg: "#1877F2", label: "Review us on Facebook" },
+  bbb: { bg: "#0B5CAB", label: "Review us on BBB" },
+  yelp: { bg: "#D32323", label: "Review us on Yelp" },
+};
+
+const DEFAULT_SUBJECT = "Thanks for your business — leave us a review?";
+const DEFAULT_INTRO_PARAS =
+  '<p style="color:#555;line-height:1.7;margin:0 0 16px;">We truly appreciate your business. Your experience matters to us, and we\'d love to hear your feedback.</p>' +
+  '<p style="color:#555;line-height:1.7;margin:0 0 24px;">Would you mind taking a moment to leave us a review? It helps us improve and helps others discover our services.</p>';
+
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function platformButtonHtml(p: { platform: ReviewPlatformKey; url: string }): string {
+  const ui = PLATFORM_EMAIL_UI[p.platform];
+  return `<a href="${escapeHtml(p.url)}" style="display:block;text-align:center;background:${ui.bg};color:#ffffff;padding:14px 24px;text-decoration:none;border-radius:8px;font-size:15px;font-weight:bold;margin:0 0 10px;">${ui.label}</a>`;
+}
+
+// MUST be kept in sync with buildReviewEmailHtml in qbo-poll-invoices/index.ts.
+function buildReviewEmailHtml(opts: {
+  customerName: string;
+  platforms: { platform: ReviewPlatformKey; url: string }[];
+  logoUrl: string | null;
+  subject: string | null;
+  intro: string | null;
+}): string {
+  const heading = opts.subject && opts.subject.trim() ? opts.subject : `Thank you, ${opts.customerName}!`;
+  const introHtml =
+    opts.intro && opts.intro.trim()
+      ? `<p style="color:#555;line-height:1.7;margin:0 0 24px;">${escapeHtml(opts.intro).replace(/\n/g, "<br>")}</p>`
+      : DEFAULT_INTRO_PARAS;
+  const logoHtml = opts.logoUrl
+    ? `<div style="text-align:center;margin:0 0 16px;"><img src="${escapeHtml(opts.logoUrl)}" alt="" style="max-height:56px;max-width:240px;display:inline-block;" /></div>`
+    : "";
+  const buttonsHtml = opts.platforms.length
+    ? `<div style="margin:0 0 24px;">${opts.platforms.map(platformButtonHtml).join("")}</div>`
+    : `<p style="color:#aaa;font-style:italic;text-align:center;margin:0 0 24px;">(Review buttons will appear here once you add a review link)</p>`;
+  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f9f9f9;margin:0;padding:20px;"><div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">${logoHtml}<h2 style="color:#111;font-size:22px;margin:0 0 16px;">${escapeHtml(heading)}</h2>${introHtml}${buttonsHtml}<p style="color:#999;font-size:12px;margin:0;">Thank you for choosing us. We look forward to serving you again!</p></div></body></html>`;
+}
+
+// Hydrate the 4 fixed platform rows from the stored jsonb, falling back to the
+// legacy single review_link as an enabled Google entry when platforms is empty.
+function hydratePlatforms(raw: ReviewPlatform[] | null | undefined, legacy: string | null | undefined): ReviewPlatform[] {
+  const map = new Map<string, ReviewPlatform>();
+  if (raw && raw.length) {
+    raw.forEach((p) => map.set(p.platform, p));
+  } else if (legacy && legacy.trim()) {
+    map.set("google", { platform: "google", url: legacy, enabled: true });
+  }
+  return PLATFORM_ROWS.map((row) => map.get(row.key) ?? { platform: row.key, url: "", enabled: false });
+}
+
+function enabledPlatforms(platforms: ReviewPlatform[]): { platform: ReviewPlatformKey; url: string }[] {
+  return PLATFORM_ROWS
+    .map((row) => platforms.find((p) => p.platform === row.key))
+    .filter((p): p is ReviewPlatform => !!p && p.enabled && p.url.trim().length > 0)
+    .map((p) => ({ platform: p.platform, url: p.url.trim() }));
 }
 
 // Mirrors the template sent by the qbo-send-auth-email edge function
@@ -85,11 +136,15 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
   const { connection, loading, reload } = useQboConnection(clientId);
   const { requests, loading: loadingRequests, reload: reloadRequests } = useReviewRequests(clientId);
   const { attempts, loading: loadingAttempts, reload: reloadAttempts } = useQboConnectionAttempts(clientId);
+  const { assets, reload: reloadBrand } = useClientBrandAssets(clientId);
   const { toast } = useToast();
 
   const [busy, setBusy] = useState(false);
-  const [reviewLink, setReviewLink] = useState("");
   const [fromName, setFromName] = useState("");
+  const [reviewDelayDays, setReviewDelayDays] = useState("7");
+  const [platforms, setPlatforms] = useState<ReviewPlatform[]>([]);
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailIntro, setEmailIntro] = useState("");
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
@@ -101,9 +156,12 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
   const [showAuthPreview, setShowAuthPreview] = useState(false);
 
   useEffect(() => {
-    setReviewLink(connection?.review_link || "");
     setFromName(connection?.from_name || "");
-  }, [connection?.review_link, connection?.from_name]);
+    setReviewDelayDays(String(connection?.review_delay_days ?? 7));
+    setEmailSubject(connection?.email_subject || "");
+    setEmailIntro(connection?.email_intro || "");
+    setPlatforms(hydratePlatforms(connection?.review_platforms, connection?.review_link));
+  }, [connection?.from_name, connection?.review_delay_days, connection?.review_platforms, connection?.review_link, connection?.email_subject, connection?.email_intro, connection]);
 
   const generateLink = async () => {
     setBusy(true);
@@ -159,13 +217,23 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
     }
   };
 
+  const togglePlatform = (key: ReviewPlatformKey) =>
+    setPlatforms((prev) => prev.map((p) => (p.platform === key ? { ...p, enabled: !p.enabled } : p)));
+
+  const setPlatformUrl = (key: ReviewPlatformKey, url: string) =>
+    setPlatforms((prev) => prev.map((p) => (p.platform === key ? { ...p, url } : p)));
+
   const saveSettings = async () => {
     setSaving(true);
     try {
+      const delayNum = Math.min(60, Math.max(1, parseInt(reviewDelayDays, 10) || 7));
       await db.from("quickbooks_connections")
         .update({
-          review_link: reviewLink.trim() || null,
           from_name: fromName.trim() || null,
+          review_delay_days: delayNum,
+          review_platforms: platforms,
+          email_subject: emailSubject.trim() || null,
+          email_intro: emailIntro.trim() || null,
           updated_at: new Date().toISOString(),
         })
         .eq("crm_client_id", clientId);
@@ -176,11 +244,6 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
     } finally {
       setSaving(false);
     }
-  };
-
-  const copyWebhook = () => {
-    navigator.clipboard.writeText(WEBHOOK_URL);
-    toast({ title: "Webhook URL copied" });
   };
 
   if (loading) {
@@ -322,35 +385,106 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
                 </p>
               </div>
 
-              {/* Review link */}
+              {/* Delay in days */}
               <div>
                 <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">
-                  Google Review Link
+                  Delay (days)
                 </label>
-                <div className="flex gap-1.5">
-                  <input
-                    type="url"
-                    value={reviewLink}
-                    onChange={(e) => setReviewLink(e.target.value)}
-                    placeholder="https://g.page/r/XXXX/review"
-                    className="flex-1 bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#0078D7]"
-                  />
-                  {reviewLink && (
-                    <a
-                      href={reviewLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-2 text-muted-foreground hover:text-[#0078D7] transition-colors"
-                      title="Open link"
-                    >
-                      <ExternalLink className="w-4 h-4" />
-                    </a>
-                  )}
-                </div>
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={reviewDelayDays}
+                  onChange={(e) => setReviewDelayDays(e.target.value)}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-[#0078D7]"
+                />
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  Included as a button in every review request email.
+                  Send a review request this many days after an invoice is paid (1–60).
                 </p>
               </div>
+            </div>
+
+            {/* Review platforms */}
+            <div className="rounded-xl bg-muted/30 dark:bg-white/3 border border-border dark:border-white/8 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Review Platforms</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {PLATFORM_ROWS.map((row) => {
+                  const p = platforms.find((x) => x.platform === row.key) ?? { platform: row.key, url: "", enabled: false };
+                  const Icon = row.icon;
+                  return (
+                    <div key={row.key} className="rounded-lg border border-border dark:border-white/10 bg-background p-2.5 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={p.enabled}
+                          onClick={() => togglePlatform(row.key)}
+                          className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${p.enabled ? "bg-[#0078D7]" : "bg-muted"}`}
+                          title={p.enabled ? "Disable" : "Enable"}
+                        >
+                          <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${p.enabled ? "translate-x-4" : ""}`} />
+                        </button>
+                        <Icon className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-foreground dark:text-[#EEF1FA]">{row.label}</span>
+                      </div>
+                      <input
+                        type="url"
+                        value={p.url}
+                        onChange={(e) => setPlatformUrl(row.key, e.target.value)}
+                        placeholder={row.placeholder}
+                        disabled={!p.enabled}
+                        className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#0078D7] disabled:opacity-50"
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Each enabled platform with a URL becomes a button in the review email.
+              </p>
+            </div>
+
+            {/* Email subject + intro */}
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">
+                  Email Subject
+                </label>
+                <input
+                  type="text"
+                  value={emailSubject}
+                  onChange={(e) => setEmailSubject(e.target.value)}
+                  placeholder={DEFAULT_SUBJECT}
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#0078D7]"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Overrides the email subject line and the heading shown above the intro.
+                </p>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block mb-1.5">
+                  Email Intro
+                </label>
+                <textarea
+                  value={emailIntro}
+                  onChange={(e) => setEmailIntro(e.target.value)}
+                  rows={3}
+                  placeholder="We truly appreciate your business. Your experience matters to us, and we'd love to hear your feedback."
+                  className="w-full bg-background border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-[#0078D7] resize-none"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  The paragraph above the review buttons. Leave blank to use the default copy.
+                </p>
+              </div>
+            </div>
+
+            {/* Brand assets */}
+            <div className="rounded-xl bg-muted/30 dark:bg-white/3 border border-border dark:border-white/8 p-3">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">Brand Assets & Logo</p>
+              <BrandAssetsUploader clientId={clientId} assets={assets} onSaved={reloadBrand} />
+              <p className="text-[11px] text-muted-foreground mt-2">
+                The rectangle-light logo appears at the top of every review email when set.
+              </p>
             </div>
 
             <div className="flex items-center justify-between">
@@ -377,14 +511,21 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
                 <div className="bg-muted/40 border-b border-border px-4 py-2 flex items-center gap-2">
                   <Mail className="w-3.5 h-3.5 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">
-                    <span className="font-bold">From:</span> {fromName || "CityWide Reviews"} &lt;reviews@citywidedigital.ca&gt;
+                    <span className="font-bold">From:</span> {fromName || "CityWide Reviews"} &lt;reviews@citywidedigital.ca&gt; &nbsp;
+                    <span className="font-bold">Subject:</span> {emailSubject.trim() || DEFAULT_SUBJECT}
                   </span>
                   <span className="ml-auto text-[10px] text-muted-foreground italic">Preview — uses sample customer name</span>
                 </div>
                 <iframe
-                  srcDoc={buildReviewEmailHtml("John Smith", reviewLink)}
+                  srcDoc={buildReviewEmailHtml({
+                    customerName: "John Smith",
+                    platforms: enabledPlatforms(platforms),
+                    logoUrl: assets?.logo_rect_url || null,
+                    subject: emailSubject,
+                    intro: emailIntro,
+                  })}
                   className="w-full border-0"
-                  style={{ height: "420px" }}
+                  style={{ height: "460px" }}
                   title="Review email preview"
                   sandbox="allow-same-origin"
                 />
@@ -397,7 +538,7 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
               <div>
                 <p className="text-xs font-bold text-[#0078D7] mb-1">Daily automatic sync</p>
                 <p className="text-xs text-[#0078D7]/70">
-                  Once a day, we check QuickBooks for invoices that were marked paid and automatically send a review request for each one. No setup needed in QuickBooks — connecting the account above is all that's required.
+                  Once a day, we check QuickBooks for invoices that were marked paid and automatically send a review request {reviewDelayDays || "7"} days later. No setup needed in QuickBooks — connecting the account above is all that's required.
                 </p>
               </div>
             </div>
@@ -424,11 +565,11 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
               </div>
               <div className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#2CA01C]/15 text-[#2CA01C] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">2</span>
-                <span>Enter the client's Google review link and optionally a sender name.</span>
+                <span>Enter the client's review links (Google, Facebook, BBB, Yelp) and optionally a sender name.</span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="w-5 h-5 rounded-full bg-[#2CA01C]/15 text-[#2CA01C] flex items-center justify-center text-[10px] font-bold shrink-0 mt-0.5">3</span>
-                <span>Once a day, paid invoices are checked automatically and the customer is emailed a review request.</span>
+                <span>Once a day, paid invoices are checked automatically and the customer is emailed a review request after the configured delay.</span>
               </div>
             </div>
 

@@ -832,6 +832,37 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       return { ok: true };
     }
 
+    // ── Brand assets (client_brand_assets table in Supabase + public brand-assets bucket) ──
+    case "brand.get": {
+      const clientId = payload.client_id as string; await assertClientAccess(ctx, clientId);
+      const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+      const { data, error } = await adminClient.from("client_brand_assets").select("*").eq("crm_client_id", clientId).maybeSingle();
+      if (error) throw new Error(error.message);
+      return { assets: data ?? null };
+    }
+    case "brand.uploadUrl": {
+      const clientId = payload.client_id as string; await assertClientAccess(ctx, clientId);
+      try { await adminStorage.createBucket("brand-assets", { public: true }); } catch { /* already exists */ }
+      const slot = (payload.slot as string) || "misc";
+      const fileId = uuid();
+      const safeName = ((payload.filename as string) || "asset").replace(/[^\w.-]+/g, "_");
+      const storagePath = `${ctx.agencyId}/${clientId}/${slot}/${fileId}/${safeName}`;
+      const { data, error } = await adminStorage.from("brand-assets").createSignedUploadUrl(storagePath);
+      if (error || !data) throw new Error(error?.message ?? "Failed to create brand upload URL");
+      const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/brand-assets/${storagePath}`;
+      return { upload_url: data.signedUrl, token: data.token, storage_path: storagePath, public_url: publicUrl };
+    }
+    case "brand.save": {
+      const clientId = payload.client_id as string; await assertClientAccess(ctx, clientId);
+      const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+      const fields = ["logo_square_url", "logo_rect_url", "logo_square_dark_url", "logo_rect_dark_url", "tagline"];
+      const row: Record<string, unknown> = { crm_client_id: clientId, updated_at: now() };
+      for (const f of fields) if (f in payload) row[f] = (payload[f] as string | null) ?? null;
+      const { error } = await adminClient.from("client_brand_assets").upsert(row);
+      if (error) throw new Error(error.message);
+      return { ok: true };
+    }
+
     case "agencies.list": {
       if (!ctx.isSuperAdmin) return { error: "Forbidden: super-admin only" };
       const { rows } = await exec({ sql: `SELECT * FROM agencies ORDER BY name ASC` });

@@ -126,65 +126,65 @@ unattended long-term:
 
 ## Implementation checklist
 
-- [ ] `quickbooks_connections` gets `review_delay_days` (default 7),
+- [passed] `quickbooks_connections` gets `review_delay_days` (default 7),
       `review_platforms` (jsonb, default `[]`), `email_subject`,
       `email_intro` columns.
-- [ ] New `client_brand_assets` table with RLS scoped like
+- [passed] New `client_brand_assets` table with RLS scoped like
       `quickbooks_connections` (`authenticated` can select/update own
       agency's rows).
-- [ ] New public `brand-assets` storage bucket + public-read /
+- [passed] New public `brand-assets` storage bucket + public-read /
       insert / delete policies, mirroring `post-media`.
-- [ ] `review_requests` dedup key changes from `qbo_invoice_id` UNIQUE to
+- [passed] `review_requests` dedup key changes from `qbo_invoice_id` UNIQUE to
       a unique index on `(crm_client_id, lower(customer_email))`;
       `qbo_invoice_id` keeps its column but loses its own UNIQUE constraint.
-- [ ] `qbo-poll-invoices`: invoices younger than `review_delay_days` (based
+- [passed] `qbo-poll-invoices`: invoices younger than `review_delay_days` (based
       on `MetaData.LastUpdatedTime`) are left for a later run, not skipped
       permanently.
-- [ ] `qbo-poll-invoices`: lookback window widens to
+- [passed] `qbo-poll-invoices`: lookback window widens to
       `review_delay_days + 2` days instead of the fixed 2-day buffer.
-- [ ] `qbo-poll-invoices`: pre-send check queries
+- [passed] `qbo-poll-invoices`: pre-send check queries
       `(crm_client_id, lower(customer_email))` instead of `qbo_invoice_id`
       for dedup.
-- [ ] `qbo-poll-invoices`: email renders one button per enabled
+- [passed] `qbo-poll-invoices`: email renders one button per enabled
       `review_platforms` entry with a non-empty URL; falls back to a single
       Google button from legacy `review_link` when `review_platforms` is
       empty.
-- [ ] `qbo-poll-invoices`: email header uses `client_brand_assets` logo
+- [passed] `qbo-poll-invoices`: email header uses `client_brand_assets` logo
       (rect, light) when present; subject/intro use
       `email_subject`/`email_intro` when set, else current defaults.
-- [ ] `bunny-rpc`: new `brand.get` / `brand.uploadUrl` / `brand.save`
+- [passed] `bunny-rpc`: new `brand.get` / `brand.uploadUrl` / `brand.save`
       actions following the existing `vault.files.*` pattern.
-- [ ] `useQuickbooks.ts`: `QboConnection` type includes new fields; new
+- [passed] `useQuickbooks.ts`: `QboConnection` type includes new fields; new
       `useClientBrandAssets` hook added.
-- [ ] `QuickBooksPanel.tsx`: delay-days input wired to `saveSettings`.
-- [ ] `QuickBooksPanel.tsx`: 4 fixed platform rows (Google/Facebook/BBB/Yelp)
+- [passed] `QuickBooksPanel.tsx`: delay-days input wired to `saveSettings`.
+- [passed] `QuickBooksPanel.tsx`: 4 fixed platform rows (Google/Facebook/BBB/Yelp)
       with toggle + URL, replacing the single review-link field.
-- [ ] `QuickBooksPanel.tsx`: subject + intro textarea fields wired to
+- [passed] `QuickBooksPanel.tsx`: subject + intro textarea fields wired to
       `saveSettings`.
-- [ ] New `BrandAssetsUploader.tsx` with 4 logo slots + tagline, wired to
+- [passed] New `BrandAssetsUploader.tsx` with 4 logo slots + tagline, wired to
       `brand.uploadUrl`/`brand.save`.
-- [ ] `buildReviewEmailHtml` (frontend preview) updated to match the backend
+- [passed] `buildReviewEmailHtml` (frontend preview) updated to match the backend
       template's logo/subject/intro/multi-platform rendering exactly.
 
 ## Verification checklist
 
-- [ ] Existing connection with only legacy `review_link` set still shows a
+- [manual-required] Existing connection with only legacy `review_link` set still shows a
       working Google button in the preview and in a live-sent email
       (fallback path).
-- [ ] Setting `review_delay_days = 3` and manually invoking
+- [manual-required] Setting `review_delay_days = 3` and manually invoking
       `qbo-poll-invoices` does not email a customer whose invoice was paid
       today (0 days elapsed).
-- [ ] Same setup, but simulate an invoice paid 4+ days ago — email is sent.
-- [ ] A customer who already has a `review_requests` row (from any prior
+- [manual-required] Same setup, but simulate an invoice paid 4+ days ago — email is sent.
+- [manual-required] A customer who already has a `review_requests` row (from any prior
       invoice) is skipped even when a brand-new invoice for them is now
       paid.
-- [ ] Two different customers with different emails on the same paid-invoice
+- [manual-required] Two different customers with different emails on the same paid-invoice
       batch both receive their own email (dedup is per-customer, not
       per-connection).
-- [ ] Enabling Facebook + BBB with URLs, leaving Google/Yelp off, produces
+- [manual-required] Enabling Facebook + BBB with URLs, leaving Google/Yelp off, produces
       an email with exactly 2 buttons in the correct order.
-- [ ] Uploading a rectangle-light logo shows it in both the in-app preview
+- [manual-required] Uploading a rectangle-light logo shows it in both the in-app preview
       and the actual sent email.
-- [ ] Editing Subject/Intro and saving changes the actual email sent on the
+- [manual-required] Editing Subject/Intro and saving changes the actual email sent on the
       next poll run.
-- [ ] `pnpm run build` and lint pass with no new errors.
+- [passed] `pnpm run build` and lint pass with no new errors.

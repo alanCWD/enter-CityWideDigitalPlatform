@@ -1,5 +1,14 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { getBrand, type ClientBrandAssets } from "@/lib/brand";
+
+export type ReviewPlatformKey = "google" | "facebook" | "bbb" | "yelp";
+
+export interface ReviewPlatform {
+  platform: ReviewPlatformKey;
+  url: string;
+  enabled: boolean;
+}
 
 export interface QboConnection {
   id: string;
@@ -9,9 +18,14 @@ export interface QboConnection {
   refresh_token: string;
   token_expiry: string;
   review_link: string | null;
+  review_delay_days: number;
+  review_platforms: ReviewPlatform[] | null;
+  email_subject: string | null;
+  email_intro: string | null;
   from_name: string | null;
   status: string;
   last_error: string | null;
+  last_invoice_sync_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -138,4 +152,25 @@ export function useQboConnectionAttempts(clientId: string | undefined) {
 
   useEffect(() => { reload(); }, [reload]);
   return { attempts, loading, reload };
+}
+
+export function useClientBrandAssets(clientId: string | undefined) {
+  const [assets, setAssets] = useState<ClientBrandAssets | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const reload = useCallback(async () => {
+    if (!clientId) { setLoading(false); return; }
+    setLoading(true);
+    try {
+      const { assets } = await getBrand(clientId);
+      setAssets(assets ?? null);
+    } catch {
+      setAssets(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [clientId]);
+
+  useEffect(() => { reload(); }, [reload]);
+  return { assets, loading, reload };
 }

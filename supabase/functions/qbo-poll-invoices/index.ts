@@ -9,6 +9,78 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const NOTIFY_EMAIL = "alan@citywidedigital.ca";
 
+type PlatformKey = "google" | "facebook" | "bbb" | "yelp";
+
+const PLATFORM_EMAIL_UI: Record<PlatformKey, { bg: string; label: string }> = {
+  google: { bg: "#4285F4", label: "Review us on Google" },
+  facebook: { bg: "#1877F2", label: "Review us on Facebook" },
+  bbb: { bg: "#0B5CAB", label: "Review us on BBB" },
+  yelp: { bg: "#D32323", label: "Review us on Yelp" },
+};
+
+const DEFAULT_SUBJECT = "Thanks for your business — leave us a review?";
+const DEFAULT_INTRO_PARAS =
+  '<p style="color:#555;line-height:1.7;margin:0 0 16px;">We truly appreciate your business. Your experience matters to us, and we\'d love to hear your feedback.</p>' +
+  '<p style="color:#555;line-height:1.7;margin:0 0 24px;">Would you mind taking a moment to leave us a review? It helps us improve and helps others discover our services.</p>';
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// Resolve the enabled review platforms for a connection, in fixed order.
+// Falls back to the legacy single review_link as a Google entry when the new
+// structured review_platforms field is empty (so upgraded connections keep working).
+function resolvePlatforms(conn: {
+  review_platforms: unknown;
+  review_link: string | null;
+}): { platform: PlatformKey; url: string }[] {
+  const order: PlatformKey[] = ["google", "facebook", "bbb", "yelp"];
+  const raw = conn.review_platforms;
+  if (!raw || (Array.isArray(raw) && (raw as unknown[]).length === 0)) {
+    return conn.review_link ? [{ platform: "google", url: conn.review_link }] : [];
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const map = new Map<string, any>();
+  (raw as Array<{ platform: string; url?: string; enabled?: boolean }>).forEach((p) => {
+    if (p && p.platform) map.set(p.platform, p);
+  });
+  return order
+    .map((k) => map.get(k))
+    .filter((p) => p && p.enabled && p.url && String(p.url).trim())
+    .map((p) => ({ platform: p.platform as PlatformKey, url: String(p.url).trim() }));
+}
+
+function platformButtonHtml(p: { platform: PlatformKey; url: string }): string {
+  const ui = PLATFORM_EMAIL_UI[p.platform];
+  return `<a href="${escapeHtml(p.url)}" style="display:block;text-align:center;background:${ui.bg};color:#ffffff;padding:14px 24px;text-decoration:none;border-radius:8px;font-size:15px;font-weight:bold;margin:0 0 10px;">${ui.label}</a>`;
+}
+
+// MUST be kept in sync with buildReviewEmailHtml in QuickBooksPanel.tsx.
+function buildReviewEmailHtml(opts: {
+  customerName: string;
+  platforms: { platform: PlatformKey; url: string }[];
+  logoUrl: string | null;
+  subject: string | null;
+  intro: string | null;
+}): string {
+  const heading = opts.subject && opts.subject.trim() ? opts.subject : `Thank you, ${opts.customerName}!`;
+  const introHtml =
+    opts.intro && opts.intro.trim()
+      ? `<p style="color:#555;line-height:1.7;margin:0 0 24px;">${escapeHtml(opts.intro).replace(/\n/g, "<br>")}</p>`
+      : DEFAULT_INTRO_PARAS;
+  const logoHtml = opts.logoUrl
+    ? `<div style="text-align:center;margin:0 0 16px;"><img src="${escapeHtml(opts.logoUrl)}" alt="" style="max-height:56px;max-width:240px;display:inline-block;" /></div>`
+    : "";
+  const buttonsHtml = opts.platforms.length
+    ? `<div style="margin:0 0 24px;">${opts.platforms.map(platformButtonHtml).join("")}</div>`
+    : `<p style="color:#aaa;font-style:italic;text-align:center;margin:0 0 24px;">(Review buttons will appear here once you add a review link)</p>`;
+  return `<!DOCTYPE html><html><body style="font-family:Arial,sans-serif;background:#f9f9f9;margin:0;padding:20px;"><div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">${logoHtml}<h2 style="color:#111;font-size:22px;margin:0 0 16px;">${escapeHtml(heading)}</h2>${introHtml}${buttonsHtml}<p style="color:#999;font-size:12px;margin:0;">Thank you for choosing us. We look forward to serving you again!</p></div></body></html>`;
+}
+
 async function getClientInfo(crmClientId: string): Promise<{ name: string | null; email: string | null }> {
   try {
     const bunnyUrl = Deno.env.get("BUNNY_DB_URL");
@@ -86,6 +158,7 @@ Deno.serve(async (req) => {
   let checked = 0;
   let sent = 0;
   let skipped = 0;
+  let deferred = 0;
 
   for (const conn of connections || []) {
     if (conn.status === "expired") continue;
@@ -121,13 +194,33 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Look back a bit further than the exact last-sync timestamp to tolerate
-    // any gaps (e.g. this job failing to run one day) — 2 days of overlap is
-    // harmless since already-processed invoices are skipped via review_requests.
+    const delayDays = typeof conn.review_delay_days === "number" ? conn.review_delay_days : 7;
+    const overlapDays = delayDays + 2;
+
+    // Look back further than the exact last-sync timestamp to tolerate gaps and —
+    // crucially — to re-see invoices that were too young to email on a previous
+    // run (they have no review_requests row, so they must remain visible until the
+    // configured delay has elapsed). Already-emailed customers are skipped via the
+    // per-customer dedup check below.
     const since = conn.last_invoice_sync_at
-      ? new Date(new Date(conn.last_invoice_sync_at).getTime() - 2 * 24 * 60 * 60 * 1000)
-      : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      ? new Date(new Date(conn.last_invoice_sync_at).getTime() - overlapDays * 24 * 60 * 60 * 1000)
+      : new Date(Date.now() - Math.max(30, overlapDays) * 24 * 60 * 60 * 1000);
     const sinceStr = since.toISOString().slice(0, 19);
+
+    // Per-connection email branding/copy (resolved once, reused for every invoice).
+    const platforms = resolvePlatforms(conn);
+    const { data: brand } = await supabase
+      .from("client_brand_assets")
+      .select("logo_rect_url")
+      .eq("crm_client_id", conn.crm_client_id)
+      .maybeSingle();
+    const logoUrl = brand?.logo_rect_url || null;
+    const emailSubject = conn.email_subject || DEFAULT_SUBJECT;
+    const emailIntro = conn.email_intro || null;
+    const fromName = conn.from_name || "CityWide Reviews";
+    const fromAddress = `${fromName} <reviews@citywidedigital.ca>`;
+    // For logging only: the first enabled platform URL (or legacy link).
+    const loggedReviewLink = platforms[0]?.url || conn.review_link || null;
 
     try {
       const query = `SELECT * FROM Invoice WHERE Metadata.LastUpdatedTime >= '${sinceStr}' MAXRESULTS 200`;
@@ -136,7 +229,15 @@ Deno.serve(async (req) => {
         { headers: { "Authorization": `Bearer ${accessToken}`, "Accept": "application/json" } },
       );
       const data = await res.json() as {
-        QueryResponse?: { Invoice?: Array<{ Id: string; Balance: number; BillEmail?: { Address?: string }; CustomerRef?: { name?: string } }> };
+        QueryResponse?: {
+          Invoice?: Array<{
+            Id: string;
+            Balance: number;
+            BillEmail?: { Address?: string };
+            CustomerRef?: { name?: string };
+            MetaData?: { LastUpdatedTime?: string; CreateTime?: string };
+          }>;
+        };
         Fault?: { Error: Array<{ Message: string }> };
       };
 
@@ -151,12 +252,6 @@ Deno.serve(async (req) => {
       for (const invoice of invoices) {
         if (invoice.Balance !== 0) continue; // still owes money — not paid yet
 
-        const { data: existing } = await supabase.from("review_requests").select("id").eq("qbo_invoice_id", invoice.Id).maybeSingle();
-        if (existing) {
-          skipped++;
-          continue;
-        }
-
         const customerEmail = invoice.BillEmail?.Address;
         const customerName = invoice.CustomerRef?.name || "Valued Customer";
         if (!customerEmail) {
@@ -164,20 +259,50 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        const reviewLink = conn.review_link || "";
-        const fromName = conn.from_name || "CityWide Reviews";
-        const fromAddress = `${fromName} <reviews@citywidedigital.ca>`;
+        // Per-customer dedup: one review request per (client, customer email) ever,
+        // regardless of how many invoices they pay. Compared case-insensitively
+        // (the unique index on review_requests enforces lower(email)).
+        const { data: existing } = await supabase
+          .from("review_requests")
+          .select("id")
+          .eq("crm_client_id", conn.crm_client_id)
+          .ilike("customer_email", customerEmail)
+          .maybeSingle();
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        // Delay gate: only email once the invoice has been paid for at least
+        // review_delay_days. QuickBooks has no clean "fully-paid-at" timestamp, so
+        // we approximate with MetaData.LastUpdatedTime (updated when Balance last
+        // changed). Too-young invoices are left alone — no row is written, so they
+        // are re-evaluated on a later poll once the delay elapses.
+        const lastUpdated = invoice.MetaData?.LastUpdatedTime;
+        if (lastUpdated) {
+          const elapsedMs = Date.now() - new Date(lastUpdated).getTime();
+          if (elapsedMs < delayDays * 24 * 60 * 60 * 1000) {
+            deferred++;
+            continue;
+          }
+        }
 
         let status: "sent" | "failed" = "sent";
         let errorMessage: string | null = null;
 
         try {
-          const emailHtml = `<!DOCTYPE html><html><body style="font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 20px;"><div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);"><h2 style="color: #111; font-size: 22px; margin: 0 0 16px;">Thank you, ${customerName}!</h2><p style="color: #555; line-height: 1.7; margin: 0 0 16px;">We truly appreciate your business. Your experience matters to us, and we'd love to hear your feedback.</p><p style="color: #555; line-height: 1.7; margin: 0 0 24px;">Would you mind taking a moment to leave us a review? It helps us improve and helps others discover our services.</p>${reviewLink ? `<div style="text-align: center; margin: 0 0 24px;"><a href="${reviewLink}" style="display: inline-block; background: #0078D7; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">Leave a Review</a></div>` : ""}<p style="color: #999; font-size: 12px; margin: 0;">Thank you for choosing us. We look forward to serving you again!</p></div></body></html>`;
+          const emailHtml = buildReviewEmailHtml({
+            customerName,
+            platforms,
+            logoUrl,
+            subject: emailSubject,
+            intro: emailIntro,
+          });
 
           const emailRes = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { "Authorization": `Bearer ${resendApiKey}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ from: fromAddress, to: [customerEmail], subject: "Thanks for your business — leave us a review?", html: emailHtml }),
+            body: JSON.stringify({ from: fromAddress, to: [customerEmail], subject: emailSubject, html: emailHtml }),
           });
           const emailResult = await emailRes.json() as { id?: string; name?: string; message?: string };
           if (!emailRes.ok) throw new Error(emailResult.message || emailResult.name || `Resend HTTP ${emailRes.status}`);
@@ -194,7 +319,7 @@ Deno.serve(async (req) => {
           qbo_invoice_id: invoice.Id,
           customer_name: customerName,
           customer_email: customerEmail,
-          review_link: reviewLink || null,
+          review_link: loggedReviewLink,
           status,
           error_message: errorMessage,
         });
@@ -206,6 +331,6 @@ Deno.serve(async (req) => {
     }
   }
 
-  console.log(`[qbo-poll-invoices] done — checked: ${checked}, sent: ${sent}, skipped: ${skipped}`);
-  return new Response(JSON.stringify({ checked, sent, skipped }), { headers: { "Content-Type": "application/json" } });
+  console.log(`[qbo-poll-invoices] done — checked: ${checked}, sent: ${sent}, skipped: ${skipped}, deferred: ${deferred}`);
+  return new Response(JSON.stringify({ checked, sent, skipped, deferred }), { headers: { "Content-Type": "application/json" } });
 });
