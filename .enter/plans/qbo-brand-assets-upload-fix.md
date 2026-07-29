@@ -32,23 +32,23 @@ the backend function deploy tool, so the live function matches the source file
 that already contains `brand.get`, `brand.uploadUrl`, and `brand.save`.
 
 ## Implementation checklist
-- [ ] Redeploy `bunny-rpc` backend function using the current, unmodified
+- [passed] Redeploy `bunny-rpc` backend function using the current, unmodified
       contents of `supabase/functions/bunny-rpc/index.ts`.
-- [ ] Confirm no other backend functions reference brand assets and are
+- [passed] Confirm no other backend functions reference brand assets and are
       similarly stale (checked: only `bunny-rpc` owns these actions;
       `qbo-poll-invoices` only reads `logo_rect_url` for outbound emails and
       is unaffected).
 
 ## Verification checklist
-- [ ] Open a client's QuickBooks tab and upload a logo image to each of the
+- [manual-required] Open a client's QuickBooks tab and upload a logo image to each of the
       4 slots (rect light/dark, square light/dark) — each upload succeeds and
       the preview image renders immediately.
-- [ ] Type a tagline and click "Save Tagline" — save succeeds with no error
+- [manual-required] Type a tagline and click "Save Tagline" — save succeeds with no error
       shown, and the value persists after a page reload.
-- [ ] Remove a previously uploaded logo (trash icon) — removal succeeds and
+- [manual-required] Remove a previously uploaded logo (trash icon) — removal succeeds and
       the slot reverts to the empty placeholder.
-- [ ] Confirm `brand.get` still correctly returns `null` assets for a client
+- [manual-required] Confirm `brand.get` still correctly returns `null` assets for a client
       that has never had brand assets set (no false errors on first load).
-- [ ] Confirm cross-agency access is still blocked (`assertClientAccess`
+- [manual-required] Confirm cross-agency access is still blocked (`assertClientAccess`
       still throws for a client belonging to another agency) — no regression
       from the redeploy.
