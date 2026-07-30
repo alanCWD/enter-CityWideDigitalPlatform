@@ -44,6 +44,7 @@ import { QboCallback } from "./pages/QboCallback";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import { ReviewRequestsDashboard } from "./pages/dashboard/ReviewRequests";
+import { KimiConsole } from "./pages/dashboard/KimiConsole";
 
 /** Wrap an element so unauthenticated users are redirected to /portal/login */
 function Auth({ children }: { children: React.ReactNode }) {
@@ -279,6 +280,11 @@ export const routers = [
     path: "/dashboard/reviews",
     name: "review-requests",
     element: <Auth><ReviewRequestsDashboard /></Auth>,
+  },
+  {
+    path: "/dashboard/kimi",
+    name: "kimi-console",
+    element: <Auth><KimiConsole /></Auth>,
   },
   /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
   {

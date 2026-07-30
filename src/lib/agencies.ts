@@ -15,6 +15,7 @@ import {
   UserCircle,
   Inbox,
   Star,
+  Bot,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -63,6 +64,7 @@ export const AGENCIES: Agency[] = [
     navItems: [
       { name: "Dashboard",        path: "/dashboard",  icon: Building2,    end: true },
       { name: "App Builder",      path: "/builder",    icon: LayoutTemplate           },
+      { name: "Kimi AI",          path: "/dashboard/kimi", icon: Bot                  },
       { name: "GBP Integration",  path: "/gbp",        icon: Store                    },
       { name: "Ordering & Menus", path: "/restaurant", icon: Utensils                 },
       { name: "Analytics",        path: "/analytics",  icon: BarChart3                },

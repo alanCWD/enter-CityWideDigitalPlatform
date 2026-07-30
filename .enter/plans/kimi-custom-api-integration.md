@@ -48,20 +48,20 @@ Base URL 使用官方国际版默认地址 `https://api.moonshot.ai/v1`，直接
 - 导航/路由挂载方式：`src/router.tsx` + `src/lib/agencies.ts` + `Sidebar.tsx`（无需改 Sidebar 本身）
 
 ## Implementation checklist
-- [ ] 用 `supabase_add_secret` 新增 `KIMI_API_KEY`
-- [ ] 新建 `supabase/functions/kimi-chat/index.ts`：读取 secret，缺失即报错并返回 SSE error
-- [ ] `kimi-chat` 转发到 `https://api.moonshot.ai/v1/chat/completions`，`stream: true`，透传成功响应体
-- [ ] `kimi-chat` 失败路径解析上游 OpenAI 风格错误并包装为 `event: error` SSE，状态码透传
-- [ ] 新建 `src/hooks/useKimiChat.ts`：手写 reader 解析 `chat.completion.chunk`，处理 `[DONE]`、`finish_reason`、错误事件
-- [ ] 新建 `src/pages/dashboard/KimiConsole.tsx`：聊天界面 + 可覆盖 model 名称输入 + 停止/清空
-- [ ] `src/router.tsx` 新增 `/dashboard/kimi` 路由（`<Auth>` 包裹）
-- [ ] `src/lib/agencies.ts` 的 `citywide` 导航加入「Kimi AI」入口
+- [passed] 用 `supabase_add_secret` 新增 `KIMI_API_KEY`
+- [passed] 新建 `supabase/functions/kimi-chat/index.ts`：读取 secret，缺失即报错并返回 SSE error
+- [passed] `kimi-chat` 转发到 `https://api.moonshot.ai/v1/chat/completions`，`stream: true`，透传成功响应体
+- [passed] `kimi-chat` 失败路径解析上游 OpenAI 风格错误并包装为 `event: error` SSE，状态码透传
+- [passed] 新建 `src/hooks/useKimiChat.ts`：手写 reader 解析 `chat.completion.chunk`，处理 `[DONE]`、`finish_reason`、错误事件
+- [passed] 新建 `src/pages/dashboard/KimiConsole.tsx`：聊天界面 + 可覆盖 model 名称输入 + 停止/清空
+- [passed] `src/router.tsx` 新增 `/dashboard/kimi` 路由（`<Auth>` 包裹）
+- [passed] `src/lib/agencies.ts` 的 `citywide` 导航加入「Kimi AI」入口
 
 ## Verification checklist
-- [ ] 未配置 `KIMI_API_KEY` 时，调用 `kimi-chat` 返回明确的 SSE error（而不是 500 无信息）
-- [ ] 配置正确 Key 后，在 `/dashboard/kimi` 发送消息能看到流式输出逐字出现
-- [ ] 上游返回错误（如 401/429）时，前端能展示后端透传的具体错误文案，而不是通用 "Request failed: xxx"
-- [ ] 长输入（模拟长上下文，如粘贴长文本）请求不因 `max_tokens` 过小被截断
-- [ ] 中途点击「停止」能正确 abort 请求，不留下卡死的 loading 状态
-- [ ] 切换到其他三个 agency（legacy_leaf/foodiio/oneprofile）时侧边栏不出现「Kimi AI」入口，`citywide` 下正常出现且可跳转
-- [ ] `pnpm run build` 与 lint 通过
+- [manual-required] 未配置 `KIMI_API_KEY` 时，调用 `kimi-chat` 返回明确的 SSE error（而不是 500 无信息）
+- [manual-required] 配置正确 Key 后，在 `/dashboard/kimi` 发送消息能看到流式输出逐字出现
+- [manual-required] 上游返回错误（如 401/429）时，前端能展示后端透传的具体错误文案，而不是通用 "Request failed: xxx"
+- [manual-required] 长输入（模拟长上下文，如粘贴长文本）请求不因 `max_tokens` 过小被截断
+- [manual-required] 中途点击「停止」能正确 abort 请求，不留下卡死的 loading 状态
+- [passed] 切换到其他三个 agency（legacy_leaf/foodiio/oneprofile）时侧边栏不出现「Kimi AI」入口，`citywide` 下正常出现且可跳转
+- [passed] `pnpm run build` 与 lint 通过
