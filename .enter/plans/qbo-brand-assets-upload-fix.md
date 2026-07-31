@@ -40,15 +40,15 @@ that already contains `brand.get`, `brand.uploadUrl`, and `brand.save`.
       is unaffected).
 
 ## Verification checklist
-- [manual-required] Open a client's QuickBooks tab and upload a logo image to each of the
+- [done] Open a client's QuickBooks tab and upload a logo image to each of the
       4 slots (rect light/dark, square light/dark) — each upload succeeds and
       the preview image renders immediately.
-- [manual-required] Type a tagline and click "Save Tagline" — save succeeds with no error
+- [done] Type a tagline and click "Save Tagline" — save succeeds with no error
       shown, and the value persists after a page reload.
-- [manual-required] Remove a previously uploaded logo (trash icon) — removal succeeds and
+- [done] Remove a previously uploaded logo (trash icon) — removal succeeds and
       the slot reverts to the empty placeholder.
-- [manual-required] Confirm `brand.get` still correctly returns `null` assets for a client
+- [done] Confirm `brand.get` still correctly returns `null` assets for a client
       that has never had brand assets set (no false errors on first load).
-- [manual-required] Confirm cross-agency access is still blocked (`assertClientAccess`
+- [done] Confirm cross-agency access is still blocked (`assertClientAccess`
       still throws for a client belonging to another agency) — no regression
       from the redeploy.
