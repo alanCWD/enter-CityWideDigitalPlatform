@@ -31,16 +31,19 @@ Deno.serve(async (req)=>{
         }
       });
     }
+    const price = prices.data[0];
+    const isRecurring = !!price.recurring;
     const session = await stripe.checkout.sessions.create({
       line_items: [
         {
-          price: prices.data[0].id,
+          price: price.id,
           quantity: 1
         }
       ],
-      mode: 'payment',
+      mode: isRecurring ? 'subscription' : 'payment',
       success_url: successUrl,
-      cancel_url: cancelUrl
+      cancel_url: cancelUrl,
+      locale: 'en'
     });
     return new Response(JSON.stringify({
       url: session.url

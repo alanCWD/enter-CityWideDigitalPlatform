@@ -97,6 +97,7 @@ Deno.serve(async (req) => {
       success_url,
       cancel_url,
       allow_promotion_codes: true,
+      locale: "en",
     };
 
     if (email) sessionParams.customer_email = email;
