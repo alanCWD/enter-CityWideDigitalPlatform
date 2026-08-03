@@ -111,18 +111,18 @@ is the immediate, actionable fix and needs no infrastructure change.
 - No changes to `supabase/functions/stripe-webhook/index.ts` or `config.toml`
 
 ## Implementation checklist
-- [ ] Create `stripe_sync_state` table with RLS enabled and a service-role-only policy
-- [ ] Seed the single cursor row
-- [ ] Write `stripe-poll-events/index.ts` reusing the invoice/subscription/payment_intent/checkout.session handling from `stripe-webhook/index.ts`
-- [ ] Paginate `stripe.events.list` fully (`has_more`/`starting_after`) instead of only the first page
-- [ ] Advance and persist the cursor only after successful processing, with a safety buffer
-- [ ] Deploy `stripe-poll-events` via `supabase_deploy_edge_function`
-- [ ] Schedule the `pg_cron` job calling the function every 10 minutes with a valid `Authorization: Bearer <anon key>` header
+- [passed] Create `stripe_sync_state` table with RLS enabled and a service-role-only policy
+- [passed] Seed the single cursor row
+- [passed] Write `stripe-poll-events/index.ts` reusing the invoice/subscription/payment_intent/checkout.session handling from `stripe-webhook/index.ts`
+- [passed] Paginate `stripe.events.list` fully (`has_more`/`starting_after`) instead of only the first page
+- [passed] Advance and persist the cursor only after successful processing, with a safety buffer
+- [passed] Deploy `stripe-poll-events` via `supabase_deploy_edge_function`
+- [passed] Schedule the `pg_cron` job calling the function every 10 minutes with a valid `Authorization: Bearer <anon key>` header
 
 ## Verification checklist
-- [ ] Manually invoke `stripe-poll-events` once (with the anon key header) and confirm a 200 response with a processed count
-- [ ] Check `supabase_search_edge_function_logs` for `stripe-poll-events` to confirm events were fetched and matched to CRM clients
-- [ ] Confirm a recently-paid real invoice/subscription in Stripe is reflected correctly in the Bunny `invoices`/`subscriptions`/`payments` tables after a poll run
-- [ ] Query `cron.job` to confirm `stripe-poll-events-10min` is scheduled and `cron.job_run_details` shows successful runs
-- [ ] Confirm `stripe_sync_state.last_synced_at` advances after each run (boundary check: no duplicate processing of already-handled events on the next run)
-- [ ] Remind user to delete the stale webhook endpoint in the Stripe Dashboard
+- [passed] Manually invoke `stripe-poll-events` once (with the anon key header) and confirm a 200 response with a processed count
+- [blocked] Check `supabase_search_edge_function_logs` for `stripe-poll-events` to confirm events were fetched and matched to CRM clients
+- [manual-required] Confirm a recently-paid real invoice/subscription in Stripe is reflected correctly in the Bunny `invoices`/`subscriptions`/`payments` tables after a poll run
+- [manual-required] Query `cron.job` to confirm `stripe-poll-events-10min` is scheduled and `cron.job_run_details` shows successful runs
+- [manual-required] Confirm `stripe_sync_state.last_synced_at` advances after each run (boundary check: no duplicate processing of already-handled events on the next run)
+- [manual-required] Remind user to delete the stale webhook endpoint in the Stripe Dashboard

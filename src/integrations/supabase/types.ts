@@ -3741,6 +3741,21 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_sync_state: {
+        Row: {
+          id: boolean
+          last_synced_at: string
+        }
+        Insert: {
+          id?: boolean
+          last_synced_at?: string
+        }
+        Update: {
+          id?: boolean
+          last_synced_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string

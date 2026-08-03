@@ -1,0 +1,49 @@
+-- Stripe poll-and-reconcile: tracks the event cursor for the stripe-poll-events
+-- scheduled job. Stripe webhooks cannot reach this platform's backend functions
+-- (the gateway requires an Authorization header Stripe has no way to send), so
+-- stripe-poll-events pulls events on a pg_cron schedule instead — the same
+-- pattern as qbo-poll-invoices. This table holds the single cursor row for that
+-- job. Service-role only (no client access needed), mirroring the locked-down
+-- scheduled_posts.service_role_all_sp pattern.
+
+create table if not exists public.stripe_sync_state (
+  id boolean primary key default true check (id),
+  last_synced_at timestamptz not null default (now() - interval '1 day')
+);
+
+alter table public.stripe_sync_state enable row level security;
+
+drop policy if exists "service role manages stripe_sync_state" on public.stripe_sync_state;
+create policy "service role manages stripe_sync_state" on public.stripe_sync_state
+  for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
+
+-- Seed the singleton cursor row (uses the default last_synced_at = now - 1 day).
+insert into public.stripe_sync_state (id) values (true)
+on conflict (id) do nothing;
+
+-- Unschedule any prior job with the same name so this migration is safe to re-run.
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'stripe-poll-events-10min';
+exception when others then null;
+end $$;
+
+-- Every 10 minutes, poll Stripe for events created since the cursor and replay
+-- them through the same handlers as stripe-webhook. The call originates from
+-- Postgres (pg_cron), so it can attach a valid Authorization: Bearer <anon key>
+-- header — which is what lets it through the platform gateway. Anon key is the
+-- same one used by qbo-poll-invoices-daily.
+select cron.schedule(
+  'stripe-poll-events-10min',
+  '*/10 * * * *',
+  $$
+  select net.http_post(
+    url := 'https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/functions/v1/stripe-poll-events',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNwYi10NG4xdzJqOWp3aGhjN2g2IiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzcxNDAzMzksImV4cCI6MjA5MjcxNjMzOX0.KE2fNZckvo-20zds7KR1wv7a0kNUVA-vgO7HJ6gQbMo'
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
