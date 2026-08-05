@@ -52,8 +52,10 @@ Deno.serve(async (req) => {
           grant_type: "refresh_token",
         }),
       });
-      const data = await res.json() as { access_token?: string; expires_in?: number; error?: string };
-      if (!data.access_token) return json({ success: false, error: `Token refresh failed: ${data.error}` });
+      const data = await res.json() as { access_token?: string; expires_in?: number; error?: string; error_description?: string };
+      if (!res.ok || !data.access_token) {
+        return json({ success: false, error: `token refresh failed (${res.status}): ${data.error_description || data.error || "Google auth error"}` });
+      }
       accessToken = data.access_token;
       await supabase.from("gbp_connections").update({
         google_access_token: accessToken,
@@ -74,6 +76,10 @@ Deno.serve(async (req) => {
     );
     const loc = await locRes.json() as Record<string, unknown>;
     console.log("Location response:", JSON.stringify(loc).slice(0, 500));
+    if (!locRes.ok) {
+      const e = (loc as { error?: { message?: string; status?: string; code?: number } }).error;
+      return json({ success: false, error: `business info failed (${locRes.status}): ${e?.message || `HTTP ${locRes.status}`}` });
+    }
 
     const businessName = (loc.title as string) || conn.business_name;
     const phones = loc.phoneNumbers as { primaryPhone?: string } | undefined;
@@ -89,8 +95,11 @@ Deno.serve(async (req) => {
       `https://mybusinessreviews.googleapis.com/v1/${fullName}/reviews?pageSize=200`,
       { headers: h }
     );
-    const rvData = await rvRes.json() as { reviews?: Array<Record<string, unknown>>; totalReviewCount?: number; averageRating?: number };
+    const rvData = await rvRes.json() as { reviews?: Array<Record<string, unknown>>; totalReviewCount?: number; averageRating?: number; error?: { message?: string; status?: string; code?: number } };
     console.log("Reviews status:", rvRes.status, "count:", rvData.reviews?.length);
+    if (!rvRes.ok) {
+      return json({ success: false, error: `reviews failed (${rvRes.status}): ${rvData.error?.message || `HTTP ${rvRes.status}`}` });
+    }
     const reviews = rvData.reviews || [];
 
     if (reviews.length > 0) {
@@ -111,8 +120,11 @@ Deno.serve(async (req) => {
       `https://mybusiness.googleapis.com/v4/${fullName}/localPosts?pageSize=20`,
       { headers: h }
     );
-    const ptData = await ptRes.json() as { localPosts?: Array<Record<string, unknown>> };
+    const ptData = await ptRes.json() as { localPosts?: Array<Record<string, unknown>>; error?: { message?: string; status?: string; code?: number } };
     console.log("Posts status:", ptRes.status, "count:", ptData.localPosts?.length);
+    if (!ptRes.ok) {
+      return json({ success: false, error: `posts failed (${ptRes.status}): ${ptData.error?.message || `HTTP ${ptRes.status}`}` });
+    }
     const posts = ptData.localPosts || [];
 
     if (posts.length > 0) {

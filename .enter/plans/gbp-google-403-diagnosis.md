@@ -14,11 +14,11 @@ Looking at the code, gap #3 is real: in `gbp-auth-callback/index.ts`, only the `
 Because we can't see the user's exact error text or which step it happens at, the fastest path is to close this gap first so the next attempt surfaces Google's *real* error message, then use that to point at the exact Google Cloud Console fix.
 
 ## Implementation checklist
-- [ ] In `supabase/functions/gbp-auth-callback/index.ts`, after the `v4/accounts` call, if `v4AcctBody.error` is present with `code === 403`, return the same descriptive `ok({ success:false, error: ... })` treatment used for the v1 fallback (don't silently fall through to v1 when it's a real permission error).
-- [ ] Extend `apiFetch` (or wrap each call site) so every Google call in this file — locations (`fetchLocationsV4`, wildcard fallbacks), reviews, posts — checks for a `403`/`error` body and, if found, returns immediately with `ok({ success:false, error: "<Google's error.status>: <error.message>" })` instead of treating it as empty data.
-- [ ] In `supabase/functions/gbp-sync/index.ts`, check `res.ok`/`status` for all three fetches (business info, reviews, posts) and the token refresh call; on non-2xx, return `json({ success:false, error: "<endpoint> failed (<status>): <google error message>" })` instead of writing the response body into `gbp_connections` unconditionally.
-- [ ] Keep the existing 429 (quota) and "0 locations" messages as-is — only add the missing 403/error-body checks around them.
-- [ ] No frontend changes needed: `GbpCallback.tsx` and `LinkZernioProfileDialog.tsx`/`GBPIntegration.tsx`/`PortalConnect.tsx` already display `data.error` / `error.message` verbatim in their error banners.
+- [passed] In `supabase/functions/gbp-auth-callback/index.ts`, after the `v4/accounts` call, if `v4AcctBody.error` is present with `code === 403`, return the same descriptive `ok({ success:false, error: ... })` treatment used for the v1 fallback (don't silently fall through to v1 when it's a real permission error).
+- [passed] Extend `apiFetch` (or wrap each call site) so every Google call in this file — locations (`fetchLocationsV4`, wildcard fallbacks), reviews, posts — checks for a `403`/`error` body and, if found, returns immediately with `ok({ success:false, error: "<Google's error.status>: <error.message>" })` instead of treating it as empty data.
+- [passed] In `supabase/functions/gbp-sync/index.ts`, check `res.ok`/`status` for all three fetches (business info, reviews, posts) and the token refresh call; on non-2xx, return `json({ success:false, error: "<endpoint> failed (<status>): <google error message>" })` instead of writing the response body into `gbp_connections` unconditionally.
+- [passed] Keep the existing 429 (quota) and "0 locations" messages as-is — only add the missing 403/error-body checks around them.
+- [passed] No frontend changes needed: `GbpCallback.tsx` and `LinkZernioProfileDialog.tsx`/`GBPIntegration.tsx`/`PortalConnect.tsx` already display `data.error` / `error.message` verbatim in their error banners.
 
 ## What to check once the real error text is visible
 Use the newly-surfaced message to pick the fix:
@@ -28,7 +28,7 @@ Use the newly-surfaced message to pick the fix:
 - **Google account has 0 GBP locations** → sign in with the Google account that actually owns/manages the listing (already handled with a clear message today).
 
 ## Verification checklist
-- [ ] Trigger "Connect with Google" from the CRM client dialog and from the client portal (`PortalConnect.tsx`) and confirm the flow either succeeds or now shows a specific Google error message (endpoint + status + Google's own message) instead of a bare "403".
-- [ ] Confirm a expired/invalid-scope token on an existing connection surfaces a clear error from `gbp-sync` instead of silently blanking out NAP fields.
-- [ ] Confirm the happy path (valid Google account with a verified GBP listing) still connects and syncs reviews/posts exactly as before — no regression to the success path.
-- [ ] Share the exact new error text with the user so the correct Google Cloud Console fix (test user / redirect URI / API access grant) can be applied.
+- [manual-required] Trigger "Connect with Google" from the CRM client dialog and from the client portal (`PortalConnect.tsx`) and confirm the flow either succeeds or now shows a specific Google error message (endpoint + status + Google's own message) instead of a bare "403".
+- [manual-required] Confirm a expired/invalid-scope token on an existing connection surfaces a clear error from `gbp-sync` instead of silently blanking out NAP fields.
+- [manual-required] Confirm the happy path (valid Google account with a verified GBP listing) still connects and syncs reviews/posts exactly as before — no regression to the success path.
+- [manual-required] Share the exact new error text with the user so the correct Google Cloud Console fix (test user / redirect URI / API access grant) can be applied.

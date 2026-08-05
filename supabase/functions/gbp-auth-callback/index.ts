@@ -49,6 +49,21 @@ async function apiFetch(label: string, url: string, headers: Record<string, stri
   return { status: r.status, body, raw };
 }
 
+// ── Google API error extraction ──────────────────────────────────────────
+// Returns a formatted "status: message" string when the response is an error
+// (error body present or non-2xx HTTP status), otherwise null. Surfacing
+// Google's real error — instead of silently treating it as empty data — is
+// what lets us diagnose 403 / PERMISSION_DENIED root causes.
+function googleApiError(r: { status: number; body: unknown }): string | null {
+  const e = (r.body as { error?: { code?: number; message?: string; status?: string } }).error;
+  if (e) {
+    const code = e.status || e.code || r.status;
+    return `${code}: ${e.message || "Google API error"}`;
+  }
+  if (r.status >= 400) return `HTTP ${r.status}`;
+  return null;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
@@ -101,6 +116,13 @@ Deno.serve(async (req) => {
     const v4Accts = await apiFetch("v4/accounts", "https://mybusiness.googleapis.com/v4/accounts", h);
     const v4AcctBody = v4Accts.body as { accounts?: V4Account[]; error?: { code?: number; message?: string; status?: string } };
 
+    // Surface a real v4 permission error instead of silently falling through
+    // to the v1 Account Management API, which would mask the actual cause.
+    if (v4AcctBody.error?.code === 403 || v4Accts.status === 403) {
+      const e = v4AcctBody.error;
+      return ok({ success: false, error: `Google My Business API permission denied (${e?.status || e?.code || 403}): ${e?.message}. Enable the required Google My Business APIs in Google Cloud Console → APIs & Services, and ensure the project has Business Profile API access granted by Google.` });
+    }
+
     if (!v4AcctBody.error && v4AcctBody.accounts) {
       accounts = v4AcctBody.accounts;
       console.log("[gbp] v4 accounts:", accounts.length);
@@ -143,7 +165,9 @@ Deno.serve(async (req) => {
 
     const fetchLocationsV4 = async (parent: string): Promise<V4Location[]> => {
       const r = await apiFetch(`v4/locations(${parent})`, `https://mybusiness.googleapis.com/v4/${parent}/locations`, h);
-      const d = r.body as { locations?: V4Location[]; error?: unknown };
+      const locErr = googleApiError(r);
+      if (locErr) throw new Error(`v4/locations(${parent}): ${locErr}`);
+      const d = r.body as { locations?: V4Location[] };
       return d.locations || [];
     };
 
@@ -172,6 +196,8 @@ Deno.serve(async (req) => {
     if (allLocations.length === 0) {
       console.log("[gbp] trying v1 mybusinessbusinessinformation wildcard");
       const r = await apiFetch("v1/locations", "https://mybusinessbusinessinformation.googleapis.com/v1/accounts/-/locations?readMask=name,title,phoneNumbers,storefrontAddress,websiteUri,categories&pageSize=100", h);
+      const v1LocErr = googleApiError(r);
+      if (v1LocErr) throw new Error(`v1/locations: ${v1LocErr}`);
       const d = r.body as { locations?: V4Location[] };
       for (const loc of d.locations || []) {
         allLocations.push(loc);
@@ -210,6 +236,8 @@ Deno.serve(async (req) => {
     // ── 5. Reviews ─────────────────────────────────────────────────────────
     // Try v4 reviews endpoint
     const rvRes = await apiFetch("reviews", `https://mybusiness.googleapis.com/v4/${fullLocationName}/reviews?pageSize=200`, h);
+    const rvErr = googleApiError(rvRes);
+    if (rvErr) return ok({ success: false, error: `reviews: ${rvErr}` });
     const rvBody = rvRes.body as { reviews?: Array<Record<string, unknown>>; totalReviewCount?: number; averageRating?: number };
     const reviews = rvBody.reviews || [];
     const avgRating = rvBody.averageRating ?? (reviews.length > 0
@@ -258,6 +286,8 @@ Deno.serve(async (req) => {
 
     // ── 8. Sync posts ──────────────────────────────────────────────────────
     const ptRes = await apiFetch("posts", `https://mybusiness.googleapis.com/v4/${fullLocationName}/localPosts?pageSize=20`, h);
+    const ptErr = googleApiError(ptRes);
+    if (ptErr) return ok({ success: false, error: `posts: ${ptErr}` });
     const ptBody = ptRes.body as { localPosts?: Array<Record<string, unknown>> };
     const posts = ptBody.localPosts || [];
     if (posts.length > 0) {
