@@ -134,7 +134,7 @@ Deno.serve(async (req) => {
       if (v1Body.error) {
         const e = v1Body.error;
         if (e.code === 429) {
-          return ok({ success: false, error: `Rate limit hit on Google My Business API. Please wait a few minutes and try again. If this persists, go to Google Cloud Console → APIs & Services → Google My Business Account Management API → Quotas and request a higher limit.` });
+          return ok({ success: false, error: `Google Business Profile API access not yet granted for this Google Cloud project (quota is 0 QPM). Enabling the API in Cloud Console is not enough — Google requires a manual access request. Do NOT request a "quota increase"; Google's own docs say that won't help at 0 QPM. Instead: 1) confirm the quota shows 0 QPM under Google Cloud Console → APIs & Services → Google My Business Account Management API → Quotas (300 QPM means already approved), 2) if 0, submit the GBP API contact form (support.google.com/business/contact/api_default), choosing "Application for Basic API Access", using an email that's an owner/manager on the GBP, for a listing verified & active 60+ days with a website on the profile, 3) wait for Google's approval email before retrying.` });
         }
         if (e.code === 403) {
           return ok({ success: false, error: `API permission denied: ${e.message}. Enable "Google My Business Account Management API" in Google Cloud Console.` });
