@@ -242,7 +242,9 @@ Deno.serve(async (req) => {
       };
 
       if (data.Fault) {
+        const faultMessage = data.Fault.Error?.map((e) => e.Message).filter(Boolean).join("; ") || "Unknown QuickBooks query error";
         console.error(`[qbo-poll-invoices] query error for ${conn.crm_client_id}:`, JSON.stringify(data.Fault));
+        await supabase.from("quickbooks_connections").update({ last_error: faultMessage, updated_at: new Date().toISOString() }).eq("id", conn.id);
         continue;
       }
 
@@ -325,9 +327,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      await supabase.from("quickbooks_connections").update({ last_invoice_sync_at: new Date().toISOString() }).eq("id", conn.id);
+      await supabase.from("quickbooks_connections").update({ last_invoice_sync_at: new Date().toISOString(), last_error: null }).eq("id", conn.id);
     } catch (e) {
+      const errMsg = (e as Error).message || "Unknown error while syncing invoices";
       console.error(`[qbo-poll-invoices] exception for ${conn.crm_client_id}:`, e);
+      await supabase.from("quickbooks_connections").update({ last_error: errMsg, updated_at: new Date().toISOString() }).eq("id", conn.id);
     }
   }
 

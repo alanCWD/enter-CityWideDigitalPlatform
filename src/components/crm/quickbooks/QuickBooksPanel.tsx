@@ -285,6 +285,22 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
           )}
         </div>
 
+        {connection && connection.status !== "expired" && connection.last_error && (
+          <div className="rounded-xl bg-amber-500/5 border border-amber-500/20 px-4 py-3 mb-4">
+            <p className="text-xs font-bold text-amber-500 mb-1 flex items-center gap-1.5">
+              <AlertCircle className="w-3.5 h-3.5" /> Last sync failed
+            </p>
+            <p className="text-xs text-amber-500/80">
+              {connection.last_error}
+            </p>
+            <p className="text-[11px] text-amber-500/60 mt-1">
+              {connection.last_invoice_sync_at
+                ? `Invoices were last synced successfully on ${fmtDateTime(connection.last_invoice_sync_at)}. Every attempt since then has failed — review requests are not being sent.`
+                : "No sync has ever succeeded for this connection — review requests have never been sent."}
+            </p>
+          </div>
+        )}
+
         {connection?.status === "expired" && (
           <div className="rounded-xl bg-red-500/5 border border-red-500/20 px-4 py-3 mb-4 space-y-3">
             <div>
@@ -363,6 +379,12 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Token Expires</p>
                 <p className="text-sm text-foreground dark:text-[#EEF1FA]">{fmtDate(connection.token_expiry)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-0.5">Last Synced</p>
+                <p className={`text-sm ${connection.last_invoice_sync_at ? "text-foreground dark:text-[#EEF1FA]" : "text-amber-500"}`}>
+                  {connection.last_invoice_sync_at ? fmtDateTime(connection.last_invoice_sync_at) : "Never"}
+                </p>
               </div>
             </div>
 
