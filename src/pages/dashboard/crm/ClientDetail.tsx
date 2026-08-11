@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle, Pause, Play } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
@@ -804,6 +804,25 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
     reload();
   };
 
+  const pauseBilling = async (id: string) => {
+    if (!confirm("Pause billing for this subscription? No invoices will be generated in Stripe until you resume it.")) return;
+    setBusy(true); setErr(null);
+    try {
+      await crm("subscriptions.pause", { id });
+      reload();
+    } catch (e) { setErr(`Pause failed: ${(e as Error).message}`); }
+    finally { setBusy(false); }
+  };
+
+  const resumeBilling = async (id: string) => {
+    setBusy(true); setErr(null);
+    try {
+      await crm("subscriptions.resume", { id });
+      reload();
+    } catch (e) { setErr(`Resume failed: ${(e as Error).message}`); }
+    finally { setBusy(false); }
+  };
+
   const syncStripe = async (id: string, method: "charge_automatically" | "send_invoice") => {
     setBusy(true); setErr(null);
     try {
@@ -910,6 +929,26 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
                           className="text-[10px] font-semibold text-sky-500 hover:text-sky-400 transition-colors disabled:opacity-50 border border-sky-500/30 rounded px-1.5 py-0.5 inline-flex items-center gap-1"
                         >
                           <Send className="w-2.5 h-2.5" /> Resend Invoice
+                        </button>
+                      )}
+                      {s.stripe_subscription_id && s.status !== "paused" && (
+                        <button
+                          onClick={() => pauseBilling(s.id as string)}
+                          disabled={busy}
+                          title="Pause billing — no invoices will be generated until resumed"
+                          className="text-[10px] font-semibold text-yellow-600 dark:text-yellow-400 hover:text-yellow-500 transition-colors disabled:opacity-50 border border-yellow-500/30 rounded px-1.5 py-0.5 inline-flex items-center gap-1"
+                        >
+                          <Pause className="w-2.5 h-2.5" /> Pause Billing
+                        </button>
+                      )}
+                      {s.status === "paused" && (
+                        <button
+                          onClick={() => resumeBilling(s.id as string)}
+                          disabled={busy}
+                          title="Resume billing"
+                          className="text-[10px] font-semibold text-[#22C55E] hover:text-[#22C55E]/80 transition-colors disabled:opacity-50 border border-[#22C55E]/30 rounded px-1.5 py-0.5 inline-flex items-center gap-1"
+                        >
+                          <Play className="w-2.5 h-2.5" /> Resume Billing
                         </button>
                       )}
                       <button onClick={() => cancel(s.id as string)} className="text-xs text-muted-foreground hover:text-amber-400 transition-colors">Cancel</button>

@@ -531,6 +531,31 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       await exec({ sql: `UPDATE subscriptions SET status = ?, cancel_at_period_end = ?, updated_at = ? WHERE id = ?`, args: [payload.at_period_end ? "active" : "canceled", payload.at_period_end ? 1 : 0, now(), payload.id as string] });
       return { ok: true };
     }
+    case "subscriptions.pause": {
+      // Pauses billing without canceling: Stripe stops generating invoices for
+      // this subscription entirely (behavior: "void") until resumed. The
+      // subscription itself stays alive in Stripe; only invoicing is paused.
+      const { rows: subRows } = await exec({ sql: `SELECT stripe_subscription_id, status FROM subscriptions WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      const sub = subRows[0];
+      if (!sub) throw new Error("Subscription not found");
+      if (sub.status === "canceled") throw new Error("Cannot pause a canceled subscription.");
+      if (!sub.stripe_subscription_id) throw new Error("Subscription not yet synced to Stripe — sync it first before pausing billing.");
+      if (!stripe) throw new Error("Stripe is not configured");
+      await stripe.subscriptions.update(sub.stripe_subscription_id as string, { pause_collection: { behavior: "void" } });
+      await exec({ sql: `UPDATE subscriptions SET status = 'paused', updated_at = ? WHERE id = ?`, args: [now(), payload.id as string] });
+      return { ok: true };
+    }
+    case "subscriptions.resume": {
+      const { rows: subRows } = await exec({ sql: `SELECT stripe_subscription_id FROM subscriptions WHERE id = ? LIMIT 1`, args: [payload.id as string] });
+      const sub = subRows[0];
+      if (!sub) throw new Error("Subscription not found");
+      if (!stripe) throw new Error("Stripe is not configured");
+      if (sub.stripe_subscription_id) {
+        await stripe.subscriptions.update(sub.stripe_subscription_id as string, { pause_collection: null });
+      }
+      await exec({ sql: `UPDATE subscriptions SET status = 'active', updated_at = ? WHERE id = ?`, args: [now(), payload.id as string] });
+      return { ok: true };
+    }
     case "subscriptions.syncStripe": {
       const { rows } = await exec({ sql: `SELECT s.*, p.stripe_price_id FROM subscriptions s JOIN products p ON p.id = s.product_id WHERE s.id = ? LIMIT 1`, args: [payload.id as string] });
       const sub = rows[0];
