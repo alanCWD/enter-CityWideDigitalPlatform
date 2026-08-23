@@ -3178,6 +3178,90 @@ export type Database = {
         }
         Relationships: []
       }
+      channel_connections: {
+        Row: {
+          account_type: string
+          agency_id: string
+          connected_at: string | null
+          display_name: string | null
+          handle: string | null
+          id: string
+          is_active: boolean | null
+          last_checked_at: string | null
+          needs_reconnect: boolean
+          platform: string
+          profile_url: string | null
+        }
+        Insert: {
+          account_type?: string
+          agency_id?: string
+          connected_at?: string | null
+          display_name?: string | null
+          handle?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_checked_at?: string | null
+          needs_reconnect?: boolean
+          platform: string
+          profile_url?: string | null
+        }
+        Update: {
+          account_type?: string
+          agency_id?: string
+          connected_at?: string | null
+          display_name?: string | null
+          handle?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_checked_at?: string | null
+          needs_reconnect?: boolean
+          platform?: string
+          profile_url?: string | null
+        }
+        Relationships: []
+      }
+      channel_oauth_tokens: {
+        Row: {
+          access_token: string
+          agency_id: string
+          created_at: string | null
+          expires_at: string | null
+          id: string
+          ig_user_id: string | null
+          organization_urn: string | null
+          page_id: string | null
+          person_urn: string | null
+          platform: string
+          updated_at: string | null
+        }
+        Insert: {
+          access_token: string
+          agency_id?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          ig_user_id?: string | null
+          organization_urn?: string | null
+          page_id?: string | null
+          person_urn?: string | null
+          platform: string
+          updated_at?: string | null
+        }
+        Update: {
+          access_token?: string
+          agency_id?: string
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string
+          ig_user_id?: string | null
+          organization_urn?: string | null
+          page_id?: string | null
+          person_urn?: string | null
+          platform?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       client_brand_assets: {
         Row: {
           crm_client_id: string
@@ -3420,6 +3504,27 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      oauth_states: {
+        Row: {
+          agency_id: string
+          created_at: string | null
+          platform: string
+          state: string
+        }
+        Insert: {
+          agency_id?: string
+          created_at?: string | null
+          platform: string
+          state: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string | null
+          platform?: string
+          state?: string
+        }
+        Relationships: []
       }
       portal_invites: {
         Row: {
@@ -3741,6 +3846,87 @@ export type Database = {
         }
         Relationships: []
       }
+      social_posts: {
+        Row: {
+          agency_id: string
+          content: string | null
+          created_at: string | null
+          external_post_id: string | null
+          external_url: string | null
+          id: string
+          image_url: string | null
+          platform: string
+          published_at: string | null
+          title: string
+        }
+        Insert: {
+          agency_id?: string
+          content?: string | null
+          created_at?: string | null
+          external_post_id?: string | null
+          external_url?: string | null
+          id?: string
+          image_url?: string | null
+          platform?: string
+          published_at?: string | null
+          title: string
+        }
+        Update: {
+          agency_id?: string
+          content?: string | null
+          created_at?: string | null
+          external_post_id?: string | null
+          external_url?: string | null
+          id?: string
+          image_url?: string | null
+          platform?: string
+          published_at?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      social_scheduled_posts: {
+        Row: {
+          agency_id: string
+          content: string
+          created_at: string | null
+          error_message: string | null
+          id: string
+          image_url: string | null
+          platform: string
+          published_post_id: string | null
+          scheduled_for: string
+          status: string
+          updated_at: string | null
+        }
+        Insert: {
+          agency_id?: string
+          content: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          image_url?: string | null
+          platform?: string
+          published_post_id?: string | null
+          scheduled_for: string
+          status?: string
+          updated_at?: string | null
+        }
+        Update: {
+          agency_id?: string
+          content?: string
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          image_url?: string | null
+          platform?: string
+          published_post_id?: string | null
+          scheduled_for?: string
+          status?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       stripe_sync_state: {
         Row: {
           id: boolean
@@ -3840,7 +4026,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_14: {
+      messages_2026_08_09: {
         Row: {
           event: string | null
           extension: string
@@ -3873,7 +4059,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_15: {
+      messages_2026_08_10: {
         Row: {
           event: string | null
           extension: string
@@ -3906,7 +4092,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_16: {
+      messages_2026_08_11: {
         Row: {
           event: string | null
           extension: string
@@ -3939,7 +4125,7 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_17: {
+      messages_2026_08_12: {
         Row: {
           event: string | null
           extension: string
@@ -3972,7 +4158,73 @@ export type Database = {
         }
         Relationships: []
       }
-      messages_2026_05_18: {
+      messages_2026_08_13: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_08_14: {
+        Row: {
+          event: string | null
+          extension: string
+          id: string
+          inserted_at: string
+          payload: Json | null
+          private: boolean | null
+          topic: string
+          updated_at: string
+        }
+        Insert: {
+          event?: string | null
+          extension: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic: string
+          updated_at?: string
+        }
+        Update: {
+          event?: string | null
+          extension?: string
+          id?: string
+          inserted_at?: string
+          payload?: Json | null
+          private?: boolean | null
+          topic?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      messages_2026_08_15: {
         Row: {
           event: string | null
           extension: string

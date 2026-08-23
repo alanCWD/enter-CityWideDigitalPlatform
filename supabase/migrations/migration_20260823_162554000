@@ -1,0 +1,124 @@
+-- ============================================================================
+-- Social Syndication (native LinkedIn + Meta OAuth publishing)
+-- Adapted from the social-syndication skill: the skill's `profiles` concept is
+-- mapped to `agency_id` (text slug) per the confirmed decision (agency-wide
+-- ownership, e.g. citywide corporate accounts).
+-- ============================================================================
+
+-- ── Channel connections: public metadata, NO secrets ─────────────────────────
+CREATE TABLE IF NOT EXISTS channel_connections (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agency_id text NOT NULL DEFAULT 'citywide',
+  platform text NOT NULL,
+  handle text DEFAULT '',
+  display_name text DEFAULT '',
+  profile_url text DEFAULT '',
+  is_active boolean DEFAULT true,
+  connected_at timestamptz DEFAULT now(),
+  needs_reconnect boolean NOT NULL DEFAULT false,
+  last_checked_at timestamptz,
+  account_type text NOT NULL DEFAULT 'personal' CHECK (account_type IN ('personal', 'organization'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS channel_connections_agency_platform_key
+  ON channel_connections(agency_id, platform);
+
+ALTER TABLE channel_connections ENABLE ROW LEVEL SECURITY;
+
+-- Public read: anyone can see that a channel is connected (used by public pages).
+CREATE POLICY "public_read_channels" ON channel_connections FOR SELECT USING (true);
+-- Service-role writes only (no client insert/update/delete policies).
+CREATE POLICY "service_role_all_channels" ON channel_connections
+  FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+
+-- ── Secure token storage: NO client policies (service-role only) ─────────────
+CREATE TABLE IF NOT EXISTS channel_oauth_tokens (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agency_id text NOT NULL DEFAULT 'citywide',
+  platform text NOT NULL,
+  access_token text NOT NULL,
+  person_urn text,
+  organization_urn text,
+  page_id text,
+  ig_user_id text,
+  expires_at timestamptz,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  UNIQUE (agency_id, platform)
+);
+ALTER TABLE channel_oauth_tokens ENABLE ROW LEVEL SECURITY;
+-- No policies on purpose (service-role only).
+
+-- ── One-time CSRF state for the OAuth redirect (service-role only) ───────────
+CREATE TABLE IF NOT EXISTS oauth_states (
+  state text PRIMARY KEY,
+  agency_id text NOT NULL DEFAULT 'citywide',
+  platform text NOT NULL,
+  created_at timestamptz DEFAULT now()
+);
+ALTER TABLE oauth_states ENABLE ROW LEVEL SECURITY;
+-- No policies on purpose. States are consumed (deleted) on finalize; TTL 10 min.
+
+-- ── Native scheduled posts (kept separate from the Zernio `scheduled_posts`) ─
+CREATE TABLE IF NOT EXISTS social_scheduled_posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agency_id text NOT NULL DEFAULT 'citywide',
+  platform text NOT NULL DEFAULT 'linkedin',
+  content text NOT NULL,
+  image_url text,
+  scheduled_for timestamptz NOT NULL,
+  status text NOT NULL DEFAULT 'pending',   -- pending | publishing | published | failed | cancelled
+  error_message text,
+  published_post_id text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS social_scheduled_posts_due_idx ON social_scheduled_posts(status, scheduled_for);
+
+ALTER TABLE social_scheduled_posts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all_social_scheduled" ON social_scheduled_posts
+  FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+
+-- ── Published mirror: where native published posts land ──────────────────────
+CREATE TABLE IF NOT EXISTS social_posts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agency_id text NOT NULL DEFAULT 'citywide',
+  platform text NOT NULL DEFAULT 'linkedin',
+  title text NOT NULL,
+  content text DEFAULT '',
+  image_url text DEFAULT '',
+  external_post_id text,
+  external_url text,
+  published_at timestamptz DEFAULT now(),
+  created_at timestamptz DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS social_posts_agency_idx ON social_posts(agency_id, published_at DESC);
+
+ALTER TABLE social_posts ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "service_role_all_social_posts" ON social_posts
+  FOR ALL USING (auth.role() = 'service_role') WITH CHECK (auth.role() = 'service_role');
+
+-- ── Cron: publish due native scheduled posts every minute ────────────────────
+CREATE EXTENSION IF NOT EXISTS pg_cron;
+CREATE EXTENSION IF NOT EXISTS pg_net;
+
+DO $$
+BEGIN
+  PERFORM cron.unschedule(jobid) FROM cron.job WHERE jobname = 'publish-scheduled-posts-every-minute';
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
+SELECT cron.schedule(
+  'publish-scheduled-posts-every-minute',
+  '* * * * *',
+  $$
+  SELECT net.http_post(
+    url := 'https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/functions/v1/publish-scheduled-posts',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'apikey', 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNwYi10NG4xdzJqOWp3aGhjN2g2IiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzcxNDAzMzksImV4cCI6MjA5MjcxNjMzOX0.KE2fNZckvo-20zds7KR1wv7a0kNUVA-vgO7HJ6gQbMo',
+      'Authorization', 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNwYi10NG4xdzJqOWp3aGhjN2g2IiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzcxNDAzMzksImV4cCI6MjA5MjcxNjMzOX0.KE2fNZckvo-20zds7KR1wv7a0kNUVA-vgO7HJ6gQbMo'
+    ),
+    body := '{}'::jsonb
+  );
+  $$
+);
