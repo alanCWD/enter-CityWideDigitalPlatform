@@ -10,6 +10,9 @@ import { CalendarWeekView } from "@/components/social/CalendarWeekView";
 import { PostListView } from "@/components/social/PostListView";
 import { PostComposerDialog, PostDraft } from "@/components/social/PostComposerDialog";
 import { AccountsPanel } from "@/components/social/AccountsPanel";
+import { NativeConnectionsPanel } from "@/components/social/NativeConnectionsPanel";
+import type { NativeConnection } from "@/lib/social";
+import { social } from "@/lib/social";
 import { useAgency } from "@/contexts/AgencyContext";
 import { useZernioProfile } from "@/hooks/useZernioProfile";
 import { useZernioAccounts } from "@/hooks/useZernioAccounts";
@@ -46,6 +49,16 @@ export default function ContentCalendar() {
   const { profileId, loading: profileLoading } = useZernioProfile(agency.slug);
   const { accounts: zernioAccounts, loading: accountsLoading, error: accountsError, reload: reloadAccounts } = useZernioAccounts(profileId);
   const connectedCount = zernioAccounts.filter((a) => a.isActive).length;
+
+  // Native (direct OAuth) connections
+  const [nativeConnections, setNativeConnections] = useState<NativeConnection[]>([]);
+  const loadNativeConnections = useCallback(async () => {
+    try {
+      const res = await social<{ ok: boolean; connections: NativeConnection[] }>("connection.list");
+      setNativeConnections(res.connections ?? []);
+    } catch { /* non-fatal; composer/panel surface errors */ }
+  }, []);
+  useEffect(() => { loadNativeConnections(); }, [loadNativeConnections]);
 
   // Calendar state
   const [view, setView] = useState<ViewMode>("month");
@@ -190,14 +203,17 @@ export default function ContentCalendar() {
 
         {/* ── ACCOUNTS TAB ─────────────────────────────────────────────────── */}
         {tab === "accounts" && (
-          <AccountsPanel
-            profileId={profileId}
-            profileLoading={profileLoading}
-            accounts={zernioAccounts}
-            accountsLoading={accountsLoading}
-            accountsError={accountsError}
-            onReload={reloadAccounts}
-          />
+          <div className="space-y-8">
+            <NativeConnectionsPanel onConnectionsChanged={loadNativeConnections} />
+            <AccountsPanel
+              profileId={profileId}
+              profileLoading={profileLoading}
+              accounts={zernioAccounts}
+              accountsLoading={accountsLoading}
+              accountsError={accountsError}
+              onReload={reloadAccounts}
+            />
+          </div>
         )}
 
         {/* ── CALENDAR TAB ─────────────────────────────────────────────────── */}
@@ -295,7 +311,7 @@ export default function ContentCalendar() {
         )}
       </div>
 
-      {/* Post Composer — passes live Zernio accounts */}
+      {/* Post Composer — passes live Zernio accounts + native connections */}
       <PostComposerDialog
         open={composerOpen}
         onClose={() => setComposerOpen(false)}
@@ -304,6 +320,7 @@ export default function ContentCalendar() {
         onSaved={fetchPosts}
         zernioAccounts={zernioAccounts}
         profileId={profileId}
+        nativeConnections={nativeConnections}
       />
     </DashboardLayout>
   );

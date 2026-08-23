@@ -13,6 +13,8 @@ import {
   Loader2, ImagePlus, X, Link, CheckCircle2,
 } from "lucide-react";
 import type { ZernioAccount } from "@/hooks/useZernioAccounts";
+import type { NativeConnection } from "@/lib/social";
+import { social } from "@/lib/social";
 
 /* ── Platform icons ─────────────────────────────────────────────────────── */
 const PLATFORM_META: Record<string, { label: string; Icon: React.ElementType }> = {
@@ -68,9 +70,11 @@ interface Props {
   zernioAccounts?: ZernioAccount[];
   /** Zernio profile ID for this agency */
   profileId?: string | null;
+  /** Native (direct OAuth) LinkedIn/Facebook/Instagram connections */
+  nativeConnections?: NativeConnection[];
 }
 
-export function PostComposerDialog({ open, onClose, defaultDate, initialPost, onSaved, zernioAccounts = [], profileId }: Props) {
+export function PostComposerDialog({ open, onClose, defaultDate, initialPost, onSaved, zernioAccounts = [], profileId, nativeConnections = [] }: Props) {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -78,6 +82,8 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
   const [content, setContent] = useState("");
   // selectedAccountIds: Zernio account _id values
   const [selectedAccountIds, setSelectedAccountIds] = useState<string[]>([]);
+  // selectedNativePlatforms: native "linkedin" | "facebook" | "instagram"
+  const [selectedNativePlatforms, setSelectedNativePlatforms] = useState<string[]>([]);
   const [scheduledDate, setScheduledDate] = useState(defaultDate ?? "");
   const [scheduledTime, setScheduledTime] = useState("09:00");
   const [saving, setSaving] = useState(false);
@@ -110,10 +116,16 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
           .map((a) => a._id);
         setSelectedAccountIds(ids);
       }
+      // Match native platforms saved on the post
+      if (initialPost.platforms?.length) {
+        const native = initialPost.platforms.filter((p) => ["linkedin", "facebook", "instagram"].includes(p));
+        setSelectedNativePlatforms(native);
+      }
     } else {
       setTitle("");
       setContent("");
       setSelectedAccountIds([]);
+      setSelectedNativePlatforms([]);
       setImageUrls([]);
       setGbpCtaType("NONE");
       setGbpCtaUrl("");
@@ -125,6 +137,12 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
   function toggleAccount(id: string) {
     setSelectedAccountIds((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  }
+
+  function toggleNative(platform: string) {
+    setSelectedNativePlatforms((prev) =>
+      prev.includes(platform) ? prev.filter((x) => x !== platform) : [...prev, platform]
     );
   }
 
@@ -162,18 +180,25 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
   const selectedAccounts = zernioAccounts.filter((a) => selectedAccountIds.includes(a._id));
   const showGbpCta = selectedAccounts.some((a) => a.platform === "googlebusiness" || a.platform === "google_business");
   const uniquePlatforms = [...new Set(selectedAccounts.map((a) => a.platform))];
+  const hasNativeTargets = selectedNativePlatforms.length > 0;
+  const activeNativeConnections = nativeConnections.filter((c) => c.is_active && !c.needs_reconnect);
+  const hasNativeConnections = activeNativeConnections.length > 0;
 
   async function handleSave(action: "draft" | "schedule" | "publish") {
     if (!content.trim()) {
       toast({ title: "Content required", description: "Please write some content.", variant: "destructive" });
       return;
     }
-    if (action !== "draft" && selectedAccountIds.length === 0) {
+    if (action !== "draft" && selectedAccountIds.length === 0 && !hasNativeTargets) {
       toast({ title: "Select an account", description: "Choose at least one connected account.", variant: "destructive" });
       return;
     }
     if (action === "schedule" && !scheduledDate) {
       toast({ title: "Date required", description: "Please pick a scheduled date.", variant: "destructive" });
+      return;
+    }
+    if (selectedNativePlatforms.includes("instagram") && imageUrls.length === 0) {
+      toast({ title: "Image required", description: "Instagram posts need an image.", variant: "destructive" });
       return;
     }
 
@@ -192,10 +217,13 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
         accountId: a._id,
       }));
 
+      // Native platforms sent to the direct OAuth pipeline (linkedin/facebook/instagram)
+      const nativePlatforms = selectedNativePlatforms;
+
       const commonPayload: Record<string, unknown> = {
         title: title || content.slice(0, 60),
         content,
-        platforms: uniquePlatforms,
+        platforms: [...uniquePlatforms, ...nativePlatforms],
         client_id: "citywide",
         agency_id: "citywide",
         status,
@@ -232,6 +260,25 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
         });
         if (data?.error) {
           toast({ title: "Zernio warning", description: data.error, variant: "destructive" });
+        }
+      }
+
+      // Publish or schedule via native direct OAuth pipeline
+      const errors: string[] = [];
+      if (action !== "draft" && nativePlatforms.length > 0) {
+        for (const platform of nativePlatforms) {
+          try {
+            if (action === "publish") {
+              await social("post.publish", { platform, content, imageUrl: imageUrls[0] ?? null });
+            } else {
+              await social("post.schedule", { platform, content, imageUrl: imageUrls[0] ?? null, scheduledFor: scheduledAt });
+            }
+          } catch (e) {
+            errors.push(`${platform}: ${(e as Error).message}`);
+          }
+        }
+        if (errors.length > 0) {
+          toast({ title: "Native publish warning", description: errors.join(" · "), variant: "destructive" });
         }
       }
 
@@ -323,12 +370,35 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
           {/* Accounts selector */}
           <div className="space-y-2">
             <Label>Publish to</Label>
-            {noAccounts ? (
+            {noAccounts && !hasNativeConnections ? (
               <p className="text-sm text-muted-foreground py-2">
                 No connected accounts. Go to the <strong>Accounts</strong> tab to connect platforms first.
               </p>
             ) : (
-              <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                {activeNativeConnections.map((conn) => {
+                  const meta = PLATFORM_META[conn.platform] ?? { label: conn.platform, Icon: Globe };
+                  const selected = selectedNativePlatforms.includes(conn.platform);
+                  return (
+                    <button
+                      key={`native-${conn.platform}`}
+                      type="button"
+                      onClick={() => toggleNative(conn.platform)}
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-left transition-colors ${
+                        selected ? "border-primary bg-primary/8" : "border-border hover:bg-muted/50"
+                      }`}
+                    >
+                      <div className="w-5 h-5 flex items-center justify-center text-muted-foreground flex-shrink-0">
+                        <meta.Icon />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-foreground truncate">{conn.display_name || conn.handle || meta.label}</p>
+                        <p className="text-[10px] text-muted-foreground">{meta.label} · Direct</p>
+                      </div>
+                      {selected && <CheckCircle2 className="w-4 h-4 text-primary flex-shrink-0" />}
+                    </button>
+                  );
+                })}
                 {zernioAccounts.map((acct) => {
                   const meta = PLATFORM_META[acct.platform] ?? { label: acct.platform, Icon: Globe };
                   const selected = selectedAccountIds.includes(acct._id);
@@ -411,6 +481,15 @@ export function PostComposerDialog({ open, onClose, defaultDate, initialPost, on
               {selectedAccounts.map((a) => (
                 <Badge key={a._id} variant="secondary" className="text-xs">
                   {a.displayName || PLATFORM_META[a.platform]?.label || a.platform}
+                </Badge>
+              ))}
+            </div>
+          )}
+          {selectedNativePlatforms.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {selectedNativePlatforms.map((p) => (
+                <Badge key={p} variant="secondary" className="text-xs">
+                  {PLATFORM_META[p]?.label || p} · Direct
                 </Badge>
               ))}
             </div>

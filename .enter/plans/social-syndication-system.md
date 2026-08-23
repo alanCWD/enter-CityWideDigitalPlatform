@@ -168,23 +168,23 @@ implementation notes and the existing `qbo-poll-invoices` structure.
 - Untouched: Zernio tables/functions (`social-rpc`, `scheduled_posts`, `posts`), `config.toml`
 
 ## Implementation checklist
-- [ ] Add migration: create the 5 tables with RLS + policies; add the pg_cron every-minute job (anon-key header)
-- [ ] Add the 4 secrets (LinkedIn id/secret, Meta app id/secret, RESEND_FROM_EMAIL)
-- [ ] Write `social-syndication/index.ts` with `connect.start/finalize/select`, `connection.list/check/disconnect`, `post.publish/schedule`, `scheduled.list/cancel` using the CONFIG values
-- [ ] Write `publish-scheduled-posts/index.ts` (cron, service-role, batch 20, `publishing` guard, reconnect email on `false→true`)
-- [ ] Deploy both functions (`supabase_deploy_edge_function`)
-- [ ] Add `src/lib/social.ts` invoke helper + `useNativeChannels.ts` hooks
-- [ ] Add `NativeConnectionsPanel.tsx` (popup connect/disconnect/reconnect)
-- [ ] Add LinkedIn + Meta callback pages; wire both into `router.tsx`
-- [ ] Integrate into `calendar.tsx` (Accounts tab + merged scheduled/published) and `PostComposerDialog.tsx` (native targets)
+- [passed] Add migration: create the 5 tables with RLS + policies; add the pg_cron every-minute job (anon-key header)
+- [passed] Add the 4 secrets (LinkedIn id/secret, Meta app id/secret, RESEND_FROM_EMAIL)
+- [passed] Write `social-syndication/index.ts` with `connect.start/finalize/select`, `connection.list/check/disconnect`, `post.publish/schedule`, `scheduled.list/cancel` using the CONFIG values
+- [passed] Write `publish-scheduled-posts/index.ts` (cron, service-role, batch 20, `publishing` guard, reconnect email on `false→true`)
+- [passed] Deploy both functions (`supabase_deploy_edge_function`)
+- [passed] Add `src/lib/social.ts` invoke helper + `useNativeChannels.ts` hooks
+- [passed] Add `NativeConnectionsPanel.tsx` (popup connect/disconnect/reconnect)
+- [passed] Add LinkedIn + Meta callback pages; wire both into `router.tsx`
+- [passed] Integrate into `calendar.tsx` (Accounts tab + merged scheduled/published) and `PostComposerDialog.tsx` (native targets)
 
 ## Verification checklist
-- [ ] RLS: unauthenticated/non-owner cannot read or modify others' `social_scheduled_posts`/`social_posts`; `channel_oauth_tokens`/`oauth_states` have **no** client policies
-- [ ] `connect.start` returns a valid provider authorize URL for both LinkedIn and Meta
-- [ ] Full LinkedIn connect → `channel_connections` row exists; Company picker appears when orgs present; `post as` persists
-- [ ] Full Meta connect → FB Page row created; linked IG business account row created too
-- [ ] Publish now to LinkedIn, Facebook, Instagram → post appears on platform + mirrored into `social_posts`
-- [ ] Schedule a future post → `pending`; after due time the cron run flips it to `published` (or `failed`+`error_message`); cancel → `cancelled`
-- [ ] Revoke a token in the platform console → `connection.check`/publish sets `needs_reconnect=true`, clears tokens, shows banner, sends exactly one email
-- [ ] `cron.job` lists `publish-scheduled-posts-every-minute` active; manual anon-key invoke returns 200 (gateway passes)
-- [ ] Existing Zernio calendar/publishing still works unchanged (`social-rpc`, `posts`, `scheduled_posts`)
+- [passed] RLS: unauthenticated/non-owner cannot read or modify others' `social_scheduled_posts`/`social_posts`; `channel_oauth_tokens`/`oauth_states` have **no** client policies (confirmed via schema dump)
+- [manual-required] `connect.start` returns a valid provider authorize URL for both LinkedIn and Meta (needs live OAuth app + logged-in session)
+- [manual-required] Full LinkedIn connect → `channel_connections` row exists; Company picker appears when orgs present; `post as` persists (live OAuth test)
+- [manual-required] Full Meta connect → FB Page row created; linked IG business account row created too (live OAuth test)
+- [manual-required] Publish now to LinkedIn, Facebook, Instagram → post appears on platform + mirrored into `social_posts` (live publish test)
+- [manual-required] Schedule a future post → `pending`; after due time the cron run flips it to `published` (or `failed`+`error_message`); cancel → `cancelled`
+- [manual-required] Revoke a token in the platform console → `connection.check`/publish sets `needs_reconnect=true`, clears tokens, shows banner, sends exactly one email
+- [passed] `cron.job` lists `publish-scheduled-posts-every-minute` active; manual anon-key invoke returns 200 (gateway passes)
+- [manual-required] Existing Zernio calendar/publishing still works unchanged (`social-rpc`, `posts`, `scheduled_posts`)

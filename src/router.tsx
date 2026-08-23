@@ -45,6 +45,8 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import { ReviewRequestsDashboard } from "./pages/dashboard/ReviewRequests";
 import { KimiConsole } from "./pages/dashboard/KimiConsole";
+import LinkedInCallback from "./pages/auth/linkedinCallback";
+import MetaCallback from "./pages/auth/metaCallback";
 
 /** Wrap an element so unauthenticated users are redirected to /portal/login */
 function Auth({ children }: { children: React.ReactNode }) {
@@ -122,6 +124,16 @@ export const routers = [
     path: "/qbo/callback",
     name: "qbo-callback",
     element: <QboCallback />,
+  },
+  {
+    path: "/auth/linkedin/callback",
+    name: "linkedin-callback",
+    element: <LinkedInCallback />,
+  },
+  {
+    path: "/auth/meta/callback",
+    name: "meta-callback",
+    element: <MetaCallback />,
   },
   {
     path: "/restaurant",
