@@ -1,0 +1,2 @@
+-- Rewind Stripe sync cursor to before the ABLP subscription start (Jul 2) so the next poll backfills the missed Aug 2 renewal invoice. Handlers are idempotent (UPDATE-then-INSERT OR IGNORE), so replay is safe. 
+update public.stripe_sync_state set last_synced_at = '2026-07-01T00:00:00Z' where id = true;

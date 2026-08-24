@@ -1,0 +1,2 @@
+-- Rewind once more so the redeployed poller corrects issued_at/paid_at on the backfilled Aug 2 invoice row (idempotent replay).
+update public.stripe_sync_state set last_synced_at = '2026-08-01T23:00:00Z' where id = true;

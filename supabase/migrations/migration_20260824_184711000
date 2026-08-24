@@ -1,0 +1,2 @@
+-- Backfill cursor: just before the Aug 2 renewal invoice window.
+update public.stripe_sync_state set last_synced_at = '2026-08-01T23:00:00Z' where id = true;

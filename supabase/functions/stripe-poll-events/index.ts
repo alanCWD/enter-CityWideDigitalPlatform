@@ -111,18 +111,21 @@ async function handleEvent(event: Stripe.Event) {
 
       const stripeStatus = inv.status ?? "open";
       const crmStatus = stripeStatus === "paid" ? "paid" : stripeStatus === "void" ? "void" : "open";
-      const paidAt = stripeStatus === "paid" ? now() : null;
+      // Use the invoice's real timestamps (status_transitions.paid_at, created) rather
+      // than the sync time, so backfilled invoices carry their actual issue/paid dates.
+      const paidAt = isoFromUnix(inv.status_transitions?.paid_at) ?? (stripeStatus === "paid" ? now() : null);
+      const issuedAt = isoFromUnix(inv.created);
 
       const upd = await exec(
-        `UPDATE invoices SET status=?, total_cents=?, amount_paid_cents=?, hosted_invoice_url=?, pdf_url=?, due_at=?, paid_at=?, number=? WHERE stripe_invoice_id=?`,
-        [crmStatus, inv.total ?? 0, inv.amount_paid ?? 0, inv.hosted_invoice_url ?? null, inv.invoice_pdf ?? null, isoFromUnix(inv.due_date), paidAt, inv.number ?? null, inv.id],
+        `UPDATE invoices SET status=?, total_cents=?, amount_paid_cents=?, hosted_invoice_url=?, pdf_url=?, due_at=?, paid_at=?, number=?, issued_at = CASE WHEN ? IS NOT NULL AND ? < issued_at THEN ? ELSE issued_at END WHERE stripe_invoice_id=?`,
+        [crmStatus, inv.total ?? 0, inv.amount_paid ?? 0, inv.hosted_invoice_url ?? null, inv.invoice_pdf ?? null, isoFromUnix(inv.due_date), paidAt, inv.number ?? null, issuedAt, issuedAt, issuedAt, inv.id],
       );
       const affected = upd?.results?.[0]?.response?.result?.affected_row_count ?? 0;
       if (affected === 0) {
         await exec(
           `INSERT OR IGNORE INTO invoices (id, client_id, number, status, subtotal_cents, total_cents, amount_paid_cents, currency, stripe_invoice_id, hosted_invoice_url, pdf_url, due_at, issued_at, paid_at, agency_id)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,'citywide')`,
-          [uuid(), clientId, inv.number ?? null, crmStatus, inv.subtotal ?? 0, inv.total ?? 0, inv.amount_paid ?? 0, (inv.currency ?? "cad").toUpperCase(), inv.id, inv.hosted_invoice_url ?? null, inv.invoice_pdf ?? null, isoFromUnix(inv.due_date), now(), paidAt],
+          [uuid(), clientId, inv.number ?? null, crmStatus, inv.subtotal ?? 0, inv.total ?? 0, inv.amount_paid ?? 0, (inv.currency ?? "cad").toUpperCase(), inv.id, inv.hosted_invoice_url ?? null, inv.invoice_pdf ?? null, isoFromUnix(inv.due_date), issuedAt ?? now(), paidAt],
         );
       }
       console.log(`invoice.event: ${event.type} → ${crmStatus} (clientId=${clientId})`);

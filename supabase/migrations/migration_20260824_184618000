@@ -1,0 +1,2 @@
+-- Temporary narrow cursor to test whether the poller function executes at all; will rewind again after diagnosis.
+update public.stripe_sync_state set last_synced_at = '2026-08-23T00:00:00Z' where id = true;
