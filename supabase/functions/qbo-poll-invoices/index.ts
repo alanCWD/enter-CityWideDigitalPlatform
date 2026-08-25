@@ -9,6 +9,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const NOTIFY_EMAIL = "alan@citywidedigital.ca";
 
+// Public origin of the app. Review buttons are wrapped in a tracking link that
+// points here (/r?tok=...): the SPA records the click (the gateway rejects
+// header-less requests from email clients, so the link must go through the app)
+// and then redirects to the review page.
+const APP_URL = (Deno.env.get("APP_URL") || "https://dashboard.citywidedigital.ca").replace(/\/$/, "");
+
+/** Build a click-tracking link for one review button. */
+function trackingUrl(clickToken: string, platform: string, dest: string): string {
+  return `${APP_URL}/r?tok=${encodeURIComponent(clickToken)}&p=${encodeURIComponent(platform)}&u=${encodeURIComponent(dest)}`;
+}
+
 type PlatformKey = "google" | "facebook" | "bbb" | "yelp";
 
 const PLATFORM_EMAIL_UI: Record<PlatformKey, { bg: string; label: string }> = {
@@ -291,11 +302,18 @@ Deno.serve(async (req) => {
 
         let status: "sent" | "failed" = "sent";
         let errorMessage: string | null = null;
+        // One unguessable token per request — powers the click-tracking links.
+        const clickToken = crypto.randomUUID();
 
         try {
+          const trackedPlatforms = platforms.map((p) => ({
+            platform: p.platform,
+            url: trackingUrl(clickToken, p.platform, p.url),
+          }));
+
           const emailHtml = buildReviewEmailHtml({
             customerName,
-            platforms,
+            platforms: trackedPlatforms,
             logoUrl,
             subject: emailSubject,
             intro: emailIntro,
@@ -324,6 +342,7 @@ Deno.serve(async (req) => {
           review_link: loggedReviewLink,
           status,
           error_message: errorMessage,
+          click_token: clickToken,
         });
       }
 

@@ -3728,6 +3728,9 @@ export type Database = {
       }
       review_requests: {
         Row: {
+          click_token: string | null
+          clicked_at: string | null
+          clicked_platform: string | null
           crm_client_id: string
           customer_email: string
           customer_name: string | null
@@ -3739,6 +3742,9 @@ export type Database = {
           status: string
         }
         Insert: {
+          click_token?: string | null
+          clicked_at?: string | null
+          clicked_platform?: string | null
           crm_client_id: string
           customer_email: string
           customer_name?: string | null
@@ -3750,6 +3756,9 @@ export type Database = {
           status?: string
         }
         Update: {
+          click_token?: string | null
+          clicked_at?: string | null
+          clicked_platform?: string | null
           crm_client_id?: string
           customer_email?: string
           customer_name?: string | null

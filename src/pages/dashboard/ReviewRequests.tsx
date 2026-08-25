@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   CheckCircle2, AlertCircle, RefreshCw, Mail, Star,
-  TrendingUp, Send, XCircle, Loader2, Users,
+  TrendingUp, Send, XCircle, Loader2, Users, MousePointerClick,
 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
@@ -248,18 +248,28 @@ export function ReviewRequestsDashboard() {
                         {r.qbo_invoice_id}
                       </td>
                       <td className="px-5 py-3">
-                        {r.status === "sent" ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20">
-                            <CheckCircle2 className="w-2.5 h-2.5" /> Sent
-                          </span>
-                        ) : (
-                          <span
-                            title={r.error_message || "Unknown error"}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 cursor-help"
-                          >
-                            <AlertCircle className="w-2.5 h-2.5" /> Failed
-                          </span>
-                        )}
+                        <div className="flex flex-col items-start gap-1">
+                          {r.status === "sent" ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20">
+                              <CheckCircle2 className="w-2.5 h-2.5" /> Sent
+                            </span>
+                          ) : (
+                            <span
+                              title={r.error_message || "Unknown error"}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 cursor-help"
+                            >
+                              <AlertCircle className="w-2.5 h-2.5" /> Failed
+                            </span>
+                          )}
+                          {r.clicked_at && (
+                            <span
+                              title={`Clicked the ${r.clicked_platform || "review"} link on ${fmtDate(r.clicked_at)}`}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#0078D7]/10 text-[#0078D7] border border-[#0078D7]/20"
+                            >
+                              <MousePointerClick className="w-2.5 h-2.5" /> Opened
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}

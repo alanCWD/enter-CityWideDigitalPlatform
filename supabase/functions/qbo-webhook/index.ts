@@ -2,6 +2,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const NOTIFY_EMAIL = "alan@citywidedigital.ca";
 
+// Public origin of the app. Review buttons are wrapped in a tracking link that
+// points here (/r?tok=...): the SPA records the click (the gateway rejects
+// header-less requests from email clients, so the link must go through the app)
+// and then redirects to the review page.
+const APP_URL = (Deno.env.get("APP_URL") || "https://dashboard.citywidedigital.ca").replace(/\/$/, "");
+
+/** Build a click-tracking link for one review button. */
+function trackingUrl(clickToken: string, platform: string, dest: string): string {
+  return `${APP_URL}/r?tok=${encodeURIComponent(clickToken)}&p=${encodeURIComponent(platform)}&u=${encodeURIComponent(dest)}`;
+}
+
 async function getClientInfo(crmClientId: string): Promise<{ name: string | null; email: string | null }> {
   try {
     const bunnyUrl = Deno.env.get("BUNNY_DB_URL");
@@ -178,12 +189,15 @@ Deno.serve(async (req) => {
       const reviewLink = conn.review_link || "";
       const fromName = conn.from_name || "CityWide Reviews";
       const fromAddress = `${fromName} <reviews@citywidedigital.ca>`;
+      // One unguessable token per request — powers the click-tracking link.
+      const clickToken = crypto.randomUUID();
+      const trackedLink = reviewLink ? trackingUrl(clickToken, "google", reviewLink) : null;
 
       let status: "sent" | "failed" = "sent";
       let errorMessage: string | null = null;
 
       try {
-        const emailHtml = `<!DOCTYPE html><html><body style="font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 20px;"><div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);"><h2 style="color: #111; font-size: 22px; margin: 0 0 16px;">Thank you, ${customerName}!</h2><p style="color: #555; line-height: 1.7; margin: 0 0 16px;">We truly appreciate your business. Your experience matters to us, and we'd love to hear your feedback.</p><p style="color: #555; line-height: 1.7; margin: 0 0 24px;">Would you mind taking a moment to leave us a review? It helps us improve and helps others discover our services.</p>${reviewLink ? `<div style="text-align: center; margin: 0 0 24px;"><a href="${reviewLink}" style="display: inline-block; background: #0078D7; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">Leave a Review</a></div>` : ""}<p style="color: #999; font-size: 12px; margin: 0;">Thank you for choosing us. We look forward to serving you again!</p></div></body></html>`;
+        const emailHtml = `<!DOCTYPE html><html><body style="font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 20px;"><div style="max-width: 560px; margin: 0 auto; background: #ffffff; border-radius: 12px; padding: 32px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);"><h2 style="color: #111; font-size: 22px; margin: 0 0 16px;">Thank you, ${customerName}!</h2><p style="color: #555; line-height: 1.7; margin: 0 0 16px;">We truly appreciate your business. Your experience matters to us, and we'd love to hear your feedback.</p><p style="color: #555; line-height: 1.7; margin: 0 0 24px;">Would you mind taking a moment to leave us a review? It helps us improve and helps others discover our services.</p>${trackedLink ? `<div style="text-align: center; margin: 0 0 24px;"><a href="${trackedLink}" style="display: inline-block; background: #0078D7; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 8px; font-size: 16px; font-weight: bold;">Leave a Review</a></div>` : ""}<p style="color: #999; font-size: 12px; margin: 0;">Thank you for choosing us. We look forward to serving you again!</p></div></body></html>`;
 
         const emailRes = await fetch("https://api.resend.com/emails", {
           method: "POST",
@@ -208,6 +222,7 @@ Deno.serve(async (req) => {
         review_link: reviewLink || null,
         status,
         error_message: errorMessage,
+        click_token: clickToken,
       });
     }
   }

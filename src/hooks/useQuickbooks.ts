@@ -40,6 +40,9 @@ export interface ReviewRequest {
   status: string;
   error_message: string | null;
   sent_at: string;
+  click_token: string | null;
+  clicked_at: string | null;
+  clicked_platform: string | null;
 }
 
 export interface QboConnectionAttempt {

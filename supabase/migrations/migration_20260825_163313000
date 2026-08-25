@@ -1,0 +1,11 @@
+-- Click tracking for review-request emails.
+-- click_token is a per-request unguessable token embedded in the email's tracking
+-- link (dashboard/r?tok=...). The review-click backend function records the click
+-- (service role; RLS unaffected) and redirects the customer to the review page.
+alter table public.review_requests
+  add column if not exists click_token text,
+  add column if not exists clicked_at timestamptz,
+  add column if not exists clicked_platform text;
+
+create unique index if not exists review_requests_click_token_idx
+  on public.review_requests (click_token) where click_token is not null;

@@ -45,6 +45,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import { ReviewRequestsDashboard } from "./pages/dashboard/ReviewRequests";
 import { KimiConsole } from "./pages/dashboard/KimiConsole";
+import { ReviewClickRedirect } from "./pages/ReviewClickRedirect";
 import LinkedInCallback from "./pages/auth/linkedinCallback";
 import MetaCallback from "./pages/auth/metaCallback";
 
@@ -124,6 +125,12 @@ export const routers = [
     path: "/qbo/callback",
     name: "qbo-callback",
     element: <QboCallback />,
+  },
+  // Public landing page for the click-tracking links in review-request emails.
+  {
+    path: "/r",
+    name: "review-click",
+    element: <ReviewClickRedirect />,
   },
   {
     path: "/auth/linkedin/callback",

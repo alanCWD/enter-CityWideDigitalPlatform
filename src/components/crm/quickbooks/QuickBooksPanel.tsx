@@ -13,7 +13,7 @@ import { BrandAssetsUploader } from "./BrandAssetsUploader";
 import {
   Loader2, Link2, CheckCircle2, Unlink, Save, RefreshCw,
   Mail, AlertCircle, Star, Send, X, Eye, EyeOff, Activity, Clock,
-  Globe, Facebook, Building2, Copy,
+  Globe, Facebook, Building2, Copy, MousePointerClick,
 } from "lucide-react";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -816,18 +816,29 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
                       </td>
                       <td className="py-2.5 pr-4 text-xs font-mono text-muted-foreground">{r.qbo_invoice_id}</td>
                       <td className="py-2.5">
-                        {r.status === "sent" ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20">
-                            <CheckCircle2 className="w-2.5 h-2.5" /> Sent
-                          </span>
-                        ) : (
-                          <span
-                            title={r.error_message || undefined}
-                            className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 cursor-help"
-                          >
-                            <AlertCircle className="w-2.5 h-2.5" /> Failed
-                          </span>
-                        )}
+                        <div className="flex flex-col items-start gap-1">
+                          {r.status === "sent" ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20">
+                              <CheckCircle2 className="w-2.5 h-2.5" /> Sent
+                            </span>
+                          ) : (
+                            <span
+                              title={r.error_message || undefined}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 cursor-help"
+                            >
+                              <AlertCircle className="w-2.5 h-2.5" /> Failed
+                            </span>
+                          )}
+                          {r.clicked_at && (
+                            <span
+                              title={`Clicked the ${r.clicked_platform || "review"} link on ${fmtDateTime(r.clicked_at)}`}
+                              className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#0078D7]/10 text-[#0078D7] border border-[#0078D7]/20"
+                            >
+                              <MousePointerClick className="w-2.5 h-2.5" />
+                              {PLATFORM_ROWS.find((row) => row.key === r.clicked_platform)?.label ?? "Opened"}
+                            </span>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
