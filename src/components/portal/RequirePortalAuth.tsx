@@ -2,15 +2,16 @@ import { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useQboAutoSync } from "@/hooks/useQboAutoSync";
+import { useAutoSync } from "@/hooks/useAutoSync";
 
 export function RequirePortalAuth({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
   const location = useLocation();
 
   // While an authenticated user has the app open, periodically run the
-  // QuickBooks review-request poll (scheduled db job delivery has been unreliable).
-  useQboAutoSync();
+  // scheduled backend jobs (QBO review poll, Stripe event poll, social post
+  // publishing) — the database scheduler's delivery has been unreliable.
+  useAutoSync();
 
   if (loading) {
     return (
