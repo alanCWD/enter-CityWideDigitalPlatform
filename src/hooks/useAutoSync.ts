@@ -49,7 +49,8 @@ export function useAutoSync() {
 
     const intervals = SYNC_JOBS.map((job) => {
       // One attempt per job on mount (guarded by the interval check), then a heartbeat.
-      syncJob(job.name, job.intervalMs);
+      // Only when the tab is visible, matching the interval ticks below.
+      if (!document.hidden) syncJob(job.name, job.intervalMs);
       return setInterval(() => {
         if (!document.hidden) syncJob(job.name, job.intervalMs);
       }, job.intervalMs);
