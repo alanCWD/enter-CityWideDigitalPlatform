@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle, Pause, Play } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle, Pause, Play, ChevronDown } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
@@ -10,6 +10,13 @@ import { VaultPanel } from "@/components/crm/vault/VaultPanel";
 import { HealthPanel } from "@/components/crm/health/HealthPanel";
 import { QuickBooksPanel } from "@/components/crm/quickbooks/QuickBooksPanel";
 import { LedgerBridgePanel } from "@/components/crm/quickbooks/LedgerBridgePanel";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { LinkZernioProfileDialog } from "@/components/dashboard/crm/LinkZernioProfileDialog";
 import { InviteClientDialog } from "@/components/dashboard/InviteClientDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +41,8 @@ export function ClientDetail() {
   const { detail, loading, error, reload } = useCrmClient(id);
   const isAdmin = useIsAdmin();
   const { toast } = useToast();
-  const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp" | "quickbooks" | "ledgerbridge">("overview");
+  const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp" | "integrations">("overview");
+  const [integration, setIntegration] = useState<"qb-review" | "ledgerbridge">("qb-review");
   const [deleting, setDeleting] = useState(false);
   const [editingHeader, setEditingHeader] = useState(false);
   const [showLinkZernio, setShowLinkZernio] = useState(false);
@@ -64,7 +72,8 @@ export function ClientDetail() {
     if (qbo === "connected") {
       toast({ title: "QuickBooks Online connected", description: "Invoice-paid review requests are now active." });
       setSearchParams({}, { replace: true });
-      setTab("quickbooks");
+      setIntegration("qb-review");
+      setTab("integrations");
     } else if (qboError) {
       toast({ title: "QuickBooks connect failed", description: qboError, variant: "destructive" });
       setSearchParams({}, { replace: true });
@@ -276,8 +285,7 @@ export function ClientDetail() {
             { key: "subscriptions", label: "Subscriptions" },
             { key: "invoices", label: "Invoices" },
             { key: "payments", label: "Payments" },
-            { key: "quickbooks" as const, label: "QuickBooks" },
-            { key: "ledgerbridge" as const, label: "LedgerBridge" },
+            { key: "integrations" as const, label: "Integrations" },
           ];
           return (
             <div className="flex flex-wrap gap-1 border-b border-border dark:border-white/10">
@@ -311,11 +319,47 @@ export function ClientDetail() {
         {tab === "gbp" && c.gbp_connection_id && (
           <GbpPanel connectionId={c.gbp_connection_id} />
         )}
-        {tab === "quickbooks" && (
-          <QuickBooksPanel clientId={c.id} clientEmail={c.billing_email} />
-        )}
-        {tab === "ledgerbridge" && (
-          <LedgerBridgePanel />
+        {tab === "integrations" && (
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-card dark:bg-[#111E33] border border-border dark:border-white/10 text-foreground dark:text-[#EEF1FA] transition-colors hover:border-[#0078D7]/40">
+                    {integration === "qb-review" ? "QB Review Requests" : "Clover+QB LedgerBridge"}
+                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  <DropdownMenuItem
+                    onClick={() => setIntegration("qb-review")}
+                    className={cn("cursor-pointer", integration === "qb-review" && "bg-accent text-accent-foreground")}
+                  >
+                    <span className="flex-1">QB Review Requests</span>
+                    {integration === "qb-review" && <Check className="w-4 h-4" />}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onClick={() => setIntegration("ledgerbridge")}
+                    className={cn("cursor-pointer", integration === "ledgerbridge" && "bg-accent text-accent-foreground")}
+                  >
+                    <span className="flex-1">Clover+QB LedgerBridge</span>
+                    {integration === "ledgerbridge" && <Check className="w-4 h-4" />}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <span className="text-xs text-muted-foreground">
+                {integration === "qb-review"
+                  ? "Automatically send review requests when an invoice is marked paid."
+                  : "Clover → QuickBooks daily sync status."}
+              </span>
+            </div>
+
+            {integration === "qb-review" ? (
+              <QuickBooksPanel clientId={c.id} clientEmail={c.billing_email} />
+            ) : (
+              <LedgerBridgePanel />
+            )}
+          </div>
         )}
         {tab === "subscriptions" && (
           <SubscriptionsPanel detail={detail} reload={reload} isAdmin={isAdmin} />
