@@ -9,6 +9,7 @@ import { StatusPill } from "@/components/crm/StatusPill";
 import { VaultPanel } from "@/components/crm/vault/VaultPanel";
 import { HealthPanel } from "@/components/crm/health/HealthPanel";
 import { QuickBooksPanel } from "@/components/crm/quickbooks/QuickBooksPanel";
+import { LedgerBridgePanel } from "@/components/crm/quickbooks/LedgerBridgePanel";
 import { LinkZernioProfileDialog } from "@/components/dashboard/crm/LinkZernioProfileDialog";
 import { InviteClientDialog } from "@/components/dashboard/InviteClientDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,7 +34,7 @@ export function ClientDetail() {
   const { detail, loading, error, reload } = useCrmClient(id);
   const isAdmin = useIsAdmin();
   const { toast } = useToast();
-  const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp" | "quickbooks">("overview");
+  const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp" | "quickbooks" | "ledgerbridge">("overview");
   const [deleting, setDeleting] = useState(false);
   const [editingHeader, setEditingHeader] = useState(false);
   const [showLinkZernio, setShowLinkZernio] = useState(false);
@@ -276,6 +277,7 @@ export function ClientDetail() {
             { key: "invoices", label: "Invoices" },
             { key: "payments", label: "Payments" },
             { key: "quickbooks" as const, label: "QuickBooks" },
+            { key: "ledgerbridge" as const, label: "LedgerBridge" },
           ];
           return (
             <div className="flex flex-wrap gap-1 border-b border-border dark:border-white/10">
@@ -311,6 +313,9 @@ export function ClientDetail() {
         )}
         {tab === "quickbooks" && (
           <QuickBooksPanel clientId={c.id} clientEmail={c.billing_email} />
+        )}
+        {tab === "ledgerbridge" && (
+          <LedgerBridgePanel />
         )}
         {tab === "subscriptions" && (
           <SubscriptionsPanel detail={detail} reload={reload} isAdmin={isAdmin} />
