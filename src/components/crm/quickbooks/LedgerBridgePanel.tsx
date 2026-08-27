@@ -12,8 +12,7 @@ import {
   Unlink,
 } from "lucide-react";
 
-// TODO: replace this placeholder with the real LedgerBridge dashboard URL.
-const LEDGERBRIDGE_DASHBOARD_URL = "https://ledgerbridge.example.com";
+const LEDGERBRIDGE_DASHBOARD_URL = "https://ledgerbridge.citywidedigital.ca/dashboard";
 
 interface ConnInfo {
   connected?: boolean;
