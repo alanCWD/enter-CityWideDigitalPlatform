@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, Plus, X, Upload, ChevronLeft, ChevronRight, Trash2, Building2 } from "lucide-react";
+import { Search, Plus, X, Upload, ChevronLeft, ChevronRight, Trash2, Building2, AlertTriangle, RefreshCw } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClients } from "@/hooks/useCrm";
@@ -30,7 +30,7 @@ export function ClientsList() {
     ? (agencyFilter === "all" ? "all" : agencyFilter)
     : agency.slug;
 
-  const { clients, total, loading, reload } = useCrmClients({
+  const { clients, total, loading, error, reload } = useCrmClients({
     q: debouncedQ || undefined,
     status: status || undefined,
     agency_id: effectiveAgencyId,
@@ -60,7 +60,15 @@ export function ClientsList() {
     <DashboardLayout>
       <TopBar
         title="Clients"
-        subtitle={total > 0 ? `${start}–${end} of ${total.toLocaleString()}` : loading ? "Loading…" : "0 clients"}
+        subtitle={
+          loading
+            ? "Loading…"
+            : error
+              ? "Couldn't load clients"
+              : total > 0
+                ? `${start}–${end} of ${total.toLocaleString()}`
+                : "0 clients"
+        }
         action={{ label: "+ New Client", onClick: () => setParams({ new: "1" }) }}
       />
 
@@ -136,7 +144,28 @@ export function ClientsList() {
               {loading && (
                 <tr><td colSpan={isMaster ? 7 : 6} className="py-8 text-center text-xs text-muted-foreground">Loading…</td></tr>
               )}
-              {!loading && clients.length === 0 && (
+              {!loading && error && (
+                <tr>
+                  <td colSpan={isMaster ? 7 : 6} className="py-12">
+                    <div className="flex flex-col items-center gap-3 px-6 text-center">
+                      <div className="w-9 h-9 rounded-full bg-destructive/10 border border-destructive/25 flex items-center justify-center">
+                        <AlertTriangle className="w-4 h-4 text-destructive" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">Couldn't load clients</p>
+                        <p className="mt-1 max-w-md text-xs text-muted-foreground">{error}</p>
+                      </div>
+                      <button
+                        onClick={reload}
+                        className="inline-flex items-center gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-lg transition-colors"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" /> Try again
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )}
+              {!loading && !error && clients.length === 0 && (
                 <tr><td colSpan={isMaster ? 7 : 6} className="py-12 text-center text-sm text-muted-foreground">
                   {q || status ? "No clients match your search." : "No clients yet. Click + New Client to add one."}
                 </td></tr>

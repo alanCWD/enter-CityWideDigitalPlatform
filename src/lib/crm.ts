@@ -105,22 +105,49 @@ export interface CrmMetrics {
   overdue_count: number;
 }
 
+/** How long a single backend call may take before we give up. Without a bound,
+ *  an unresponsive backend leaves the UI on a spinner forever instead of
+ *  surfacing an error the user can retry. */
+const CRM_TIMEOUT_MS = 30_000;
+
+/** Reject with a readable message if `promise` has not settled within `ms`. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(
+      () => reject(new Error(`${label} took longer than ${Math.round(ms / 1000)}s to respond.`)),
+      ms,
+    );
+    promise.then(
+      (value) => { clearTimeout(timer); resolve(value); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
 /** One-shot RPC call. Throws on transport / function error.
  *  Automatically retries once on network-level failures (cold starts, transient drops). */
 export async function crm<T = unknown>(action: string, payload: Record<string, unknown> = {}): Promise<T> {
   // Await getSession() explicitly so the session is always restored from
   // localStorage before we call invoke — prevents the race condition where
   // the Supabase client falls back to the anon key on first mount.
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await withTimeout(
+    supabase.auth.getSession(),
+    CRM_TIMEOUT_MS,
+    "Session lookup",
+  );
   const headers: Record<string, string> = {};
   if (session?.access_token) {
     headers["Authorization"] = `Bearer ${session.access_token}`;
   }
 
-  const attempt = async () => supabase.functions.invoke("bunny-rpc", {
-    body: { action, payload },
-    headers,
-  });
+  const attempt = () => withTimeout(
+    supabase.functions.invoke("bunny-rpc", {
+      body: { action, payload },
+      headers,
+    }),
+    CRM_TIMEOUT_MS,
+    action,
+  );
 
   let { data, error } = await attempt();
 
