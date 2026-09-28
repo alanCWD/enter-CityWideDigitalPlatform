@@ -5,6 +5,16 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Logo, LogoOnDark } from "@/components/branding/Logo";
 
+/** A browser-level fetch failure ("Failed to fetch", "Load failed") is never the
+ *  user's credentials — it means the request never got an answer. Say so plainly
+ *  instead of showing the raw browser message. */
+function friendlyAuthError(message: string): string {
+  if (/failed to fetch|load failed|networkerror|network error|fetch failed/i.test(message)) {
+    return "We couldn't reach the server. Check your connection and try again in a moment.";
+  }
+  return message;
+}
+
 export default function Login() {
   const { signIn, session, user, loading: authLoading } = useAuth();
   const { isAdmin, isAgency, loading: roleLoading } = useUserRole(user?.id);
@@ -35,13 +45,16 @@ export default function Login() {
     e.preventDefault();
     setSubmitting(true);
     setError(null);
-    const { error: err } = await signIn(email, password);
-    if (err) {
-      setError(err.message);
+    try {
+      const { error: err } = await signIn(email, password);
+      if (err) setError(friendlyAuthError(err.message));
+      // On success, onAuthStateChange triggers the redirect effect above.
+    } catch (e2) {
+      // Transport failures can throw instead of returning an error.
+      setError(friendlyAuthError((e2 as Error).message));
+    } finally {
       setSubmitting(false);
-      return;
     }
-    // onAuthStateChange will trigger the effect above
   };
 
   return (
