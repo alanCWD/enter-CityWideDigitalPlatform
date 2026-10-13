@@ -216,6 +216,8 @@ export interface CreatePostResult {
   /** true when the post was queued rather than published now. */
   scheduled: boolean;
   results: PlatformResult[];
+  /** set when the call failed outright — read `results` for the per-platform detail. */
+  error: PartnerErrorCode | null;
 }
 
 // ── Errors ───────────────────────────────────────────────────────────────────
@@ -266,12 +268,15 @@ export type PartnerErrorCode =
 export class PartnerSocialError extends Error {
   readonly code: PartnerErrorCode;
   readonly status?: number;
+  /** The engine's response body, when one came back — kept for verbatim debugging. */
+  readonly body?: unknown;
 
-  constructor(code: PartnerErrorCode, message: string, status?: number) {
+  constructor(code: PartnerErrorCode, message: string, status?: number, body?: unknown) {
     super(message);
     this.name = "PartnerSocialError";
     this.code = code;
     this.status = status;
+    this.body = body;
   }
 
   /** `code` with its HTTP status, for surfacing verbatim during development. */
@@ -296,9 +301,14 @@ function failureFromBody(data: unknown): PartnerSocialError | null {
   const raw = typeof rec.error === "string" && rec.error ? rec.error : null;
   if (rec.ok !== false && !raw) return null;
 
-  if (raw && DOCUMENTED.has(raw)) return new PartnerSocialError(raw, raw);
-  if (raw) return new PartnerSocialError("provider_error", raw);
-  return new PartnerSocialError("unknown_error", "The engine answered ok:false with no error text.");
+  if (raw && DOCUMENTED.has(raw)) return new PartnerSocialError(raw, raw, undefined, data);
+  if (raw) return new PartnerSocialError("provider_error", raw, undefined, data);
+  return new PartnerSocialError(
+    "unknown_error",
+    "The engine answered ok:false with no error text.",
+    undefined,
+    data,
+  );
 }
 
 /** The gateway answers a plain `{ code: <number>, message }` body for a miss. */
@@ -315,7 +325,7 @@ async function errorFromInvoke(error: unknown, action: PartnerAction): Promise<P
 
   const rec = body && typeof body === "object" ? (body as Record<string, unknown>) : null;
   const raw = rec && typeof rec.error === "string" && rec.error ? rec.error : null;
-  if (raw && DOCUMENTED.has(raw)) return new PartnerSocialError(raw, raw, status);
+  if (raw && DOCUMENTED.has(raw)) return new PartnerSocialError(raw, raw, status, body);
 
   // A deployed engine refuses an unauthorised probe with its *own* JSON body,
   // which proves it executed; a missing function answers a gateway-level
@@ -326,14 +336,16 @@ async function errorFromInvoke(error: unknown, action: PartnerAction): Promise<P
       "engine_unreachable",
       'No publishing engine answered for "partner-social".',
       status,
+      body,
     );
   }
 
-  if (raw) return new PartnerSocialError("provider_error", raw, status);
+  if (raw) return new PartnerSocialError("provider_error", raw, status, body);
   return new PartnerSocialError(
     status === 401 ? "unauthorized" : "network_error",
     err?.message || `The engine rejected "${action}".`,
     status,
+    body,
   );
 }
 
@@ -496,22 +508,46 @@ export async function registerMedia(
 }
 
 /**
- * Publishes now, or queues when `scheduledFor` is set. The call succeeds when at
- * least one platform did, so read `results` per platform — never as one
- * pass/fail.
+ * Publishes now, or queues when `scheduledFor` is set. Publishing succeeds when
+ * at least one platform did, so always read `results` per platform — never as a
+ * single pass/fail.
+ *
+ * When nothing published the engine answers `ok: false`, but it may still carry
+ * the per-platform rows; those are salvaged here rather than thrown away, so a
+ * total failure can be reported per platform too.
  */
 export async function createPost(input: CreatePostInput): Promise<CreatePostResult> {
-  const data = await partnerSocial<{ scheduled?: boolean; results?: PlatformResult[] }>(
-    "create_post",
-    {
-      business_ref: input.businessRef,
-      platforms: input.platforms,
-      content: input.content,
-      ...(input.media ? { media: input.media } : {}),
-      ...(input.scheduledFor ? { scheduled_for: input.scheduledFor } : {}),
-    },
-  );
-  return { scheduled: Boolean(data.scheduled), results: data.results ?? [] };
+  try {
+    const data = await partnerSocial<{ scheduled?: boolean; results?: PlatformResult[] }>(
+      "create_post",
+      {
+        business_ref: input.businessRef,
+        platforms: input.platforms,
+        content: input.content,
+        ...(input.media ? { media: input.media } : {}),
+        ...(input.scheduledFor ? { scheduled_for: input.scheduledFor } : {}),
+      },
+    );
+    return {
+      scheduled: Boolean(data.scheduled),
+      results: Array.isArray(data.results) ? data.results : [],
+      error: null,
+    };
+  } catch (e) {
+    if (isPartnerSocialError(e)) {
+      const results = resultsFromBody(e.body);
+      if (results.length) return { scheduled: false, results, error: e.code };
+    }
+    throw e;
+  }
+}
+
+function resultsFromBody(body: unknown): PlatformResult[] {
+  if (body && typeof body === "object") {
+    const results = (body as Record<string, unknown>).results;
+    if (Array.isArray(results)) return results as PlatformResult[];
+  }
+  return [];
 }
 
 /** One row per platform — group by `scheduled_for` to render one post as a card. */

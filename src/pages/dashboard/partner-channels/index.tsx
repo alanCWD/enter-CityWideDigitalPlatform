@@ -13,7 +13,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { AlertTriangle, Building2, Loader2, RefreshCw, WifiOff } from "lucide-react";
+import { AlertTriangle, Building2, Loader2, RefreshCw, Send, WifiOff } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,8 @@ import {
 } from "@/lib/partner-social";
 import { ChannelCard, type ChannelState } from "./ChannelCard";
 import { SyncBookButton } from "./SyncBookButton";
+import { PostComposerDialog } from "./PostComposerDialog";
+import { PostsPanel } from "./PostsPanel";
 
 const CONNECT_POLL_INTERVAL_MS = 3_000;
 const CONNECT_POLL_TIMEOUT_MS = 120_000;
@@ -148,6 +150,8 @@ export default function PartnerChannels() {
   const [error, setError] = useState<PartnerSocialError | null>(null);
   const [busyPlatform, setBusyPlatform] = useState<string | null>(null);
   const [waitingPlatform, setWaitingPlatform] = useState<string | null>(null);
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [postsRefreshKey, setPostsRefreshKey] = useState(0);
 
   const mountedRef = useRef(true);
   const attemptRef = useRef(0);
@@ -304,6 +308,32 @@ export default function PartnerChannels() {
     [businesses, selectedRef],
   );
   const cards = snapshot ? buildCards(snapshot) : [];
+
+  /**
+   * Platforms a post may target. Read from the response rather than a hardcoded
+   * table, and taken as a union so it does not matter which of `available_` /
+   * `unconnected_` carries a platform that is already connected. `upcoming_` is
+   * subtracted: those are the ones the engine answers `platform_not_available_yet`
+   * for on the business path.
+   */
+  const composerPlatforms = useMemo(() => {
+    if (!snapshot) return [];
+    const upcoming = new Set(snapshot.upcoming_platforms);
+    const all = [
+      ...snapshot.available_platforms,
+      ...snapshot.unconnected_platforms,
+      ...snapshot.channels.map((channel) => channel.platform),
+    ];
+    return Array.from(new Set(all)).filter((platform) => !upcoming.has(platform));
+  }, [snapshot]);
+
+  const connectedPlatforms = useMemo(
+    () => (snapshot?.channels ?? [])
+      .filter((channel) => channel.is_active && !channel.needs_reconnect)
+      .map((channel) => channel.platform),
+    [snapshot],
+  );
+
   const connectable = cards.filter((c) => c.state !== "upcoming").length;
   const connectedCount = cards.filter((c) => c.state === "connected").length;
   const failure = error ? describeError(error) : null;
@@ -409,15 +439,23 @@ export default function PartnerChannels() {
                       {connectable === 1 ? "" : "s"} connected
                     </p>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    disabled={loadingChannels}
-                    onClick={() => loadChannels(selected.external_ref)}
-                  >
-                    <RefreshCw className={cn(loadingChannels && "animate-spin")} />
-                    Refresh
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={loadingChannels}
+                      onClick={() => loadChannels(selected.external_ref)}
+                    >
+                      <RefreshCw className={cn(loadingChannels && "animate-spin")} />
+                      Refresh
+                    </Button>
+                    {composerPlatforms.length > 0 && (
+                      <Button size="sm" onClick={() => setComposerOpen(true)}>
+                        <Send />
+                        New post
+                      </Button>
+                    )}
+                  </div>
                 </div>
 
                 {loadingChannels && !snapshot ? (
@@ -453,11 +491,33 @@ export default function PartnerChannels() {
                   published post carries no authorship line. Disconnecting a channel is not a
                   revocation — it sends no notice and raises no reconnect flag.
                 </p>
+
+                <div className="mt-5 border-t border-border pt-5">
+                  <PostsPanel
+                    businessRef={selected.external_ref}
+                    refreshKey={postsRefreshKey}
+                  />
+                </div>
               </div>
             )}
           </>
         )}
       </div>
+
+      {selected && (
+        <PostComposerDialog
+          open={composerOpen}
+          onClose={() => setComposerOpen(false)}
+          businessRef={selected.external_ref}
+          businessName={selected.name || selected.external_ref}
+          platforms={composerPlatforms}
+          connectedPlatforms={connectedPlatforms}
+          onPosted={() => {
+            setPostsRefreshKey((key) => key + 1);
+            loadBook(selected.external_ref);
+          }}
+        />
+      )}
     </DashboardLayout>
   );
 }
