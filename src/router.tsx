@@ -45,6 +45,7 @@ import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import { ReviewRequestsDashboard } from "./pages/dashboard/ReviewRequests";
 import { KimiConsole } from "./pages/dashboard/KimiConsole";
+import PartnerChannels from "./pages/dashboard/partner-channels";
 import { ReviewClickRedirect } from "./pages/ReviewClickRedirect";
 import LinkedInCallback from "./pages/auth/linkedinCallback";
 import MetaCallback from "./pages/auth/metaCallback";
@@ -304,6 +305,13 @@ export const routers = [
     path: "/dashboard/kimi",
     name: "kimi-console",
     element: <Auth><KimiConsole /></Auth>,
+  },
+  // Client channel connect / reconnect for the agency publishing engine.
+  // Served at /channels because the engine's revocation notices deep-link here.
+  {
+    path: "/channels",
+    name: "partner-channels",
+    element: <Auth><PartnerChannels /></Auth>,
   },
   /* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */
   {

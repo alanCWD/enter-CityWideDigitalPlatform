@@ -50,6 +50,9 @@
     --text-on-brand: 230 38% 96%;
     --text-subtle: 220 9% 48%;
     --success: 142 72% 44%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 45%;
+    --warning-foreground: 0 0% 100%;
 
     /* ── Sidebar (light mode) ── */
     --sidebar-background: 0 0% 100%;
@@ -82,6 +85,10 @@
     --border: 230 30% 22%;
     --input: 230 30% 22%;
     --ring: 212 100% 52%;
+    --success: 142 62% 52%;
+    --success-foreground: 220 73% 6%;
+    --warning: 38 92% 58%;
+    --warning-foreground: 220 73% 6%;
 
     /* ── Sidebar (dark mode) ── */
     --sidebar-background: 220 73% 8%;
