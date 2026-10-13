@@ -219,15 +219,15 @@ async function errorFromInvoke(error: unknown, action: PartnerAction): Promise<P
   let code = codeOf(body, "network_error");
   let message = messageOf(body, err?.message || `The publishing engine rejected "${action}".`);
 
+  // A deployed engine refuses an unauthorised probe with its *own* JSON body
+  // (`{"ok":false,"error":"unauthorized"}`), which proves it executed; a missing
+  // function answers a gateway-level not-found instead. That difference is the
+  // fastest wiring-vs-deployment test (handoff §0), so the two must stay distinct.
   if (status === 404 && code === "network_error") {
-    // Not the engine's own `not_found` (that means "that company isn't yours"):
-    // nothing is deployed at this path.
     code = "engine_unreachable";
-    message = "No publishing engine is reachable on this backend.";
+    message = 'No publishing engine answered for "partner-social".';
   } else if (status === 401) {
     code = "unauthorized";
-  } else if (status === undefined) {
-    code = "network_error";
   }
 
   return new PartnerSocialError(code, message, status);
@@ -345,17 +345,19 @@ export async function startConnect(businessRef: string, platform: string): Promi
 
 /**
  * Removes a channel. One Meta grant backs both Facebook and Instagram, so
- * disconnecting either removes the pair — the reply says exactly what went.
+ * disconnecting either removes the pair — the reply reports exactly what it took
+ * in its `disconnected` field. A deliberate disconnect is not a revocation: it
+ * raises no reconnect flag and sends no notice.
  */
 export async function disconnectChannel(
   businessRef: string,
   platform: string,
-): Promise<{ removed: string[] }> {
+): Promise<{ disconnected: string[] }> {
   const data = await partnerSocial<unknown>("disconnect_channel", {
     business_ref: businessRef,
     platform,
   });
-  return { removed: pickArray<string>(data, "removed", "removed_platforms", "disconnected") };
+  return { disconnected: pickArray<string>(data, "disconnected") };
 }
 
 // ── Client book (role = admin) ───────────────────────────────────────────────

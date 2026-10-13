@@ -48,7 +48,12 @@ function describeError(e: PartnerSocialError): { title: string; body: string } {
     case "engine_unreachable":
       return {
         title: "Publishing engine not reachable",
-        body: "This backend has no partner-social engine deployed yet, so no company can be listed or connected. Reconnect links from a revocation notice land here too, and start working as soon as the engine is reachable.",
+        body: "Either this project sits on its own backend instead of the shared OneProfile one, or the engine is not deployed there yet. Wiring the project to the instance OneProfile already runs on is a Connections step in project settings. Reconnect links from a revocation notice land here too, and start working the moment this is wired.",
+      };
+    case "unauthorized":
+      return {
+        title: "The engine refused this session",
+        body: "The engine executed and answered, so the wiring is right — it rejected the session. Sign in again; the project must share the engine's auth.",
       };
     case "forbidden":
       return {
@@ -262,9 +267,9 @@ export default function PartnerChannels() {
 
     setBusyPlatform(platform);
     try {
-      const { removed } = await disconnectChannel(selectedRef, platform);
-      const named = removed.length
-        ? removed.map(platformLabel).join(", ")
+      const { disconnected } = await disconnectChannel(selectedRef, platform);
+      const named = disconnected.length
+        ? disconnected.map(platformLabel).join(", ")
         : platformLabel(platform);
       toast({ title: "Disconnected", description: `Removed: ${named}.` });
       await loadChannels(selectedRef);
