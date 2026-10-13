@@ -3,18 +3,19 @@
 // OneProfile hosts the engine, the OAuth apps and every provider token. This
 // dashboard is a window onto it: it never reads the engine's tables, never holds
 // a provider credential and never publishes directly. Every helper below is one
-// action against the engine, authorised by the signed-in user's session JWT.
+// action against the engine, authorised by the anon key plus the signed-in
+// session JWT.
 //
-// Scope is always re-derived server-side from that session (membership in
-// `cw_agency_members`), so `business_ref` and `agency_id` *select* a row but
-// never authorise one — another agency's reference reaches nothing, and
-// `partner_members` grants no publishing access at all.
+// Scope is always re-derived server-side from the session (membership in
+// `cw_agency_members`, not `partner_members`), so `business_ref` and `agency_id`
+// *select* a row but never authorise one — another agency's reference answers
+// `not_found`, exactly like one that does not exist.
 //
-// CONTRACT NOTE: `docs/partner-social-api.md` is the authoritative payload and
-// error contract. Until it lands, the call envelope follows this codebase's
-// existing action-gateway convention (`{ action, payload }`, as used by
-// `social-syndication` and `bunny-rpc`) and responses are read leniently, so
-// every assumption is contained in this one file.
+// Contract, per partner-social-api.md:
+//   - the envelope is FLAT — fields are siblings of `action`, never nested;
+//   - every response is `{ ok: true, ... }` or `{ ok: false, error: "<code>" }`;
+//   - top-level field names are snake_case, but `create_post` results and the
+//     `register_media` fields are camelCase.
 
 import { supabase } from "@/integrations/supabase/client";
 
@@ -25,17 +26,24 @@ export type PartnerPlatform =
   | "bluesky"
   | "tiktok";
 
-/** Every action the engine exposes. */
 export type PartnerAction =
-  | "sync_businesses"
   | "list_businesses"
-  | "start_connect"
+  | "get_business"
+  | "sync_businesses"
   | "list_channels"
-  | "register_media"
+  | "check_connection"
+  | "start_connect"
+  | "disconnect_channel"
   | "create_post"
   | "list_posts"
+  | "get_post"
   | "cancel_post"
-  | "disconnect_channel";
+  | "register_media";
+
+export type PostStatus = "pending" | "publishing" | "published" | "failed" | "cancelled";
+
+/** Which account the grant posts as. `organization` is the company Page. */
+export type AccountType = "organization" | "personal";
 
 const PLATFORM_LABELS: Record<string, string> = {
   linkedin: "LinkedIn",
@@ -51,34 +59,40 @@ export function platformLabel(platform: string): string {
 
 // ── Domain types ─────────────────────────────────────────────────────────────
 
+/**
+ * A client company. It is never public: no profile row, no username, no login,
+ * no public page — privacy is structural.
+ *
+ * Note the naming split: the row's `id` is the engine's own, while every other
+ * call names the company by the dashboard's client id, `external_ref`.
+ */
+export interface PartnerBusiness {
+  id: string;
+  partner_slug: string;
+  agency_id: string;
+  /** the dashboard's client id; every other action passes it as `business_ref`. */
+  external_ref: string;
+  name: string;
+  status: string;
+  created_at?: string;
+  /** present on `list_businesses` rows only. */
+  connected_platforms?: string[];
+  needs_reconnect_platforms?: string[];
+}
+
 /** One connected (or revoked) platform for a client company. */
 export interface PartnerChannel {
   platform: string;
-  handle?: string | null;
-  display_name?: string | null;
-  profile_url?: string | null;
+  handle: string | null;
+  display_name: string | null;
+  profile_url: string | null;
   /** false once disconnected — a deliberate disconnect is not a revocation. */
   is_active: boolean;
-  /** which account the grant is posting as; `organization` for a company Page. */
-  account_type?: "personal" | "organization" | (string & {}) | null;
-  /** the provider revoked the grant: reconnect, and the engine has emailed a notice. */
-  needs_reconnect?: boolean;
+  /** the provider revoked the grant: reconnect, and exactly one notice was sent. */
+  needs_reconnect: boolean;
+  account_type: AccountType | null;
   connected_at?: string | null;
-}
-
-/**
- * A client company. It is never public: no profile row, no username, no login,
- * no public page — `business_ref` is simply the dashboard's own client id
- * (`external_ref`) echoed back.
- */
-export interface PartnerBusiness {
-  business_ref: string;
-  display_name?: string | null;
-  external_ref?: string | null;
-  is_archived?: boolean;
-  channels?: PartnerChannel[];
-  /** drives the reconnect badges in the business list. */
-  needs_reconnect_platforms?: string[];
+  last_checked_at?: string | null;
 }
 
 /** `list_channels` — the only completion signal for a connect. */
@@ -87,74 +101,166 @@ export interface ChannelSnapshot {
   channels: PartnerChannel[];
   available_platforms: string[];
   upcoming_platforms: string[];
-  needs_reconnect_platforms: string[];
+  unconnected_platforms: string[];
 }
 
-/** Per-platform outcome. Publishing succeeds if at least one platform did. */
+/** Per-platform outcome. A post succeeds if at least one platform did. */
 export interface PlatformResult {
   platform: string;
   ok: boolean;
-  error?: string | null;
-  post_id?: string | null;
-  url?: string | null;
+  /** camelCase, unlike the top-level fields. */
+  postId: string | null;
+  scheduledFor: string | null;
+  error: string | null;
 }
 
+/** One row per platform: a two-platform post is two rows. */
 export interface PartnerPost {
-  id?: string;
-  business_ref?: string;
-  content?: string;
-  media?: string | null;
-  scheduled_for?: string | null;
-  published_at?: string | null;
-  status?: string;
-  results?: PlatformResult[];
+  id: string;
+  platform: string;
+  status: PostStatus | (string & {});
+  excerpt: string | null;
+  image_url: string | null;
+  scheduled_for: string | null;
+  published_post_id: string | null;
+  error_message: string | null;
+  created_at: string;
+  updated_at?: string;
 }
 
-export interface CreatePostInput {
-  businessRef: string;
-  /** 1–5 platforms per post. */
-  platforms: string[];
-  /** ≤ 10,000 characters. */
-  content: string;
-  /** at most one image today; a second is rejected as `too_many_media`. */
-  media?: string | null;
-  /** ISO timestamp; must be in the future, or omit to publish now. */
-  scheduledFor?: string | null;
-}
-
-export interface SyncBusinessInput {
-  /** the dashboard's own client id — the only stable link between the systems. */
-  external_ref: string;
-  display_name?: string;
+export interface MediaAsset {
+  id: string;
+  /** the CDN URL to pass as `media` on `create_post`. */
+  originalUrl: string;
+  thumbnailUrl?: string | null;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+  width?: number | null;
+  height?: number | null;
   [field: string]: unknown;
 }
 
+export interface MediaValidation {
+  valid: boolean;
+  errors: string[];
+}
+
+export interface ConnectionCheck {
+  business_ref: string;
+  platform: string;
+  /** true only when the channel is active AND not flagged for reconnect. */
+  connected: boolean;
+  channel: PartnerChannel | null;
+}
+
+// ── Requests ─────────────────────────────────────────────────────────────────
+
+export interface CreatePostInput {
+  businessRef: string;
+  /** 1–5 platforms. */
+  platforms: string[];
+  /** ≤ 10,000 characters. */
+  content: string;
+  /** at most one image; a second is rejected as `too_many_media`. */
+  media?: string | null;
+  /** ISO timestamp, must be in the future — omit to publish now. */
+  scheduledFor?: string | null;
+}
+
+export interface ListPostsInput {
+  businessRef: string;
+  /** default 25, max 100. */
+  limit?: number;
+  status?: PostStatus | (string & {});
+}
+
+export interface ListBusinessesOptions {
+  /** admin only; omit `agencyId` for the whole partner book. */
+  partnerSlug?: string;
+  agencyId?: string;
+}
+
+export interface SyncBusinessInput {
+  /** ≤ 200 chars. */
+  external_ref: string;
+  /** ≤ 300 chars. */
+  name: string;
+}
+
+export interface SyncBusinessesInput {
+  agencyId?: string;
+  /** ≤ 500 rows; an empty array is a no-op by design. */
+  businesses: SyncBusinessInput[];
+}
+
 export interface SyncBusinessesResult {
-  /** the mirrored book, as the engine now holds it. */
   businesses: PartnerBusiness[];
-  /** refs absent from the payload: archived, never deleted. */
-  archived: string[];
+  /** how many refs were archived — absent refs are archived, never deleted. */
+  archived: number;
+}
+
+export interface RegisterMediaInput {
+  businessRef: string;
+  base64: string;
+  filename: string;
+  mimeType: string;
+  sizeBytes: number;
+  width: number;
+  height: number;
+  thumbnailBase64?: string;
+  durationMs?: number;
+  codecs?: string;
+}
+
+export interface CreatePostResult {
+  /** true when the post was queued rather than published now. */
+  scheduled: boolean;
+  results: PlatformResult[];
 }
 
 // ── Errors ───────────────────────────────────────────────────────────────────
 
-/**
- * Error codes the engine documents, plus the two this client adds for a
- * transport-level miss. Kept as a union with `(string & {})` so an undocumented
- * code still type-checks and is surfaced verbatim during development.
- */
+/** Every code the engine documents, plus the codes this client adds itself. */
+export const DOCUMENTED_ERROR_CODES = [
+  "unauthorized",
+  "forbidden",
+  "partner_not_approved",
+  "admin_required",
+  "not_found",
+  "business_ref_required",
+  "businesses_required",
+  "invalid_business",
+  "too_many_businesses",
+  "platform_required",
+  "platform_not_supported",
+  "platform_not_available_yet",
+  "content_required",
+  "content_too_long",
+  "platforms_required",
+  "too_many_platforms",
+  "too_many_media",
+  "invalid_scheduled_for",
+  "scheduled_for_must_be_future",
+  "post_id_required",
+  "invalid_action",
+  "not_cancellable",
+  "connect_failed",
+  "publish_failed",
+  "media_upload_failed",
+] as const;
+
+const DOCUMENTED = new Set<string>(DOCUMENTED_ERROR_CODES);
+
 export type PartnerErrorCode =
-  | "forbidden"
-  | "not_found"
-  | "partner_not_approved"
-  | "platform_not_available_yet"
-  | "too_many_media"
-  | "unauthorized"
-  | "invalid_request"
-  /** No `partner-social` function is reachable on this backend. */
+  | (typeof DOCUMENTED_ERROR_CODES)[number]
+  /** the engine answered `ok:false` with text rather than one of its codes. */
+  | "provider_error"
+  /** no `partner-social` function answered on this backend (handoff §0). */
   | "engine_unreachable"
-  /** The request never reached a backend at all. */
+  /** the request never reached a backend at all. */
   | "network_error"
+  /** client-side sanity failure, raised before any call. */
+  | "invalid_request"
   | (string & {});
 
 export class PartnerSocialError extends Error {
@@ -178,30 +284,21 @@ export function isPartnerSocialError(e: unknown): e is PartnerSocialError {
   return e instanceof PartnerSocialError;
 }
 
-function codeOf(body: unknown, fallback: PartnerErrorCode): PartnerErrorCode {
-  if (body && typeof body === "object") {
-    const rec = body as Record<string, unknown>;
-    for (const key of ["error", "code", "error_code"]) {
-      const value = rec[key];
-      if (typeof value === "string" && value) return value;
-      if (value && typeof value === "object") {
-        const nested = (value as Record<string, unknown>).code;
-        if (typeof nested === "string" && nested) return nested;
-      }
-    }
-  }
-  return fallback;
-}
+/**
+ * `error` carries a code for every engine failure except the three provider
+ * passthroughs (`connect_failed`, `publish_failed`, `media_upload_failed`),
+ * where the provider's own message is placed there instead. Keeping those
+ * distinct is what stops a provider's prose being mistaken for a code.
+ */
+function failureFromBody(data: unknown): PartnerSocialError | null {
+  if (!data || typeof data !== "object") return null;
+  const rec = data as Record<string, unknown>;
+  const raw = typeof rec.error === "string" && rec.error ? rec.error : null;
+  if (rec.ok !== false && !raw) return null;
 
-function messageOf(body: unknown, fallback: string): string {
-  if (body && typeof body === "object") {
-    const rec = body as Record<string, unknown>;
-    for (const key of ["message", "error", "detail", "reason"]) {
-      const value = rec[key];
-      if (typeof value === "string" && value) return value;
-    }
-  }
-  return fallback;
+  if (raw && DOCUMENTED.has(raw)) return new PartnerSocialError(raw, raw);
+  if (raw) return new PartnerSocialError("provider_error", raw);
+  return new PartnerSocialError("unknown_error", "The engine answered ok:false with no error text.");
 }
 
 /** The gateway answers a plain `{ code: <number>, message }` body for a miss. */
@@ -216,206 +313,234 @@ async function errorFromInvoke(error: unknown, action: PartnerAction): Promise<P
     /* empty or non-JSON body — the status and message are enough */
   }
 
-  let code = codeOf(body, "network_error");
-  let message = messageOf(body, err?.message || `The publishing engine rejected "${action}".`);
+  const rec = body && typeof body === "object" ? (body as Record<string, unknown>) : null;
+  const raw = rec && typeof rec.error === "string" && rec.error ? rec.error : null;
+  if (raw && DOCUMENTED.has(raw)) return new PartnerSocialError(raw, raw, status);
 
-  // A deployed engine refuses an unauthorised probe with its *own* JSON body
-  // (`{"ok":false,"error":"unauthorized"}`), which proves it executed; a missing
-  // function answers a gateway-level not-found instead. That difference is the
-  // fastest wiring-vs-deployment test (handoff §0), so the two must stay distinct.
-  if (status === 404 && code === "network_error") {
-    code = "engine_unreachable";
-    message = 'No publishing engine answered for "partner-social".';
-  } else if (status === 401) {
-    code = "unauthorized";
+  // A deployed engine refuses an unauthorised probe with its *own* JSON body,
+  // which proves it executed; a missing function answers a gateway-level
+  // not-found instead. That difference is the fastest wiring-vs-deployment test
+  // (handoff §0), so the two must stay distinct.
+  if (status === 404) {
+    return new PartnerSocialError(
+      "engine_unreachable",
+      'No publishing engine answered for "partner-social".',
+      status,
+    );
   }
 
-  return new PartnerSocialError(code, message, status);
+  if (raw) return new PartnerSocialError("provider_error", raw, status);
+  return new PartnerSocialError(
+    status === 401 ? "unauthorized" : "network_error",
+    err?.message || `The engine rejected "${action}".`,
+    status,
+  );
 }
 
 // ── Transport ────────────────────────────────────────────────────────────────
 
 /**
  * One-shot call to the engine gateway. Throws {@link PartnerSocialError} on
- * transport failure, on a non-2xx response, and on a 200 carrying a failure
- * shape — so callers only ever handle success.
+ * transport failure, on a non-2xx response, and on a 200 carrying `ok: false` —
+ * so callers only ever handle success.
  */
 export async function partnerSocial<T = unknown>(
   action: PartnerAction,
-  payload: Record<string, unknown> = {},
+  fields: Record<string, unknown> = {},
 ): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
   const headers: Record<string, string> = {};
   if (session?.access_token) headers.Authorization = `Bearer ${session.access_token}`;
 
+  // The envelope is flat: fields are siblings of `action`, never nested.
   const { data, error } = await supabase.functions.invoke("partner-social", {
-    body: { action, payload },
+    body: { action, ...fields },
     headers,
   });
 
   if (error) throw await errorFromInvoke(error, action);
-
-  if (data && typeof data === "object") {
-    const rec = data as Record<string, unknown>;
-    const failed =
-      rec.ok === false ||
-      (rec.error !== undefined && rec.error !== null && rec.error !== false);
-    if (failed) {
-      throw new PartnerSocialError(
-        codeOf(data, "invalid_request"),
-        `${action}: ${messageOf(data, "The publishing engine rejected the request.")}`,
-      );
-    }
-  }
+  const failure = failureFromBody(data);
+  if (failure) throw failure;
 
   return data as T;
 }
 
-/** The engine's collection key isn't restated here yet — read it leniently. */
-function pickArray<T>(data: unknown, ...keys: string[]): T[] {
-  if (Array.isArray(data)) return data as T[];
-  if (data && typeof data === "object") {
-    const rec = data as Record<string, unknown>;
-    for (const key of keys) {
-      const value = rec[key];
-      if (Array.isArray(value)) return value as T[];
-    }
-  }
-  return [];
+// ── Look-ups ─────────────────────────────────────────────────────────────────
+
+/**
+ * The companies this signed-in member may act for — their own agency's book
+ * only. There is no cross-agency view from a dashboard session.
+ */
+export async function listBusinesses(
+  options: ListBusinessesOptions = {},
+): Promise<PartnerBusiness[]> {
+  const data = await partnerSocial<{ businesses?: PartnerBusiness[] }>("list_businesses", {
+    ...(options.partnerSlug ? { partner_slug: options.partnerSlug } : {}),
+    ...(options.agencyId ? { agency_id: options.agencyId } : {}),
+  });
+  return data.businesses ?? [];
 }
 
-function normalizeBusiness(raw: unknown): PartnerBusiness {
-  const rec = (raw ?? {}) as Record<string, unknown>;
-  const channels = Array.isArray(rec.channels) ? (rec.channels as PartnerChannel[]) : [];
-  const flagged = Array.isArray(rec.needs_reconnect_platforms)
-    ? (rec.needs_reconnect_platforms as string[])
-    : channels.filter((c) => c?.needs_reconnect).map((c) => c.platform);
+/** The same row without the channel arrays. */
+export async function getBusiness(businessRef: string): Promise<PartnerBusiness | null> {
+  const data = await partnerSocial<{ business?: PartnerBusiness }>("get_business", {
+    business_ref: businessRef,
+  });
+  return data.business ?? null;
+}
+
+/** Channels, connectable platforms and platforms the engine cannot do yet. */
+export async function listChannels(businessRef: string): Promise<ChannelSnapshot> {
+  const data = await partnerSocial<Partial<ChannelSnapshot>>("list_channels", {
+    business_ref: businessRef,
+  });
   return {
-    ...(rec as unknown as PartnerBusiness),
-    business_ref: String(rec.business_ref ?? rec.external_ref ?? ""),
-    channels,
-    needs_reconnect_platforms: flagged,
+    business_ref: data.business_ref ?? businessRef,
+    channels: data.channels ?? [],
+    available_platforms: data.available_platforms ?? [],
+    upcoming_platforms: data.upcoming_platforms ?? [],
+    unconnected_platforms: data.unconnected_platforms ?? [],
   };
 }
 
-// ── Look-ups ─────────────────────────────────────────────────────────────────
-
-/** The companies this signed-in member may act for. Archived ones are excluded. */
-export async function listBusinesses(): Promise<PartnerBusiness[]> {
-  const data = await partnerSocial<unknown>("list_businesses");
-  return pickArray<unknown>(data, "businesses", "companies", "items")
-    .map(normalizeBusiness)
-    .filter((b) => b.business_ref && !b.is_archived);
-}
-
-/** Channels, available platforms and upcoming platforms for one company. */
-export async function listChannels(businessRef: string): Promise<ChannelSnapshot> {
-  const data = await partnerSocial<Record<string, unknown>>("list_channels", {
+/** Probes one platform's health without publishing anything. */
+export async function checkConnection(
+  businessRef: string,
+  platform: string,
+): Promise<ConnectionCheck> {
+  const data = await partnerSocial<Partial<ConnectionCheck>>("check_connection", {
     business_ref: businessRef,
+    platform,
   });
-  const channels = pickArray<PartnerChannel>(data, "channels", "connections");
   return {
-    business_ref: businessRef,
-    channels,
-    available_platforms: pickArray<string>(data, "available_platforms"),
-    upcoming_platforms: pickArray<string>(data, "upcoming_platforms"),
-    needs_reconnect_platforms: pickArray<string>(data, "needs_reconnect_platforms"),
+    business_ref: data.business_ref ?? businessRef,
+    platform: data.platform ?? platform,
+    connected: Boolean(data.connected),
+    channel: data.channel ?? null,
   };
 }
 
 // ── Connect ──────────────────────────────────────────────────────────────────
 
 /**
- * Begins a connect. The provider returns the browser to **OneProfile's**
- * callback, not to this dashboard, so there is no cross-origin handshake and no
- * `postMessage`: open the returned URL, then poll {@link listChannels} until the
- * platform appears. That poll is the only completion signal.
+ * Begins a connect and returns the provider URL to open. The provider returns
+ * the browser to **OneProfile's** callback, not to this dashboard — the flow is
+ * identified only by a `biz_` prefix on the OAuth state, which the engine mints
+ * server-side and nothing in the URL identifies the client. So there is no
+ * cross-origin handshake and no `postMessage`: open the URL, then poll
+ * {@link listChannels} until the platform appears. That poll is the only
+ * completion signal.
  */
 export async function startConnect(businessRef: string, platform: string): Promise<string> {
-  const data = await partnerSocial<Record<string, unknown>>("start_connect", {
+  const data = await partnerSocial<{ authUrl?: string }>("start_connect", {
     business_ref: businessRef,
     platform,
   });
-  const authUrl = data.authUrl ?? data.auth_url ?? data.url;
-  if (typeof authUrl !== "string" || !authUrl) {
-    throw new PartnerSocialError("invalid_request", "The engine returned no authorisation URL.");
+  if (!data.authUrl) {
+    throw new PartnerSocialError("invalid_request", "The engine returned no authUrl.");
   }
-  return authUrl;
+  return data.authUrl;
 }
 
 /**
- * Removes a channel. One Meta grant backs both Facebook and Instagram, so
- * disconnecting either removes the pair — the reply reports exactly what it took
- * in its `disconnected` field. A deliberate disconnect is not a revocation: it
- * raises no reconnect flag and sends no notice.
+ * Removes a channel, returning exactly what went. One Meta grant backs both
+ * Facebook and Instagram, so disconnecting either removes the pair. A deliberate
+ * disconnect is not a revocation: no reconnect flag, no notice.
  */
 export async function disconnectChannel(
   businessRef: string,
   platform: string,
-): Promise<{ disconnected: string[] }> {
-  const data = await partnerSocial<unknown>("disconnect_channel", {
+): Promise<string[]> {
+  const data = await partnerSocial<{ disconnected?: string[] }>("disconnect_channel", {
     business_ref: businessRef,
     platform,
   });
-  return { disconnected: pickArray<string>(data, "disconnected") };
+  return data.disconnected ?? [];
 }
 
 // ── Client book (role = admin) ───────────────────────────────────────────────
 
 /**
- * Mirrors the agency's whole client book. All-or-nothing: refs absent from the
- * payload are **archived, never deleted**, so a partial payload archives the
- * rest. An empty array is a no-op by design.
+ * Mirrors the agency's whole client book — all-or-nothing. Refs absent from the
+ * payload are **archived, never deleted**, so send the complete book on every
+ * call: a partial payload archives the rest. An empty array is a no-op.
  */
-export async function syncBusinesses(businesses: SyncBusinessInput[]): Promise<SyncBusinessesResult> {
-  const data = await partnerSocial<unknown>("sync_businesses", { businesses });
-  return {
-    businesses: pickArray<unknown>(data, "businesses", "companies", "items").map(normalizeBusiness),
-    archived: pickArray<string>(data, "archived", "archived_refs"),
-  };
+export async function syncBusinesses(
+  input: SyncBusinessesInput,
+): Promise<SyncBusinessesResult> {
+  const data = await partnerSocial<{
+    businesses?: PartnerBusiness[];
+    archived?: number;
+  }>("sync_businesses", {
+    ...(input.agencyId ? { agency_id: input.agencyId } : {}),
+    businesses: input.businesses,
+  });
+  return { businesses: data.businesses ?? [], archived: data.archived ?? 0 };
 }
 
-// ── Publishing ───────────────────────────────────────────────────────────────
+// ── Media and publishing ─────────────────────────────────────────────────────
+
+/** Uploads media and returns the asset whose `originalUrl` is the `media` value. */
+export async function registerMedia(
+  input: RegisterMediaInput,
+): Promise<{ media: MediaAsset; validation: MediaValidation }> {
+  const { businessRef, ...fields } = input;
+  const data = await partnerSocial<{ media?: MediaAsset; validation?: MediaValidation }>(
+    "register_media",
+    { business_ref: businessRef, ...fields },
+  );
+  if (!data.media) {
+    throw new PartnerSocialError("media_upload_failed", "The engine returned no media asset.");
+  }
+  return { media: data.media, validation: data.validation ?? { valid: false, errors: [] } };
+}
 
 /**
- * Registers media and returns the CDN URL to pass as `media`. The accepted
- * fields are the ones listed in `partner-social-api.md` § Media, so they are
- * forwarded as given rather than guessed here.
+ * Publishes now, or queues when `scheduledFor` is set. The call succeeds when at
+ * least one platform did, so read `results` per platform — never as one
+ * pass/fail.
  */
-export async function registerMedia(
-  businessRef: string,
-  fields: Record<string, unknown>,
-): Promise<string> {
-  const data = await partnerSocial<Record<string, unknown>>("register_media", {
-    business_ref: businessRef,
-    ...fields,
-  });
-  const url = data.url ?? data.cdn_url ?? data.media;
-  if (typeof url !== "string" || !url) {
-    throw new PartnerSocialError("invalid_request", "The engine returned no media URL.");
-  }
-  return url;
+export async function createPost(input: CreatePostInput): Promise<CreatePostResult> {
+  const data = await partnerSocial<{ scheduled?: boolean; results?: PlatformResult[] }>(
+    "create_post",
+    {
+      business_ref: input.businessRef,
+      platforms: input.platforms,
+      content: input.content,
+      ...(input.media ? { media: input.media } : {}),
+      ...(input.scheduledFor ? { scheduled_for: input.scheduledFor } : {}),
+    },
+  );
+  return { scheduled: Boolean(data.scheduled), results: data.results ?? [] };
 }
 
-/** Publishes now, or queues when `scheduledFor` is set. Returns per-platform results. */
-export async function createPost(input: CreatePostInput): Promise<{ results: PlatformResult[] }> {
-  const data = await partnerSocial<unknown>("create_post", {
+/** One row per platform — group by `scheduled_for` to render one post as a card. */
+export async function listPosts(input: ListPostsInput): Promise<PartnerPost[]> {
+  const data = await partnerSocial<{ posts?: PartnerPost[] }>("list_posts", {
     business_ref: input.businessRef,
-    platforms: input.platforms,
-    content: input.content,
-    ...(input.media ? { media: input.media } : {}),
-    ...(input.scheduledFor ? { scheduled_for: input.scheduledFor } : {}),
+    ...(input.limit ? { limit: input.limit } : {}),
+    ...(input.status ? { status: input.status } : {}),
   });
-  return { results: pickArray<PlatformResult>(data, "results", "responses", "replies") };
+  return data.posts ?? [];
 }
 
-/** One row per platform: a two-platform post is two rows. */
-export async function listPosts(businessRef: string): Promise<PartnerPost[]> {
-  const data = await partnerSocial<unknown>("list_posts", { business_ref: businessRef });
-  return pickArray<PartnerPost>(data, "posts", "items", "results");
+/** The full post, content included. */
+export async function getPost(businessRef: string, postId: string): Promise<PartnerPost | null> {
+  const data = await partnerSocial<{ post?: PartnerPost }>("get_post", {
+    business_ref: businessRef,
+    post_id: postId,
+  });
+  return data.post ?? null;
 }
 
-/** Cancels a still-pending scheduled post. */
-export async function cancelPost(businessRef: string, postId: string): Promise<void> {
-  await partnerSocial("cancel_post", { business_ref: businessRef, post_id: postId });
+/** Cancels a still-pending post; `not_cancellable` once the worker claims it. */
+export async function cancelPost(
+  businessRef: string,
+  postId: string,
+): Promise<{ id: string; platform: string; status: string } | null> {
+  const data = await partnerSocial<{ post?: { id: string; platform: string; status: string } }>(
+    "cancel_post",
+    { business_ref: businessRef, post_id: postId },
+  );
+  return data.post ?? null;
 }

@@ -68,7 +68,17 @@ function describeError(e: PartnerSocialError): { title: string; body: string } {
     case "not_found":
       return {
         title: "That company is not in your agency",
-        body: "A company belonging to another agency answers exactly like one that does not exist.",
+        body: "A company belonging to another agency answers exactly like one that does not exist — archived companies answer the same way.",
+      };
+    case "platform_not_available_yet":
+      return {
+        title: "That platform is not available yet",
+        body: "The engine accepts the call but cannot publish to this platform on the business path yet.",
+      };
+    case "connect_failed":
+      return {
+        title: "The provider refused the connection",
+        body: e.message,
       };
     default:
       return { title: "Could not load client companies", body: e.message };
@@ -86,12 +96,10 @@ function buildCards(snapshot: ChannelSnapshot): CardModel[] {
   const cards: CardModel[] = [];
   for (const channel of snapshot.channels) {
     if (!channel.is_active) continue;
-    const revoked = Boolean(channel.needs_reconnect) ||
-      snapshot.needs_reconnect_platforms.includes(channel.platform);
     cards.push({
       platform: channel.platform,
       channel,
-      state: revoked ? "needs-reconnect" : "connected",
+      state: channel.needs_reconnect ? "needs-reconnect" : "connected",
     });
   }
 
@@ -123,8 +131,9 @@ function EmptyBook() {
 
 export default function PartnerChannels() {
   const { toast } = useToast();
-  const [searchParams] = useSearchParams();
+  const searchParams = useSearchParams()[0];
   // A company may be deep-linked, but nothing in the URL ever identifies a client.
+  // The dashboard's own client id (`external_ref`) is what every call names.
   const deepLinkedRef = useRef(searchParams.get("business_ref"));
 
   const [businesses, setBusinesses] = useState<PartnerBusiness[]>([]);
@@ -155,8 +164,8 @@ export default function PartnerChannels() {
       setError(null);
       setSelectedRef((current) => {
         const wanted = prefer ?? current;
-        if (wanted && list.some((b) => b.business_ref === wanted)) return wanted;
-        return list[0]?.business_ref ?? null;
+        if (wanted && list.some((b) => b.external_ref === wanted)) return wanted;
+        return list[0]?.external_ref ?? null;
       });
     } catch (e) {
       if (!mountedRef.current) return;
@@ -267,7 +276,7 @@ export default function PartnerChannels() {
 
     setBusyPlatform(platform);
     try {
-      const { disconnected } = await disconnectChannel(selectedRef, platform);
+      const disconnected = await disconnectChannel(selectedRef, platform);
       const named = disconnected.length
         ? disconnected.map(platformLabel).join(", ")
         : platformLabel(platform);
@@ -287,7 +296,7 @@ export default function PartnerChannels() {
   }
 
   const selected = useMemo(
-    () => businesses.find((b) => b.business_ref === selectedRef) ?? null,
+    () => businesses.find((b) => b.external_ref === selectedRef) ?? null,
     [businesses, selectedRef],
   );
   const cards = snapshot ? buildCards(snapshot) : [];
@@ -346,11 +355,11 @@ export default function PartnerChannels() {
               </p>
               <div className="flex flex-wrap gap-2">
                 {businesses.map((business) => {
-                  const isSelected = business.business_ref === selectedRef;
+                  const isSelected = business.external_ref === selectedRef;
                   return (
                     <button
-                      key={business.business_ref}
-                      onClick={() => setSelectedRef(business.business_ref)}
+                      key={business.external_ref}
+                      onClick={() => setSelectedRef(business.external_ref)}
                       className={cn(
                         "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
                         isSelected
@@ -359,13 +368,11 @@ export default function PartnerChannels() {
                       )}
                     >
                       <Building2 className="h-4 w-4 shrink-0" />
-                      <span className="font-medium">
-                        {business.display_name || business.external_ref || business.business_ref}
-                      </span>
-                      {business.needs_reconnect_platforms.length > 0 && (
+                      <span className="font-medium">{business.name || business.external_ref}</span>
+                      {(business.needs_reconnect_platforms ?? []).length > 0 && (
                         <span className="inline-flex items-center gap-1 rounded-full border border-warning/50 px-2 py-0.5 text-[10px] font-semibold text-warning">
                           <AlertTriangle className="h-3 w-3" />
-                          {business.needs_reconnect_platforms.map(platformLabel).join(", ")}
+                          {(business.needs_reconnect_platforms ?? []).map(platformLabel).join(", ")}
                         </span>
                       )}
                     </button>
@@ -379,7 +386,7 @@ export default function PartnerChannels() {
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-bold text-foreground">
-                      {selected.display_name || selected.business_ref}
+                      {selected.name || selected.external_ref}
                     </p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {connectedCount} of {connectable} available platform
@@ -390,7 +397,7 @@ export default function PartnerChannels() {
                     size="sm"
                     variant="ghost"
                     disabled={loadingChannels}
-                    onClick={() => loadChannels(selected.business_ref)}
+                    onClick={() => loadChannels(selected.external_ref)}
                   >
                     <RefreshCw className={cn(loadingChannels && "animate-spin")} />
                     Refresh
