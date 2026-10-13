@@ -18,6 +18,7 @@ import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useAgency } from "@/contexts/AgencyContext";
 import { cn } from "@/lib/utils";
 import {
   PartnerSocialError,
@@ -32,6 +33,7 @@ import {
   type PartnerChannel,
 } from "@/lib/partner-social";
 import { ChannelCard, type ChannelState } from "./ChannelCard";
+import { SyncBookButton } from "./SyncBookButton";
 
 const CONNECT_POLL_INTERVAL_MS = 3_000;
 const CONNECT_POLL_TIMEOUT_MS = 120_000;
@@ -123,7 +125,8 @@ function EmptyBook() {
       <p className="text-sm font-semibold text-foreground">No client companies yet</p>
       <p className="mt-1 max-w-md text-xs text-muted-foreground">
         The engine authorises publishing from the client book, and nothing has been pushed for
-        your agency. An agency admin syncs the complete book once, and the companies appear here.
+        your agency. An agency admin pushes the complete book once — the first sync creates the
+        first company.
       </p>
     </div>
   );
@@ -131,6 +134,7 @@ function EmptyBook() {
 
 export default function PartnerChannels() {
   const { toast } = useToast();
+  const { agency } = useAgency();
   const searchParams = useSearchParams()[0];
   // A company may be deep-linked, but nothing in the URL ever identifies a client.
   // The dashboard's own client id (`external_ref`) is what every call names.
@@ -340,6 +344,23 @@ export default function PartnerChannels() {
           </div>
         )}
 
+        {!engineMissing && (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Client companies
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                The engine authorises publishing only for companies in this book.
+              </p>
+            </div>
+            <SyncBookButton
+              agencySlug={agency.slug}
+              onSynced={() => loadBook(selectedRef)}
+            />
+          </div>
+        )}
+
         {loadingBook ? (
           <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -349,36 +370,31 @@ export default function PartnerChannels() {
           !error && <EmptyBook />
         ) : (
           <>
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Client companies
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {businesses.map((business) => {
-                  const isSelected = business.external_ref === selectedRef;
-                  return (
-                    <button
-                      key={business.external_ref}
-                      onClick={() => setSelectedRef(business.external_ref)}
-                      className={cn(
-                        "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
-                        isSelected
-                          ? "border-primary bg-primary/5 text-foreground"
-                          : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
-                      )}
-                    >
-                      <Building2 className="h-4 w-4 shrink-0" />
-                      <span className="font-medium">{business.name || business.external_ref}</span>
-                      {(business.needs_reconnect_platforms ?? []).length > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-warning/50 px-2 py-0.5 text-[10px] font-semibold text-warning">
-                          <AlertTriangle className="h-3 w-3" />
-                          {(business.needs_reconnect_platforms ?? []).map(platformLabel).join(", ")}
-                        </span>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="flex flex-wrap gap-2">
+              {businesses.map((business) => {
+                const isSelected = business.external_ref === selectedRef;
+                return (
+                  <button
+                    key={business.external_ref}
+                    onClick={() => setSelectedRef(business.external_ref)}
+                    className={cn(
+                      "flex items-center gap-2 rounded-lg border px-3 py-2 text-sm transition-colors",
+                      isSelected
+                        ? "border-primary bg-primary/5 text-foreground"
+                        : "border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground",
+                    )}
+                  >
+                    <Building2 className="h-4 w-4 shrink-0" />
+                    <span className="font-medium">{business.name || business.external_ref}</span>
+                    {(business.needs_reconnect_platforms ?? []).length > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-warning/50 px-2 py-0.5 text-[10px] font-semibold text-warning">
+                        <AlertTriangle className="h-3 w-3" />
+                        {(business.needs_reconnect_platforms ?? []).map(platformLabel).join(", ")}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {selected && (
