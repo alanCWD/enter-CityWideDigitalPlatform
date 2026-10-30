@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle, Pause, Play, ChevronDown } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle, Pause, Play, ChevronDown, Undo2 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
@@ -367,7 +367,7 @@ export function ClientDetail() {
           <SubscriptionsPanel detail={detail} reload={reload} isAdmin={isAdmin} />
         )}
         {tab === "invoices" && (
-          <InvoicesPanel detail={detail} reload={reload} isAdmin={isAdmin} />
+           <InvoicesPanel detail={detail} reload={reload} />
         )}
         {tab === "payments" && (
           <PaymentsPanel detail={detail} />
@@ -1021,13 +1021,64 @@ function SubscriptionsPanel({ detail, reload, isAdmin }: { detail: NonNullable<R
 }
 
 // ─── Tab: Invoices ───────────────────────────────────────────────────────
-function InvoicesPanel({ detail, reload, isAdmin }: { detail: NonNullable<ReturnType<typeof useCrmClient>["detail"]>; reload: () => void; isAdmin: boolean }) {
+function InvoicesPanel({ detail, reload }: { detail: NonNullable<ReturnType<typeof useCrmClient>["detail"]>; reload: () => void }) {
   const [composing, setComposing] = useState(false);
-  const [viewing, setViewing] = useState<(typeof detail.invoices)[0] | null>(null);
+  const [viewing, setViewing] = useState<CrmInvoice | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "open" | "paid">("all");
+  const [markPaidTarget, setMarkPaidTarget] = useState<CrmInvoice | null>(null);
+  const [editPayTarget, setEditPayTarget] = useState<CrmInvoice | null>(null);
+  const [undoingId, setUndoingId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const invoices = detail.invoices.filter((inv) => {
+    if (statusFilter === "all") return true;
+    if (statusFilter === "open") return inv.status === "open" || inv.status === "past_due";
+    return inv.status === statusFilter;
+  });
+
+  const undoPaid = async (inv: CrmInvoice) => {
+    const stripeNote = inv.stripe_invoice_id
+      ? " This only changes CityWide — the Stripe invoice will still show as paid."
+      : "";
+    if (!confirm(`Undo the payment on ${inv.number ?? "this invoice"}? It will return to open and its manual payment record will be removed.${stripeNote}`)) return;
+    setUndoingId(inv.id);
+    try {
+      await crm("invoices.markUnpaid", { id: inv.id });
+      await reload();
+      toast({ title: "Payment undone", description: `${inv.number ?? "Invoice"} is open again.` });
+    } catch (e) {
+      toast({
+        title: "Could not undo payment",
+        description: (e as Error).message ?? "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUndoingId(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+          {([
+            { label: "All", value: "all" },
+            { label: "Open", value: "open" },
+            { label: "Paid", value: "paid" },
+          ] as const).map((f) => (
+            <button
+              key={f.value}
+              onClick={() => setStatusFilter(f.value)}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                statusFilter === f.value
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         <button onClick={() => setComposing(true)} className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm font-bold px-4 py-2 rounded-lg inline-flex items-center gap-1.5">
           <Plus className="w-3.5 h-3.5" /> New Invoice
         </button>
@@ -1037,34 +1088,83 @@ function InvoicesPanel({ detail, reload, isAdmin }: { detail: NonNullable<Return
           <thead>
             <tr className="border-b border-border bg-muted/40">
               <Th>Number</Th><Th>Status</Th><Th>Issued</Th><Th>Due</Th>
-              <Th className="text-right">Total</Th><Th></Th>
+              <Th className="text-right">Total</Th><Th>Payment</Th><Th className="text-right">Actions</Th>
             </tr>
           </thead>
           <tbody>
-            {detail.invoices.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-xs text-muted-foreground">No invoices yet.</td></tr>}
-            {detail.invoices.map((inv) => (
-              <tr key={inv.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+            {invoices.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-xs text-muted-foreground">No invoices yet.</td></tr>}
+            {invoices.map((inv) => (
+              <tr
+                key={inv.id}
+                onClick={() => setViewing(inv)}
+                title="Open invoice preview"
+                className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors cursor-pointer"
+              >
                 <td className="px-4 py-3 text-sm font-semibold text-foreground">{inv.number ?? inv.id.slice(0, 8)}</td>
                 <td className="px-4 py-3"><StatusPill status={inv.status} /></td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{inv.issued_at ? new Date(inv.issued_at).toLocaleDateString() : "—"}</td>
                 <td className="px-4 py-3 text-xs text-muted-foreground">{inv.due_date ? new Date(inv.due_date).toLocaleDateString() : "—"}</td>
                 <td className="px-4 py-3 text-right text-sm font-bold text-foreground">{fmtMoney(inv.total_cents, inv.currency)}</td>
-                <td className="px-4 py-3 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    {inv.hosted_invoice_url && (
-                      <a href={inv.hosted_invoice_url} target="_blank" rel="noopener noreferrer"
-                        className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium"
-                        title="Open Stripe payment link"
+                <td className="px-4 py-3 text-xs">
+                  {inv.status === "paid" ? (
+                    <div className="min-w-[110px]">
+                      <div className="text-foreground font-medium">{paymentMethodLabel(inv.payment_method)}</div>
+                      {inv.paid_at && (
+                        <div className="text-[10px] text-muted-foreground">
+                          {new Date(inv.paid_at).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" })}
+                        </div>
+                      )}
+                      {inv.payment_notes && (
+                        <div className="text-[10px] text-muted-foreground max-w-[160px] truncate" title={inv.payment_notes}>
+                          {inv.payment_notes}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-1.5 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                    {(inv.status === "open" || inv.status === "past_due") && (
+                      <button
+                        onClick={() => setMarkPaidTarget(inv)}
+                        title="Record a manual payment (e-transfer, cash, cheque)"
+                        className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/20 transition-colors whitespace-nowrap"
                       >
-                        <ExternalLink className="w-3 h-3" />
+                        <Check className="w-3 h-3" /> Record Payment
+                      </button>
+                    )}
+                    {inv.status === "paid" && (
+                      <>
+                        <button
+                          onClick={() => undoPaid(inv)}
+                          disabled={undoingId === inv.id}
+                          title="Undo paid — return this invoice to open and remove the manual payment record"
+                          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 border border-amber-500/20 transition-colors whitespace-nowrap disabled:opacity-50"
+                        >
+                          <Undo2 className="w-3 h-3" /> {undoingId === inv.id ? "Undoing…" : "Undo Paid"}
+                        </button>
+                        <button
+                          onClick={() => setEditPayTarget(inv)}
+                          title="Add or edit the payment method and reference notes"
+                          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground border border-border transition-colors whitespace-nowrap"
+                        >
+                          <Pencil className="w-3 h-3" /> Details
+                        </button>
+                      </>
+                    )}
+                    {(inv.hosted_invoice_url || inv.stripe_invoice_id) && (
+                      <a
+                        href={inv.hosted_invoice_url ?? `https://dashboard.stripe.com/invoices/${inv.stripe_invoice_id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={inv.status === "paid" ? "View the official invoice in Stripe" : "Open the Stripe payment page"}
+                        className="p-1.5 rounded-md text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" />
                       </a>
                     )}
-                    <button
-                      onClick={() => setViewing(inv)}
-                      className="text-xs text-primary hover:underline inline-flex items-center gap-1 font-medium"
-                    >
-                      <FileText className="w-3 h-3" /> View
-                    </button>
                   </div>
                 </td>
               </tr>
@@ -1074,7 +1174,17 @@ function InvoicesPanel({ detail, reload, isAdmin }: { detail: NonNullable<Return
       </div>
 
       {composing && <InvoiceComposer clientId={detail.client.id} onClose={() => setComposing(false)} onSent={() => { setComposing(false); reload(); }} />}
-      {viewing && <InvoicePreviewModal invoice={viewing} client={detail.client} isAdmin={isAdmin} onClose={() => setViewing(null)} onReload={reload} />}
+      {viewing && <InvoicePreviewModal invoice={viewing} client={detail.client} onClose={() => setViewing(null)} onReload={reload} />}
+      <MarkPaidDialog
+        invoice={markPaidTarget}
+        onClose={() => setMarkPaidTarget(null)}
+        onSuccess={() => { setMarkPaidTarget(null); reload(); }}
+      />
+      <EditPaymentDialog
+        invoice={editPayTarget}
+        onClose={() => setEditPayTarget(null)}
+        onSuccess={() => { setEditPayTarget(null); reload(); }}
+      />
     </div>
   );
 }
@@ -1350,10 +1460,9 @@ function GbpPanel({ connectionId }: { connectionId: string }) {
   );
 }
 
-function InvoicePreviewModal({ invoice, client, isAdmin, onClose, onReload }: {
+function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
   invoice: CrmInvoice;
   client: CrmClient;
-  isAdmin: boolean;
   onClose: () => void;
   onReload: () => void;
 }) {
@@ -1423,7 +1532,7 @@ function InvoicePreviewModal({ invoice, client, isAdmin, onClose, onReload }: {
                 Record Payment
               </button>
             )}
-            {invoice.status === "paid" && isAdmin && (
+            {invoice.status === "paid" && (
               <button
                 onClick={markUnpaid}
                 disabled={marking}
