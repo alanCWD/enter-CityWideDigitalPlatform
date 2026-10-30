@@ -794,7 +794,12 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     case "invoices.updatePaymentDetails": {
       const { rows } = await exec({ sql: `SELECT id FROM invoices WHERE id = ? LIMIT 1`, args: [payload.id as string] });
       if (!rows[0]) throw new Error("Invoice not found.");
-      await exec({ sql: `UPDATE invoices SET payment_method = ?, payment_notes = ? WHERE id = ?`, args: [(payload.payment_method as string) ?? null, (payload.notes as string) ?? null, payload.id as string] });
+      await execMany([
+        { sql: `UPDATE invoices SET payment_method = ?, payment_notes = ? WHERE id = ?`, args: [(payload.payment_method as string) ?? null, (payload.notes as string) ?? null, payload.id as string] },
+        // Keep the payment ledger row in sync so the Payment tab shows the same
+        // method and bank/e-Transfer reference. Stripe-sourced payments are left alone.
+        { sql: `UPDATE payments SET method = ?, notes = ? WHERE invoice_id = ? AND stripe_payment_intent_id IS NULL`, args: [(payload.payment_method as string) ?? null, (payload.notes as string) ?? null, payload.id as string] },
+      ]);
       return { ok: true };
     }
     case "invoices.list": {

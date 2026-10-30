@@ -1836,7 +1836,13 @@ function PaymentsPanel({ detail }: { detail: NonNullable<ReturnType<typeof useCr
       <table className="w-full">
         <thead>
           <tr className="border-b border-border dark:border-white/10 bg-muted/40 dark:bg-white/3">
-            <Th>Date</Th><Th>Method</Th><Th>Reference</Th><Th className="text-right">Amount</Th>
+            <Th>Date</Th><Th>Method</Th>
+            <Th className="max-w-[220px]">
+              <span title="The bank/e-Transfer reference saved with the invoice payment details, or the Stripe payment ID for card payments.">
+                Reference
+              </span>
+            </Th>
+            <Th className="text-right">Amount</Th>
           </tr>
         </thead>
         <tbody>
@@ -1844,8 +1850,10 @@ function PaymentsPanel({ detail }: { detail: NonNullable<ReturnType<typeof useCr
           {detail.payments.map((p) => (
             <tr key={p.id} className="border-b border-border dark:border-white/5">
               <td className="px-4 py-3 text-sm text-muted-foreground">{new Date(p.paid_at).toLocaleString()}</td>
-              <td className="px-4 py-3 text-sm text-muted-foreground capitalize">{p.method ?? "—"}</td>
-              <td className="px-4 py-3 text-xs text-muted-foreground">{p.stripe_payment_id ?? "—"}</td>
+              <td className="px-4 py-3 text-sm text-muted-foreground">{paymentMethodLabel(p.method)}</td>
+              <td className="px-4 py-3 text-xs text-muted-foreground font-mono max-w-[220px] truncate" title={p.notes ?? p.stripe_payment_intent_id ?? undefined}>
+                {p.notes || p.stripe_payment_intent_id || "—"}
+              </td>
               <td className="px-4 py-3 text-right text-sm font-bold text-[#22C55E]">{fmtMoney(p.amount_cents, p.currency)}</td>
             </tr>
           ))}

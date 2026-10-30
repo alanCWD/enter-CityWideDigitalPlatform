@@ -94,7 +94,8 @@ export interface CrmPayment {
   amount_cents: number;
   currency: string;
   method: string | null;
-  stripe_payment_id: string | null;
+  notes: string | null;
+  stripe_payment_intent_id: string | null;
   paid_at: string;
 }
 
