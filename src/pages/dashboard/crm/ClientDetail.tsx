@@ -22,6 +22,8 @@ import { InviteClientDialog } from "@/components/dashboard/InviteClientDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { EditPaymentDialog, MarkPaidDialog } from "@/components/crm/InvoicePaymentDialog";
+import { paymentMethodLabel } from "@/lib/paymentMethods";
 
 const ADMIN_EMAIL = "alan@citywidedigital.ca";
 function useIsAdmin() {
@@ -1356,17 +1358,13 @@ function InvoicePreviewModal({ invoice, client, isAdmin, onClose, onReload }: {
   onReload: () => void;
 }) {
   const [marking, setMarking] = useState(false);
+  const [showMarkPaid, setShowMarkPaid] = useState(false);
+  const [showEditPay, setShowEditPay] = useState(false);
   const items: Array<{ description: string; quantity: number; unit_amount_cents: number }> =
     invoice.line_items ? JSON.parse(invoice.line_items as unknown as string) : [];
 
-  const markPaid = async () => {
-    setMarking(true);
-    try {
-      await crm("invoices.markPaid", { id: invoice.id });
-      onReload();
-      onClose();
-    } finally { setMarking(false); }
-  };
+  const stripeHref = invoice.hosted_invoice_url
+    ?? (invoice.stripe_invoice_id ? `https://dashboard.stripe.com/invoices/${invoice.stripe_invoice_id}` : null);
 
   const markUnpaid = async () => {
     if (!confirm("Mark this invoice as unpaid / open?")) return;
@@ -1393,14 +1391,18 @@ function InvoicePreviewModal({ invoice, client, isAdmin, onClose, onReload }: {
         <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-muted/30 rounded-t-2xl print:hidden">
           <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Invoice Preview</span>
           <div className="flex items-center gap-2">
-            {invoice.hosted_invoice_url && (
+            {stripeHref && (
               <a
-                href={invoice.hosted_invoice_url}
+                href={stripeHref}
                 target="_blank"
                 rel="noopener noreferrer"
+                title={invoice.status === "paid"
+                  ? "Open the official invoice in Stripe"
+                  : "Open the Stripe payment page for this invoice"}
                 className="text-xs font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1.5"
               >
-                <ExternalLink className="w-3.5 h-3.5" /> Stripe Payment Link
+                <ExternalLink className="w-3.5 h-3.5" />
+                {invoice.status === "paid" ? "View in Stripe" : "Pay in Stripe"}
               </a>
             )}
             {invoice.pdf_url && (
@@ -1413,13 +1415,12 @@ function InvoicePreviewModal({ invoice, client, isAdmin, onClose, onReload }: {
                 <FileText className="w-3.5 h-3.5" /> PDF
               </a>
             )}
-            {invoice.status === "open" && (
+            {(invoice.status === "open" || invoice.status === "past_due") && (
               <button
-                onClick={markPaid}
-                disabled={marking}
-                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+                onClick={() => setShowMarkPaid(true)}
+                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
               >
-                {marking ? "Saving…" : "Mark as Paid"}
+                Record Payment
               </button>
             )}
             {invoice.status === "paid" && isAdmin && (
@@ -1428,7 +1429,7 @@ function InvoicePreviewModal({ invoice, client, isAdmin, onClose, onReload }: {
                 disabled={marking}
                 className="text-xs font-bold px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white transition-colors disabled:opacity-50"
               >
-                {marking ? "Saving…" : "Mark as Unpaid"}
+                {marking ? "Undoing…" : "Undo Paid"}
               </button>
             )}
             <button
@@ -1574,12 +1575,56 @@ function InvoicePreviewModal({ invoice, client, isAdmin, onClose, onReload }: {
             </div>
           </div>
 
+          {/* Payment details */}
+          {invoice.status === "paid" && (
+            <div className="bg-muted/30 rounded-xl px-5 py-4 border border-border/50">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Payment Details</span>
+                <button
+                  onClick={() => setShowEditPay(true)}
+                  className="text-[11px] font-semibold text-primary hover:underline inline-flex items-center gap-1"
+                >
+                  <Pencil className="w-3 h-3" /> Edit details
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Method</p>
+                  <p className="text-foreground font-medium mt-0.5">{paymentMethodLabel(invoice.payment_method)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Paid</p>
+                  <p className="text-foreground font-medium mt-0.5">
+                    {invoice.paid_at
+                      ? new Date(invoice.paid_at).toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })
+                      : "—"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Reference / Notes</p>
+                <p className="text-sm text-foreground mt-0.5">{invoice.payment_notes || "No reference recorded yet."}</p>
+              </div>
+            </div>
+          )}
+
           {/* Footer note */}
           <p className="text-xs text-muted-foreground text-center border-t border-border pt-4">
             Thank you for your business.
           </p>
         </div>
       </div>
+
+      <MarkPaidDialog
+        invoice={showMarkPaid ? invoice : null}
+        onClose={() => setShowMarkPaid(false)}
+        onSuccess={() => { setShowMarkPaid(false); onReload(); onClose(); }}
+      />
+      <EditPaymentDialog
+        invoice={showEditPay ? invoice : null}
+        onClose={() => setShowEditPay(false)}
+        onSuccess={() => { setShowEditPay(false); onReload(); onClose(); }}
+      />
     </div>
   );
 }

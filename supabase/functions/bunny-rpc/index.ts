@@ -725,7 +725,13 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       return { ok: true };
     }
     case "invoices.markUnpaid": {
-      await exec({ sql: `UPDATE invoices SET status = 'open', paid_at = NULL, amount_paid_cents = 0 WHERE id = ?`, args: [payload.id as string] });
+      // Undo a manual mark-as-paid: remove the manual payment record (Stripe-sourced
+      // payments have a payment intent id and are left untouched) and clear the
+      // payment details so the invoice reads as genuinely open again.
+      await execMany([
+        { sql: `DELETE FROM payments WHERE invoice_id = ? AND stripe_payment_intent_id IS NULL`, args: [payload.id as string] },
+        { sql: `UPDATE invoices SET status = 'open', paid_at = NULL, amount_paid_cents = 0, payment_method = NULL, payment_notes = NULL WHERE id = ?`, args: [payload.id as string] },
+      ]);
       return { ok: true };
     }
     case "invoices.checkStripe": {
