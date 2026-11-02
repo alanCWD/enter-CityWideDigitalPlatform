@@ -46,22 +46,23 @@ The existing light/dark toggle keeps working. Dark becomes the signature glass l
 
 ## Implementation checklist
 
-- [ ] Workspace pages render over the new aurora backdrop while marketing and portal routes keep their current appearance.
-- [ ] Sidebar, top bar and mobile drawer present as frosted glass with the new accent for active items.
-- [ ] All semantic surfaces (cards, panels, tables, popovers, dialogs, toasts) take on the translucent glass treatment in both themes.
-- [ ] Legacy navy/blue hard-coded styling anywhere inside the workspace resolves to the glass palette; semantic green/orange/red and third-party brand colors remain unchanged.
-- [ ] Signature violet→indigo accent replaces electric blue for CTAs, links, rings, chart strokes and active states inside the workspace only.
-- [ ] Light mode renders as a legible light-glass variant, and the theme toggle still persists across reloads.
-- [ ] Reduced-motion preference disables the ambient drift.
-- [ ] Theme classes are removed when leaving the workspace so no other surface is affected.
+- [x] Workspace pages render over the new aurora backdrop while marketing and portal routes keep their current appearance.
+- [x] Sidebar, top bar and mobile drawer present as frosted glass with the new accent for active items.
+- [x] All semantic surfaces (cards, panels, tables, popovers, dialogs, toasts) take on the translucent glass treatment in both themes.
+- [x] Legacy navy/blue hard-coded styling anywhere inside the workspace resolves to the glass palette; semantic green/orange/red and third-party brand colors remain unchanged.
+- [x] Signature violet→indigo accent replaces electric blue for CTAs, links, rings, chart strokes and active states inside the workspace only.
+- [x] Light mode renders as a legible light-glass variant; the theme toggle and its saved preference are unchanged in behaviour.
+- [x] Reduced-motion preference disables the ambient drift.
+- [x] Theme classes are removed when leaving the workspace so no other surface is affected.
 
 ## Verification checklist
 
-- [ ] Type-check, lint and production build succeed with no new warnings.
-- [ ] Landing on the workspace shows the glass theme; navigating to a marketing page and to the login screen shows them unchanged.
-- [ ] Toggling light/dark inside the workspace restyles both variants correctly and survives a reload.
-- [ ] Representative workspace screens (Command Centre, CRM clients list, client detail, inbox, and a form/dialog) read correctly: no low-contrast text, no dark-panel remnants, no clipped or overlapping glass layers.
-- [ ] Modal, dropdown, toast and tooltip stacking renders above the glass layers, not behind.
-- [ ] Mobile (390 px) and desktop (1280 px) layouts keep current structure with the new material.
+- [x] Type-check, lint and production build succeed with no new warnings (lint: 0 errors, 10 pre-existing warnings).
+- [x] Landing on a marketing page and the sign-in screen shows them unchanged (verified by screenshot at 1280 px).
+- [ ] Workspace screens verified in a signed-in session (blocked: the workspace redirects to sign-in in the automated browser).
+- [ ] Toggling light/dark inside the live workspace and surviving a reload (logic untouched, not exercised in a signed-in session).
+- [x] Light and dark glass material, contrast hierarchy and hard-coded navy/blue remaps verified on a temporary in-preview harness at 1280 px and 390 px; the harness was removed afterwards.
+- [ ] Modal, dropdown, toast and tooltip stacking verified on a live workspace screen (not visually exercised; styling resolves through shared glass tokens and dialog blur rules).
 
-**Known verification limit:** the workspace is behind sign-in, so automated visual checks may land on the login redirect. If the preview session is not authenticated, I'll report the visual checks as unverified rather than claim them, while still delivering the type-check, lint and build results.
+**Known verification limit:** the workspace is behind sign-in, so end-to-end visual checks could not run. The theme itself was validated on a temporary harness using the real components' class names, and that harness has been deleted.
+

@@ -14,13 +14,13 @@ export function Sidebar() {
       {/* Mobile Toggle */}
       <button
         onClick={() => setIsMobileOpen(!isMobileOpen)}
-        className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-sidebar text-sidebar-foreground border border-sidebar-border shadow-lg"
+        className="md:hidden fixed top-4 left-4 z-50 p-2 rounded-xl bg-sidebar backdrop-blur-2xl text-sidebar-foreground border border-sidebar-border shadow-lg"
       >
         {isMobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
       </button>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-60 min-h-screen bg-sidebar border-r border-sidebar-border fixed top-0 left-0 bottom-0 z-40">
+      <aside className="hidden md:flex flex-col w-60 min-h-screen bg-sidebar backdrop-blur-2xl border-r border-sidebar-border fixed top-0 left-0 bottom-0 z-40">
         <SidebarContent onNav={() => {}} />
       </aside>
 
@@ -40,7 +40,7 @@ export function Sidebar() {
               animate={{ x: 0 }}
               exit={{ x: -240 }}
               transition={{ type: "spring", stiffness: 300, damping: 30 }}
-              className="fixed top-0 left-0 bottom-0 w-60 bg-sidebar border-r border-sidebar-border z-50 md:hidden flex flex-col"
+              className="fixed top-0 left-0 bottom-0 w-60 bg-sidebar backdrop-blur-2xl border-r border-sidebar-border z-50 md:hidden flex flex-col"
             >
               <SidebarContent onNav={() => setIsMobileOpen(false)} />
             </motion.aside>
@@ -69,9 +69,9 @@ function SidebarContent({ onNav }: { onNav: () => void }) {
             end={item.end ?? false}
             className={({ isActive }) =>
               cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm transition-all duration-150 w-full font-medium",
+                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 w-full font-medium",
                 isActive
-                  ? "bg-primary/15 text-primary font-semibold border border-primary/20"
+                  ? "bg-primary/15 text-foreground font-semibold border border-primary/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
                   : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
               )
             }
@@ -100,7 +100,7 @@ function SidebarContent({ onNav }: { onNav: () => void }) {
       </nav>
 
       {/* Lead Velocity Widget */}
-      <div className="mx-3 mb-3 p-3 rounded-xl bg-primary/10 border border-primary/20">
+      <div className="mx-3 mb-3 p-3 rounded-xl bg-primary/10 border border-primary/20 backdrop-blur-xl">
         <div className="flex items-center justify-between mb-1">
           <span className="text-[10px] font-bold text-sidebar-foreground/50 uppercase tracking-wider">Lead Velocity</span>
           <TrendingUp className="w-3 h-3 text-[#22C55E]" />

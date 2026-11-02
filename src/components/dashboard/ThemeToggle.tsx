@@ -24,7 +24,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       className={cn(
         "relative inline-flex h-9 w-[70px] items-center rounded-full",
         "border transition-colors duration-200",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0078D7]/50",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50",
         isLight
           ? "bg-muted border-border hover:bg-accent"
           : "bg-muted/60 dark:bg-white/5 border-border dark:border-white/10 hover:bg-muted dark:bg-white/10",
@@ -51,7 +51,7 @@ export function ThemeToggle({ className }: { className?: string }) {
       <span
         className={cn(
           "relative z-10 inline-flex h-7 w-7 items-center justify-center rounded-full",
-          "bg-[#0078D7] text-white shadow-[0_2px_6px_rgba(0,120,215,0.4)]",
+          "bg-[linear-gradient(135deg,#8b5cf6,#4f46e5)] text-white shadow-[0_2px_10px_rgba(124,58,237,0.45)]",
           "transition-transform duration-200 ease-out",
           isLight ? "translate-x-[37px]" : "translate-x-[4px]",
         )}

@@ -47,7 +47,7 @@ export function AgencySwitcher() {
 
       {/* Dropdown */}
       {open && (
-        <div className="absolute top-full left-0 right-0 z-50 bg-sidebar border border-sidebar-border rounded-b-xl shadow-xl overflow-hidden">
+        <div className="absolute top-full left-0 right-0 z-50 bg-sidebar backdrop-blur-2xl border border-sidebar-border rounded-b-xl shadow-[0_24px_60px_-24px_rgba(5,3,18,0.8)] overflow-hidden">
           {agencies.map((a) => {
             const ac = ACCENT_CLASSES[a.accent];
             const AIcon = a.icon;
