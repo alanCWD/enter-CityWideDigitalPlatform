@@ -1,0 +1,487 @@
+/**
+ * Capsule landing theme — near-black cinematic HUD styling.
+ *
+ * Everything here is scoped to `.capsule-page`, which is applied by the landing
+ * page layout only. Other marketing pages, the client portal and the workspace
+ * keep their own themes and are unaffected.
+ */
+
+.capsule-page {
+  --cap-bg: #05070a;
+  --cap-bg-raised: #080b10;
+  --cap-ink: #f2f5fa;
+  --cap-ink-72: rgba(242, 245, 250, 0.72);
+  --cap-ink-55: rgba(242, 245, 250, 0.55);
+  --cap-ink-40: rgba(242, 245, 250, 0.4);
+  --cap-ink-24: rgba(242, 245, 250, 0.24);
+  --cap-line: rgba(255, 255, 255, 0.11);
+  --cap-line-soft: rgba(255, 255, 255, 0.06);
+  --cap-accent: #9ec1ff;
+  --cap-accent-dim: rgba(158, 193, 255, 0.35);
+
+  position: relative;
+  background-color: var(--cap-bg);
+  color: var(--cap-ink);
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Typography ─────────────────────────────────────────────────────────── */
+
+.cap-kicker {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.625rem;
+  line-height: 1.2;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--cap-ink-40);
+}
+
+.cap-kicker--bright {
+  color: var(--cap-ink-72);
+}
+
+.cap-display {
+  font-weight: 300;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+  color: var(--cap-ink);
+  text-wrap: balance;
+}
+
+.cap-lede {
+  color: var(--cap-ink-72);
+  font-weight: 300;
+  line-height: 1.65;
+  font-size: 1rem;
+}
+
+.cap-mono {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* ── Actions ────────────────────────────────────────────────────────────── */
+
+.cap-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  background: var(--cap-ink);
+  color: #06080c;
+  border-radius: 2px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
+.cap-btn:hover {
+  background: transparent;
+  color: var(--cap-ink);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+.cap-btn:focus-visible,
+.cap-btn-ghost:focus-visible,
+.cap-capsule:focus-visible,
+.cap-close:focus-visible {
+  outline: 1px solid var(--cap-accent);
+  outline-offset: 4px;
+}
+
+.cap-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1.4rem;
+  border: 1px solid var(--cap-line);
+  background: transparent;
+  color: var(--cap-ink-72);
+  border-radius: 2px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transition: color 200ms ease, border-color 200ms ease, background-color 200ms ease;
+}
+
+.cap-btn-ghost:hover {
+  color: var(--cap-ink);
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.cap-link {
+  color: var(--cap-ink-72);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 200ms ease, border-color 200ms ease;
+}
+
+.cap-link:hover {
+  color: var(--cap-ink);
+  border-color: var(--cap-line);
+}
+
+/* ── Page texture ───────────────────────────────────────────────────────── */
+
+.cap-stars,
+.cap-noise,
+.cap-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cap-stars {
+  background-image:
+    radial-gradient(1px 1px at 18% 22%, rgba(255, 255, 255, 0.55) 50%, transparent 51%),
+    radial-gradient(1px 1px at 72% 14%, rgba(255, 255, 255, 0.4) 50%, transparent 51%),
+    radial-gradient(1px 1px at 41% 68%, rgba(255, 255, 255, 0.35) 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 58%, rgba(255, 255, 255, 0.5) 50%, transparent 51%),
+    radial-gradient(1px 1px at 9% 82%, rgba(255, 255, 255, 0.3) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 63% 42%, rgba(255, 255, 255, 0.35) 50%, transparent 51%),
+    radial-gradient(1px 1px at 32% 8%, rgba(255, 255, 255, 0.28) 50%, transparent 51%),
+    radial-gradient(1px 1px at 55% 88%, rgba(255, 255, 255, 0.3) 50%, transparent 51%);
+}
+
+.cap-noise {
+  opacity: 0.35;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.18'/%3E%3C/svg%3E");
+}
+
+.cap-vignette {
+  background: radial-gradient(115% 85% at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.72) 100%);
+}
+
+/* ── Capsule ────────────────────────────────────────────────────────────── */
+
+.cap-capsule {
+  position: relative;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: transform 400ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cap-capsule:hover {
+  transform: scale(1.03);
+}
+
+.cap-capsule__ticks {
+  position: absolute;
+  inset: -14%;
+  border-radius: 9999px;
+  background: repeating-conic-gradient(
+    from 0deg,
+    rgba(255, 255, 255, 0.3) 0deg 0.35deg,
+    transparent 0.35deg 5deg
+  );
+  -webkit-mask-image: radial-gradient(circle, transparent 0 47%, #000 47.5% 49.5%, transparent 50%);
+  mask-image: radial-gradient(circle, transparent 0 47%, #000 47.5% 49.5%, transparent 50%);
+  opacity: 0.55;
+}
+
+.cap-capsule__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.cap-capsule__ring--outer {
+  inset: -9%;
+  border-color: rgba(255, 255, 255, 0.07);
+}
+
+.cap-capsule__ring--mid {
+  inset: 5%;
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.cap-capsule__pulse {
+  position: absolute;
+  inset: 8%;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  animation: cap-pulse 4.5s ease-out infinite;
+}
+
+.cap-capsule__pulse--delay {
+  animation-delay: 2.2s;
+}
+
+.cap-capsule__hatch {
+  position: relative;
+  width: 78%;
+  height: 78%;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background:
+    radial-gradient(circle at 50% 30%, rgba(58, 76, 106, 0.9) 0%, rgba(10, 13, 18, 0.96) 54%, #04060a 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 0 40px rgba(120, 160, 230, 0.16),
+    inset 0 -24px 60px rgba(0, 0, 0, 0.75),
+    0 0 60px -10px rgba(120, 160, 230, 0.22),
+    0 40px 120px -40px rgba(0, 0, 0, 0.9);
+  overflow: hidden;
+}
+
+.cap-capsule__hatch::before {
+  content: "";
+  position: absolute;
+  inset: 12%;
+  border-radius: 9999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cap-capsule__hatch::after {
+  content: "";
+  position: absolute;
+  top: 12%;
+  bottom: 12%;
+  left: 50%;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(255, 255, 255, 0.18) 25%,
+    rgba(255, 255, 255, 0.18) 75%,
+    transparent
+  );
+}
+
+.cap-capsule__dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(158, 193, 255, 0.35) 0.8px, transparent 0.9px);
+  background-size: 14px 14px;
+  -webkit-mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 72%);
+  mask-image: radial-gradient(circle at 50% 50%, #000 20%, transparent 72%);
+  opacity: 0.5;
+}
+
+.cap-capsule__glow {
+  position: absolute;
+  inset: 14%;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 50% 50%, rgba(120, 160, 230, 0.25), transparent 68%);
+  animation: cap-breathe 6s ease-in-out infinite;
+}
+
+@keyframes cap-pulse {
+  0% { transform: scale(0.92); opacity: 0.55; }
+  70% { transform: scale(1.16); opacity: 0; }
+  100% { transform: scale(1.16); opacity: 0; }
+}
+
+@keyframes cap-breathe {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+}
+
+/* ── World stage HUD ────────────────────────────────────────────────────── */
+
+.cap-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.cap-hud__rule {
+  height: 1px;
+  background: var(--cap-line-soft);
+}
+
+.cap-metric {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--cap-line-soft);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--cap-ink-40);
+}
+
+.cap-metric strong {
+  font-weight: 400;
+  color: var(--cap-ink);
+  letter-spacing: 0.1em;
+}
+
+.cap-live-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: #7ee0a8;
+  box-shadow: 0 0 8px rgba(126, 224, 168, 0.8);
+  animation: cap-breathe 3s ease-in-out infinite;
+}
+
+.cap-close {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--cap-line);
+  border-radius: 2px;
+  background: rgba(5, 7, 10, 0.55);
+  backdrop-filter: blur(6px);
+  color: var(--cap-ink-72);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.5625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transition: color 200ms ease, border-color 200ms ease;
+}
+
+.cap-close:hover {
+  color: var(--cap-ink);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.cap-scroll-cue {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.5625rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--cap-ink-40);
+}
+
+.cap-scroll-cue svg {
+  animation: cap-cue 2.4s ease-in-out infinite;
+}
+
+@keyframes cap-cue {
+  0%, 100% { transform: translateY(-2px); opacity: 0.5; }
+  50% { transform: translateY(3px); opacity: 1; }
+}
+
+/* ── Content sections ───────────────────────────────────────────────────── */
+
+.cap-section {
+  position: relative;
+  border-top: 1px solid var(--cap-line-soft);
+  padding: 5.5rem 0;
+}
+
+@media (min-width: 768px) {
+  .cap-section { padding: 8rem 0; }
+}
+
+.cap-shell {
+  width: 100%;
+  max-width: 1240px;
+  margin-inline: auto;
+  padding-inline: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .cap-shell { padding-inline: 2.5rem; }
+}
+
+.cap-index {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.24em;
+  color: var(--cap-ink-24);
+}
+
+.cap-row {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.6rem 0;
+  border-top: 1px solid var(--cap-line-soft);
+  transition: background-color 250ms ease, padding-left 250ms ease;
+}
+
+.cap-row:hover {
+  background: rgba(255, 255, 255, 0.018);
+  padding-left: 0.5rem;
+}
+
+.cap-column {
+  border: 1px solid var(--cap-line);
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.012);
+}
+
+.cap-column--featured {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.03);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
+}
+
+.cap-divider {
+  height: 1px;
+  background: var(--cap-line-soft);
+}
+
+/* ── Navbar / footer variants ───────────────────────────────────────────── */
+
+.cap-nav-link {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cap-ink-55);
+  transition: color 200ms ease;
+}
+
+.cap-nav-link:hover,
+.cap-nav-link[data-active="true"] {
+  color: var(--cap-ink);
+}
+
+.cap-footer-heading {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.5625rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--cap-ink-24);
+}
+
+.cap-footer-link {
+  font-size: 0.8125rem;
+  color: var(--cap-ink-55);
+  transition: color 200ms ease;
+}
+
+.cap-footer-link:hover {
+  color: var(--cap-ink);
+}
+
+/* ── Motion preferences ─────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .cap-capsule,
+  .cap-capsule__pulse,
+  .cap-capsule__glow,
+  .cap-live-dot,
+  .cap-scroll-cue svg {
+    animation: none !important;
+    transition: none !important;
+  }
+}

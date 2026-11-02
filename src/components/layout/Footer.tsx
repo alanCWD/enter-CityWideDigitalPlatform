@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { MapPin, Mail, Phone, Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
 import { LogoOnDark } from "@/components/branding/Logo";
+import { cn } from "@/lib/utils";
 
 const footerLinks = {
   Products: [
@@ -24,34 +25,55 @@ const footerLinks = {
   ],
 };
 
-export default function Footer() {
+interface FooterProps {
+  /** "capsule" is used only by the landing page's HUD theme. */
+  variant?: "default" | "capsule";
+}
+
+export default function Footer({ variant = "default" }: FooterProps) {
+  const capsule = variant === "capsule";
+  const linkClass = capsule ? "cap-footer-link" : "text-sm text-[rgba(238,241,250,0.55)] hover:text-[#0078D7] transition-colors";
+  const headingClass = capsule
+    ? "cap-footer-heading mb-4"
+    : "text-[#EEF1FA] font-semibold text-sm mb-4 uppercase tracking-wider";
+
   return (
-    <footer className="bg-[#0A1120] border-t border-white/10">
-      <div className="max-w-[1200px] mx-auto px-6 py-16">
+    <footer className={cn("border-t", capsule ? "bg-[#05070a] border-white/10" : "bg-[#0A1120] border-white/10")}>
+      <div className={cn("mx-auto px-6", capsule ? "max-w-[1400px] py-16 md:py-20" : "max-w-[1200px] py-16")}>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-12">
           {/* Brand Column */}
           <div className="lg:col-span-2">
             <Link to="/" className="flex items-center mb-4" aria-label="CityWide Digital — home">
-              <LogoOnDark size="md" />
+              <LogoOnDark size={capsule ? "sm" : "md"} />
             </Link>
-            <p className="text-[rgba(238,241,250,0.6)] text-sm leading-relaxed mb-6 max-w-xs">
-              Managed digital presence for local businesses. Connect your Google Business Profile 
+            <p
+              className={cn(
+                "text-sm leading-relaxed mb-6 max-w-xs",
+                capsule ? "text-[var(--cap-ink-55)] font-light" : "text-[rgba(238,241,250,0.6)]",
+              )}
+            >
+              Managed digital presence for local businesses. Connect your Google Business Profile
               to everything — automatically.
             </p>
-            <div className="flex flex-col gap-2 text-sm text-[rgba(238,241,250,0.5)]">
+            <div
+              className={cn(
+                "flex flex-col gap-2 text-sm",
+                capsule ? "text-[var(--cap-ink-55)]" : "text-[rgba(238,241,250,0.5)]",
+              )}
+            >
               <div className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-[#0078D7]" />
+                <MapPin className={cn("w-3.5 h-3.5", capsule ? "text-[var(--cap-accent)]" : "text-[#0078D7]")} />
                 <span>Serving businesses nationwide</span>
               </div>
               <div className="flex items-center gap-2">
-                <Mail className="w-3.5 h-3.5 text-[#0078D7]" />
-                <a href="mailto:alan@citywidedigital.ca" className="hover:text-[#EEF1FA] transition-colors">
+                <Mail className={cn("w-3.5 h-3.5", capsule ? "text-[var(--cap-accent)]" : "text-[#0078D7]")} />
+                <a href="mailto:alan@citywidedigital.ca" className="hover:text-[var(--cap-ink)] transition-colors">
                   alan@citywidedigital.ca
                 </a>
               </div>
               <div className="flex items-center gap-2">
-                <Phone className="w-3.5 h-3.5 text-[#0078D7]" />
-                <a href="tel:+12508827378" className="hover:text-[#EEF1FA] transition-colors">
+                <Phone className={cn("w-3.5 h-3.5", capsule ? "text-[var(--cap-accent)]" : "text-[#0078D7]")} />
+                <a href="tel:+12508827378" className="hover:text-[var(--cap-ink)] transition-colors">
                   250-882-7378
                 </a>
               </div>
@@ -61,9 +83,7 @@ export default function Footer() {
           {/* Link Columns */}
           {Object.entries(footerLinks).map(([group, links]) => (
             <div key={group}>
-              <h4 className="text-[#EEF1FA] font-semibold text-sm mb-4 uppercase tracking-wider">
-                {group}
-              </h4>
+              <h4 className={headingClass}>{group}</h4>
               <ul className="flex flex-col gap-2.5">
                 {links.map((link) => (
                   <li key={link.label}>
@@ -72,15 +92,12 @@ export default function Footer() {
                         href={link.href}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-[rgba(238,241,250,0.55)] hover:text-[#0078D7] transition-colors"
+                        className={linkClass}
                       >
                         {link.label}
                       </a>
                     ) : (
-                      <Link
-                        to={link.href}
-                        className="text-sm text-[rgba(238,241,250,0.55)] hover:text-[#0078D7] transition-colors"
-                      >
+                      <Link to={link.href} className={linkClass}>
                         {link.label}
                       </Link>
                     )}
@@ -93,12 +110,26 @@ export default function Footer() {
 
         {/* Bottom Bar */}
         <div className="border-t border-white/10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-[rgba(238,241,250,0.4)]">
+          <p className={cn(capsule ? "cap-mono text-[0.5625rem] text-[var(--cap-ink-24)]" : "text-xs text-[rgba(238,241,250,0.4)]")}>
             &copy; {new Date().getFullYear()} CityWide Digital. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
-            <Link to="/privacy" className="text-xs text-[rgba(238,241,250,0.4)] hover:text-[#0078D7] transition-colors">Privacy Policy</Link>
-            <Link to="/terms" className="text-xs text-[rgba(238,241,250,0.4)] hover:text-[#0078D7] transition-colors">Terms of Service</Link>
+            <Link
+              to="/privacy"
+              className={cn(
+                capsule ? "cap-footer-link text-xs" : "text-xs text-[rgba(238,241,250,0.4)] hover:text-[#0078D7] transition-colors",
+              )}
+            >
+              Privacy Policy
+            </Link>
+            <Link
+              to="/terms"
+              className={cn(
+                capsule ? "cap-footer-link text-xs" : "text-xs text-[rgba(238,241,250,0.4)] hover:text-[#0078D7] transition-colors",
+              )}
+            >
+              Terms of Service
+            </Link>
             {[
               { icon: Facebook, href: "https://facebook.com" },
               { icon: Instagram, href: "https://instagram.com" },
@@ -110,7 +141,12 @@ export default function Footer() {
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-8 h-8 rounded-lg border border-white/10 flex items-center justify-center text-[rgba(238,241,250,0.5)] hover:text-[#0078D7] hover:border-[#0078D7]/40 transition-all"
+                className={cn(
+                  "w-8 h-8 border flex items-center justify-center transition-colors",
+                  capsule
+                    ? "rounded-full border-white/10 text-[var(--cap-ink-40)] hover:text-[var(--cap-ink)] hover:border-white/30"
+                    : "rounded-lg border-white/10 text-[rgba(238,241,250,0.5)] hover:text-[#0078D7] hover:border-[#0078D7]/40",
+                )}
               >
                 <Icon className="w-3.5 h-3.5" />
               </a>

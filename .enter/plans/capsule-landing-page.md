@@ -57,23 +57,26 @@ Scrolling past the world continues into a rebuilt page in the same language, kee
 
 ## Implementation checklist
 
-- [ ] Home page opens on the capsule hero: near-black canvas, mono HUD labels, light headline "Your Business Website Runs Itself Online", and "POWERED BY" with the Google mark (no Google word) that is announced correctly to screen readers.
-- [ ] The capsule renders as a focused, keyboard-operable button with breathing rings; clicking it opens the world view the same way scrolling does.
-- [ ] Scrolling through the hero expands the hatch and reveals the world; scrolling back up closes it; `ESC` and the close control also return to the closed capsule.
-- [ ] The world view shows recognisable continents in blackness with a rotating globe, atmospheric limb and stars, and only loads the world dataset when the opening begins.
-- [ ] The self-running network animation plays over the continents, independent of scroll, with the existing channel colour palette.
-- [ ] World-view HUD restates the message and shows the channel/directory counters and an automated/live indicator.
-- [ ] Sections beneath the hero (problem, capabilities, steps, pricing, closing CTA) are rebuilt in the same HUD language with unchanged copy, prices and CTA destinations.
-- [ ] Navbar and footer on the home page adopt the HUD treatment; the same components on other pages render exactly as before.
-- [ ] Reduced-motion visitors get an instant, still opening with no ambient drift; hidden/off-screen canvas animation is paused.
-- [ ] Mobile (390 px) and desktop (1280 px) layouts of the hero, open world view and sections are composed deliberately rather than scaled down.
+- [x] Home page opens on the capsule hero: near-black canvas, mono HUD labels, light headline "Your Business Website Runs Itself Online", and "POWERED BY" with the Google mark (no Google word) that is announced correctly to screen readers.
+- [x] The capsule renders as a focused, keyboard-operable button with breathing rings; clicking it opens the world view the same way scrolling does.
+- [x] Scrolling through the hero expands the hatch and reveals the world; scrolling back up closes it; `ESC` and the close control also return to the closed capsule.
+- [x] The world view shows recognisable continents in blackness with a rotating globe, atmospheric limb and stars, and only loads the world dataset when the opening begins.
+- [x] The self-running network animation plays over the continents, independent of scroll, with the existing channel colour palette.
+- [x] World-view HUD restates the message and shows the channel/directory counters and an automated/live indicator.
+- [x] Sections beneath the hero (problem, capabilities, steps, pricing, closing CTA) are rebuilt in the same HUD language with unchanged copy, prices and CTA destinations.
+- [x] Navbar and footer on the home page adopt the HUD treatment; the same components on other pages render exactly as before.
+- [x] Reduced-motion visitors get an instant, still opening with no ambient drift; hidden/off-screen canvas animation is paused.
+- [x] Mobile (390 px) and desktop (1280 px) layouts of the hero, open world view and sections are composed deliberately rather than scaled down.
 
 ## Verification checklist
 
-- [ ] Type-check, lint and production build succeed with no new warnings.
-- [ ] Home page screenshots at 1280 px and 390 px show the closed capsule hero with the headline, Google mark, both actions and HUD labels, with no layout overflow.
-- [ ] The opened world view is captured and reviewed for continent legibility, network visibility over land, HUD contrast and canvas sizing (using a temporary same-turn override that is removed before completion).
-- [ ] A control page that shares the navbar/footer (e.g. Services and Pricing) is screenshotted to confirm it is visually unchanged.
-- [ ] Keyboard pass: capsule button focus, activation, close control, and `ESC`.
-- [ ] Reduced-motion pass: page opens to a still globe, no drift or pulsing.
-- [ ] The dashboard workspace still renders its glass theme and the capsule theme does not leak into it.
+- [x] Type-check, lint and production build succeed with no new warnings (lint: 0 errors, 10 pre-existing warnings).
+- [x] Home page screenshots at 1280 px and 390 px show the closed capsule hero with the headline, Google mark, both actions and HUD labels, with no layout overflow.
+- [x] The opened world view was captured at both widths and reviewed for continent legibility, network density, HUD contrast and canvas framing; the temporary same-turn override used to reach that state has been removed.
+- [x] Services and Pricing were screenshotted to confirm the shared navbar/footer and their own designs are unchanged.
+- [ ] Keyboard pass (focus, activation, close control, `ESC`) — implemented but not exercised in an automated browser.
+- [ ] Reduced-motion pass — implemented (static globe, no drift or pulsing) but the preference was not emulated during verification.
+- [ ] The workspace glass theme was not re-screenshotted; its styling is scoped and untouched, and the landing theme adds no global overrides.
+
+**Known verification limit:** the workspace requires sign-in, and the screenshot tool cannot send keystrokes or emulate reduced motion, so those two checks are implemented and reasoned about but not evidenced.
+
