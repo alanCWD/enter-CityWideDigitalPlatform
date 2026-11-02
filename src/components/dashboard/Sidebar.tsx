@@ -61,29 +61,45 @@ function SidebarContent({ onNav }: { onNav: () => void }) {
 
       {/* Nav Items — agency-specific */}
       <nav className="flex-1 p-3 space-y-0.5">
-        {agency.navItems.map((item) => (
-          <NavLink
-            key={item.path + item.name}
-            to={item.path}
-            onClick={onNav}
-            end={item.end ?? false}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 w-full font-medium",
-                isActive
-                  ? "bg-primary/15 text-foreground font-semibold border border-primary/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
-                  : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/50")} />
-                {item.name}
-              </>
-            )}
-          </NavLink>
-        ))}
+        {agency.navItems.map((item) =>
+          item.external ? (
+            /* External app (e.g. Review Engine) — opens in a new tab */
+            <a
+              key={item.path + item.name}
+              href={item.path}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onNav}
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 w-full font-medium text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group"
+            >
+              <item.icon className="w-4 h-4 flex-shrink-0 text-sidebar-foreground/50 group-hover:text-primary" />
+              <span className="flex-1">{item.name}</span>
+              <ExternalLink className="w-3 h-3 text-sidebar-foreground/30 group-hover:text-sidebar-foreground/60" />
+            </a>
+          ) : (
+            <NavLink
+              key={item.path + item.name}
+              to={item.path}
+              onClick={onNav}
+              end={item.end ?? false}
+              className={({ isActive }) =>
+                cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 w-full font-medium",
+                  isActive
+                    ? "bg-primary/15 text-foreground font-semibold border border-primary/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.12)]"
+                    : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive ? "text-primary" : "text-sidebar-foreground/50")} />
+                  {item.name}
+                </>
+              )}
+            </NavLink>
+          ),
+        )}
 
         {/* External link: Community Forum */}
         <a

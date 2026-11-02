@@ -14,6 +14,7 @@ import {
   UserCircle,
   Inbox,
   Star,
+  Sparkles,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -22,6 +23,8 @@ export interface AgencyNavItem {
   path: string;
   icon: LucideIcon;
   end?: boolean;
+  /** True when `path` is an absolute URL to a separate app (opens in a new tab). */
+  external?: boolean;
 }
 
 export interface Agency {
@@ -51,6 +54,18 @@ const crmNav: AgencyNavItem[] = [
   { name: "Invoices",          path: "/dashboard/crm/invoices", icon: FileText        },
 ];
 
+/**
+ * Review Engine is a standalone app (separate Enter project) published at this
+ * domain. It is surfaced in the sidebar as an external link so it opens in a
+ * new tab instead of being routed inside this app.
+ */
+const reviewEngineNav: AgencyNavItem = {
+  name: "Review Engine",
+  path: "https://review-engine.citywidedigital.ca",
+  icon: Sparkles,
+  external: true,
+};
+
 // ── Agency definitions ───────────────────────────────────────────────────────
 export const AGENCIES: Agency[] = [
   {
@@ -69,6 +84,7 @@ export const AGENCIES: Agency[] = [
       { name: "Social",           path: "/dashboard/social/calendar", icon: Share2   },
       { name: "Inbox",            path: "/dashboard/inbox",            icon: Inbox    },
       { name: "Review Requests",  path: "/dashboard/reviews",          icon: Star     },
+      reviewEngineNav,
       ...crmNav,
     ],
   },
@@ -85,6 +101,7 @@ export const AGENCIES: Agency[] = [
       { name: "Leads & Alerts",  path: "/leads",      icon: Bell                 },
       { name: "Social",          path: "/dashboard/social/calendar", icon: Share2 },
       { name: "Inbox",           path: "/dashboard/inbox",            icon: Inbox  },
+      reviewEngineNav,
       ...crmNav,
     ],
   },
@@ -102,6 +119,7 @@ export const AGENCIES: Agency[] = [
       { name: "Leads & Alerts",   path: "/leads",      icon: Bell                 },
       { name: "Social",           path: "/dashboard/social/calendar", icon: Share2 },
       { name: "Inbox",            path: "/dashboard/inbox",            icon: Inbox  },
+      reviewEngineNav,
       ...crmNav,
     ],
   },
@@ -128,6 +146,7 @@ export const AGENCIES: Agency[] = [
       { name: "Analytics",       path: "/analytics",  icon: BarChart3            },
       { name: "Social",          path: "/dashboard/social/calendar", icon: Share2 },
       { name: "Inbox",           path: "/dashboard/inbox",            icon: Inbox  },
+      reviewEngineNav,
       ...crmNav,
     ],
   },
