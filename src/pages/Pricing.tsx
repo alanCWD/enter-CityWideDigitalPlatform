@@ -22,7 +22,7 @@ const tiers = [
       "Niche-specific template",
       "Auto-updating content",
       "Custom domain support",
-      "Social Sync — GBP + 1 platform",
+      "Social Sync — GBP + 2 platforms",
       "Post scheduling",
       "Basic SEO",
       "Email support",
@@ -55,7 +55,7 @@ const tiers = [
     cta: "Start Free Trial",
     features: [
       "Everything in Growth",
-      "Social Sync — up to 5 platforms, choose from 15",
+      "Social Sync — up to 10 platforms, choose from 15",
       "Review Engine",
       "AI chatbot intake",
       "3 Site Concierge credits/mo",
@@ -89,7 +89,7 @@ const features: Feature[] = [
     category: "Social Sync Pro",
     items: [
       { name: "Auto-publish to social", starter: true, growth: true, pro: true },
-      { name: "Platforms supported", starter: "2 (GBP + 1)", growth: "3 (GBP + 3)", pro: "Up to 5" },
+      { name: "Platforms supported", starter: "3 (GBP + 2)", growth: "4 (GBP + 3)", pro: "Up to 10" },
       { name: "Choose from 15 platforms", starter: false, growth: false, pro: true },
       { name: "Post scheduling", starter: true, growth: true, pro: true },
       { name: "Extra platforms", starter: false, growth: false, pro: "+ add-on" },
