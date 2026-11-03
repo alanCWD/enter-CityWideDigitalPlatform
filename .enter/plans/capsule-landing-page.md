@@ -80,3 +80,6 @@ Scrolling past the world continues into a rebuilt page in the same language, kee
 
 **Known verification limit:** the workspace requires sign-in, and the screenshot tool cannot send keystrokes or emulate reduced motion, so those two checks are implemented and reasoned about but not evidenced.
 
+**Sequence update (full simulation):** the hero now plays the complete sequence from the demo: sealed hatch → hatch doors swinging open → travelling through the lit cabin ribs → out into orbit over the self-running network, driven by scroll, the hatch itself, "Run the capsule", or the arrow keys, with a stage read-out (01 Hatch / 02 Cabin / 03 Orbit) and a progress rail. Verified by screenshot at 1280 px in the sealed, hatch-open, mid-traverse and orbit states, and at 390 px in the sealed state; the mobile orbit state was verified before the hatch was resized for small screens.
+
+
