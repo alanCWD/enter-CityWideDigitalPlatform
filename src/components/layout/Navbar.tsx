@@ -107,7 +107,7 @@ export default function Navbar({ variant = "default" }: NavbarProps) {
                 >
                   Book a demo
                 </a>
-                <Link to="/pricing" className="cap-btn-nav">
+                <Link to="/pricing#start-trial" className="cap-btn-nav">
                   Start Trial
                 </Link>
               </>
@@ -123,7 +123,7 @@ export default function Navbar({ variant = "default" }: NavbarProps) {
                   </a>
                 </Button>
                 <Button variant="on-dark" size="sm" asChild>
-                  <Link to="/pricing">Get Started</Link>
+                  <Link to="/pricing#start-trial">Get Started</Link>
                 </Button>
               </>
             )}
@@ -203,7 +203,7 @@ export default function Navbar({ variant = "default" }: NavbarProps) {
                 >
                   Book a demo
                 </a>
-                <Link to="/pricing" className="cap-btn-nav w-full">
+                <Link to="/pricing#start-trial" className="cap-btn-nav w-full">
                   Start Trial
                 </Link>
               </>
@@ -219,7 +219,7 @@ export default function Navbar({ variant = "default" }: NavbarProps) {
                   </a>
                 </Button>
                 <Button variant="on-dark" asChild>
-                  <Link to="/pricing">Get Started Free</Link>
+                  <Link to="/pricing#start-trial">Get Started Free</Link>
                 </Button>
               </>
             )}

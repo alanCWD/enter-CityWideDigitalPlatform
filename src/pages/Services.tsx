@@ -130,7 +130,7 @@ export default function Services() {
 
                 <div className="flex gap-3">
                   <Button asChild>
-                    <Link to="/pricing">Start Free Trial <ArrowRight className="w-4 h-4" /></Link>
+                    <Link to="/pricing#start-trial">Start Free Trial <ArrowRight className="w-4 h-4" /></Link>
                   </Button>
                   <Button variant="outline" asChild>
                     <Link to="/contact">Talk to Sales</Link>

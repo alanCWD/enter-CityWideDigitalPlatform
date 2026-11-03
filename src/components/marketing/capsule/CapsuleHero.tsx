@@ -238,7 +238,7 @@ export function CapsuleHero() {
               channels and every major directory — automatically.
             </p>
             <div className="cap-actions">
-              <Link to="/pricing" className="cap-btn">
+              <Link to="/pricing#start-trial" className="cap-btn">
                 Start the trial
               </Link>
               <button type="button" onClick={() => scrollToProgress(0.62)} className="cap-btn-ghost">

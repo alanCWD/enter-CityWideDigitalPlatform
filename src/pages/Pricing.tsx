@@ -1,12 +1,12 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 import { CheckCircle, Minus, Check } from "lucide-react";
 import Layout from "@/components/layout/Layout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import CTABanner from "@/components/marketing/CTABanner";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
+import { TrialIntake } from "@/components/marketing/TrialIntake";
 
 const tiers = [
   {
@@ -131,7 +131,7 @@ const features: Feature[] = [
 const faqs = [
   {
     q: "Is there really no credit card required for the free trial?",
-    a: "Correct. You can start your 30-day free trial with just your email address and Google Business Profile. We only ask for payment information when you decide to continue after the trial.",
+    a: "Correct. You start with your customer and billing details — no card. Your trial runs 30 days, then you pay by credit card through Stripe or by Direct Deposit. Nothing is charged until your payment method is confirmed with our team.",
   },
   {
     q: "How long does setup take?",
@@ -170,32 +170,26 @@ function FeatureValue({ value }: { value: boolean | string }) {
 }
 
 export default function Pricing() {
-  const [loading, setLoading] = useState<string | null>(null);
+  const [params] = useSearchParams();
+  const location = useLocation();
+  const requestedPlan = params.get("plan");
+  const [plan, setPlan] = useState<string>(
+    tiers.some((t) => t.planKey === requestedPlan) ? (requestedPlan as string) : tiers[0].planKey,
+  );
 
-  async function handleCheckout(planKey: string) {
-    setLoading(planKey);
-    try {
-      const origin = window.location.origin;
-      const { data, error } = await supabase.functions.invoke("pricing-checkout", {
-        body: {
-          plan: planKey,
-          success_url: `${origin}/dashboard?trial=started`,
-          cancel_url: `${origin}/pricing`,
-        },
-      });
-      if (error) throw error;
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error("No checkout URL returned");
-      }
-    } catch (err) {
-      console.error(err);
-      toast.error("Could not start checkout. Please try again or contact us.");
-    } finally {
-      setLoading(null);
-    }
-  }
+  useEffect(() => {
+    if (location.hash !== "#start-trial") return;
+    const timer = window.setTimeout(() => {
+      document.getElementById("start-trial")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [location.hash, location.key]);
+
+  const startTrial = (planKey: string) => {
+    setPlan(planKey);
+    document.getElementById("start-trial")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   return (
     <Layout>
       {/* Hero — extends behind the fixed navbar like the home hero */}
@@ -251,19 +245,21 @@ export default function Pricing() {
                 <Button
                   variant={tier.featured ? "on-dark" : "outline"}
                   className="w-full"
-                  disabled={loading === tier.planKey}
-                  onClick={() => handleCheckout(tier.planKey)}
+                  onClick={() => startTrial(tier.planKey)}
                 >
-                  {loading === tier.planKey ? "Starting…" : tier.cta}
+                  {tier.cta}
                 </Button>
                 <p className={`text-center text-xs mt-3 ${tier.featured ? "text-[rgba(238,241,250,0.4)]" : "text-muted-foreground/60"}`}>
-                  30-day free trial · No credit card required up front
+                  30-day free trial · No credit card required
                 </p>
               </div>
             ))}
           </div>
         </div>
       </section>
+
+      {/* Free Trial intake */}
+      <TrialIntake plans={tiers} plan={plan} onPlanChange={setPlan} />
 
       {/* Feature Comparison Table */}
       <section className="pb-20 bg-background">

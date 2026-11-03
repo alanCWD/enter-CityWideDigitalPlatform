@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 const tiers = [
   {
     name: "Starter",
+    planKey: "starter",
     price: "$197",
     period: "/mo",
     tagline: "Perfect for getting found online",
@@ -17,6 +18,7 @@ const tiers = [
   },
   {
     name: "Growth",
+    planKey: "growth",
     price: "$397",
     period: "/mo",
     tagline: "Most popular — everything you need",
@@ -31,6 +33,7 @@ const tiers = [
   },
   {
     name: "Pro",
+    planKey: "pro",
     price: "$597",
     period: "/mo",
     tagline: "Maximum presence, zero effort",
@@ -97,7 +100,7 @@ export function CapsulePricing() {
                   </ul>
 
                   <Link
-                    to="/pricing"
+                    to={`/pricing?plan=${tier.planKey}#start-trial`}
                     className={`mt-8 ${tier.featured ? "cap-btn w-full" : "cap-btn-ghost w-full"}`}
                   >
                     Start free trial

@@ -24,7 +24,7 @@ export default function CTABanner() {
             className="bg-white text-[#00447A] hover:bg-[#F0F5FF] shadow-[0_4px_20px_rgba(0,0,0,0.2)] font-bold"
             asChild
           >
-            <Link to="/pricing">
+            <Link to="/pricing#start-trial">
               Start Free Trial
               <ArrowRight className="w-5 h-5" />
             </Link>

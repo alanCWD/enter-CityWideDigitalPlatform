@@ -27,7 +27,7 @@ export function CapsuleCTA() {
           </p>
 
           <div className="mt-10 flex flex-wrap items-center gap-3">
-            <Link to="/pricing" className="cap-btn">
+            <Link to="/pricing#start-trial" className="cap-btn">
               Start free trial
             </Link>
             <a

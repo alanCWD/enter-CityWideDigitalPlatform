@@ -15,9 +15,9 @@ const json = (body: unknown, status = 200) =>
   });
 
 const PLANS = {
-  starter: { name: "CityWide Digital — Starter", amount: 9700, description: "Get found online — fast" },
-  growth:  { name: "CityWide Digital — Growth",  amount: 19700, description: "Everything you need to compete" },
-  pro:     { name: "CityWide Digital — Pro",     amount: 29700, description: "Maximum presence, zero effort" },
+  starter: { name: "CityWide Digital — Starter", amount: 19700, description: "Get found online — fast" },
+  growth:  { name: "CityWide Digital — Growth",  amount: 39700, description: "Everything you need to compete" },
+  pro:     { name: "CityWide Digital — Pro",     amount: 59700, description: "Maximum presence, zero effort" },
 } as const;
 
 type PlanKey = keyof typeof PLANS;
@@ -35,9 +35,11 @@ async function getOrCreatePriceId(stripe: Stripe, planKey: PlanKey): Promise<str
 
   if (existing.data.length > 0) {
     productId = existing.data[0].id;
-    // Find active monthly recurring price
-    const prices = await stripe.prices.list({ product: productId, active: true, limit: 20 });
-    const monthly = prices.data.find((p) => p.recurring?.interval === "month");
+    // Reuse only a monthly price that matches the current plan amount.
+    const prices = await stripe.prices.list({ product: productId, active: true, limit: 100 });
+    const monthly = prices.data.find(
+      (p) => p.recurring?.interval === "month" && p.unit_amount === plan.amount && p.currency === "cad",
+    );
     if (monthly) return monthly.id;
   } else {
     const product = await stripe.products.create({
