@@ -8,7 +8,7 @@ const products = [
     icon: Globe,
     name: "Smart Website Builder",
     tagline: "A living website that updates itself",
-    price: "from $97/mo",
+    price: "from $197/mo",
     badge: "Most Popular",
     featured: true,
     description: "GMB-integrated, niche-specific, SEO-ready website that updates automatically when your Google profile changes.",

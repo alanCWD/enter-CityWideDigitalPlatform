@@ -12,7 +12,7 @@ const tiers = [
   {
     name: "Starter",
     planKey: "starter",
-    price: "$97",
+    price: "$197",
     period: "/mo",
     tagline: "Get found online — fast",
     featured: false,
@@ -30,7 +30,7 @@ const tiers = [
   {
     name: "Growth",
     planKey: "growth",
-    price: "$197",
+    price: "$397",
     period: "/mo",
     tagline: "Everything you need to compete",
     featured: true,
@@ -47,7 +47,7 @@ const tiers = [
   {
     name: "Pro",
     planKey: "pro",
-    price: "$297",
+    price: "$597",
     period: "/mo",
     tagline: "Maximum presence, zero effort",
     featured: false,

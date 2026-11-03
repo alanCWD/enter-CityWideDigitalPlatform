@@ -9,7 +9,7 @@ const services = [
     id: "website-builder",
     icon: Globe,
     name: "Smart Website Builder",
-    price: "from $97/mo",
+    price: "from $197/mo",
     tagline: "A living website that keeps itself updated",
     description: "Most business websites go stale within weeks of launch. CityWide's Smart Website Builder solves that permanently. Your site is directly connected to your Google Business Profile — every menu change, new post, updated hour, or added product automatically reflects on your website within minutes.",
     features: [

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 const tiers = [
   {
     name: "Starter",
-    price: "$97",
+    price: "$197",
     period: "/mo",
     tagline: "Perfect for getting found online",
     featured: false,
@@ -17,7 +17,7 @@ const tiers = [
   },
   {
     name: "Growth",
-    price: "$197",
+    price: "$397",
     period: "/mo",
     tagline: "Most popular — everything you need",
     featured: true,
@@ -31,7 +31,7 @@ const tiers = [
   },
   {
     name: "Pro",
-    price: "$297",
+    price: "$597",
     period: "/mo",
     tagline: "Maximum presence, zero effort",
     featured: false,
