@@ -16,7 +16,7 @@ const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
 const range = (v: number, a: number, b: number) => clamp01((v - a) / (b - a));
 const smooth = (t: number) => t * t * (3 - 2 * t);
 
-const STAGES = ["01 · Hatch", "02 · Cabin", "03 · Orbit"];
+const STAGES = ["01 · Hatch", "02 · Cabin", "03 · Window", "04 · Orbit"];
 
 export function CapsuleHero() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -35,7 +35,7 @@ export function CapsuleHero() {
     const section = sectionRef.current;
     if (!section) return 0;
     const vh = window.innerHeight;
-    return section.offsetTop + (section.offsetHeight - vh) * 0.9;
+    return section.offsetTop + (section.offsetHeight - vh) * 0.94;
   }, []);
 
   const openCapsule = useCallback(() => {
@@ -81,11 +81,13 @@ export function CapsuleHero() {
         scene.style.setProperty("--space-scale", String(1.12 - smooth(range(p, 0.2, 0.95)) * 0.12));
         scene.style.setProperty("--iris-opacity", String(Math.min(1, iris / 40) * (1 - smooth(range(p, 0.72, 0.92)))));
         scene.style.setProperty("--flare", String(0.35 * Math.sin(Math.PI * clamp01(range(p, 0.24, 0.62)))));
+        scene.style.setProperty("--chamber-scale", String(1 + smooth(range(p, 0.62, 0.9)) * 2.4));
+        scene.style.setProperty("--chamber-opacity", String(1 - smooth(range(p, 0.8, 0.95))));
       }
 
       const networkEl = networkRef.current;
       if (networkEl) {
-        const reveal = smooth(range(p, 0.78, 0.95));
+        const reveal = smooth(range(p, 0.87, 0.99));
         networkEl.style.opacity = String(reveal * 0.82);
       }
 
@@ -109,14 +111,14 @@ export function CapsuleHero() {
         setNetworkMounted(true);
       }
 
-      const nextStage = p < 0.15 ? 0 : p < 0.7 ? 1 : 2;
+      const nextStage = p < 0.15 ? 0 : p < 0.6 ? 1 : p < 0.84 ? 2 : 3;
       if (nextStage !== lastStage) {
         lastStage = nextStage;
         setStage(nextStage);
         setAnnouncement(STAGES[nextStage]);
       }
 
-      const nowOpen = p > 0.8;
+      const nowOpen = p > 0.86;
       if (nowOpen !== lastOpen) {
         lastOpen = nowOpen;
         setOpen(nowOpen);
@@ -169,6 +171,10 @@ export function CapsuleHero() {
             className="cap-scene__space"
             draggable={false}
           />
+          <div className="cap-scene__chamber" aria-hidden="true">
+            <div className="cap-scene__window" />
+          </div>
+
           <img
             src="/capsule/hatch-v3.webp"
             alt=""
@@ -243,7 +249,7 @@ export function CapsuleHero() {
           <div className="relative">
             {open && (
               <div className="absolute inset-x-0 bottom-[3.75rem] max-w-md">
-                <p className="cap-kicker mb-3">03 / Over the continents</p>
+                <p className="cap-kicker mb-3">04 / Over the continents</p>
                 <h2 className="text-2xl font-light tracking-tight text-[var(--cap-ink)] md:text-3xl">
                   Earth, live.
                 </h2>
