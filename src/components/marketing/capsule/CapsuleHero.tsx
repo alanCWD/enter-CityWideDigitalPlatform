@@ -71,16 +71,17 @@ export function CapsuleHero() {
 
       const scene = sceneRef.current;
       if (scene) {
-        const zoom = 1 + smooth(range(p, 0.03, 0.62)) * 0.42;
-        const fade = smooth(range(p, 0.7, 0.88));
+        const lights = smooth(range(p, 0.04, 0.24));
+        const doors = smooth(range(p, 0.18, 0.56));
+        const dolly = smooth(range(p, 0.56, 0.88));
 
-        scene.style.setProperty("--hatch-scale", String(zoom));
-        scene.style.setProperty("--hatch-opacity", String(1 - fade));
+        scene.style.setProperty("--lights", String(lights));
+        scene.style.setProperty("--door-open", String(doors));
+        scene.style.setProperty("--portal-scale", String(1 + dolly * 3.2));
+        scene.style.setProperty("--hatch-scale", String(1 + dolly * 0.22));
+        scene.style.setProperty("--hatch-opacity", String(1 - smooth(range(p, 0.6, 0.8))));
         scene.style.setProperty("--space-scale", String(1.12 - smooth(range(p, 0.2, 0.95)) * 0.12));
-        scene.style.setProperty("--gap", `${smooth(range(p, 0.08, 0.5)) * Math.min(vw, vh) * 0.16}px`);
-        scene.style.setProperty("--flare", String(0.35 * Math.sin(Math.PI * clamp01(range(p, 0.24, 0.62)))));
-        scene.style.setProperty("--chamber-scale", String(1 + smooth(range(p, 0.62, 0.9)) * 2.4));
-        scene.style.setProperty("--chamber-opacity", String(1 - smooth(range(p, 0.8, 0.95))));
+        scene.style.setProperty("--flare", String(0.22 * Math.sin(Math.PI * clamp01(range(p, 0.16, 0.55)))));
       }
 
       const networkEl = networkRef.current;
@@ -109,14 +110,14 @@ export function CapsuleHero() {
         setNetworkMounted(true);
       }
 
-      const nextStage = p < 0.15 ? 0 : p < 0.6 ? 1 : p < 0.84 ? 2 : 3;
+      const nextStage = p < 0.12 ? 0 : p < 0.55 ? 1 : p < 0.86 ? 2 : 3;
       if (nextStage !== lastStage) {
         lastStage = nextStage;
         setStage(nextStage);
         setAnnouncement(STAGES[nextStage]);
       }
 
-      const nowOpen = p > 0.86;
+      const nowOpen = p > 0.88;
       if (nowOpen !== lastOpen) {
         lastOpen = nowOpen;
         setOpen(nowOpen);
@@ -169,10 +170,6 @@ export function CapsuleHero() {
             className="cap-scene__space"
             draggable={false}
           />
-          <div className="cap-scene__chamber" aria-hidden="true">
-            <div className="cap-scene__window" />
-          </div>
-
           <img
             src="/capsule/hatch-v3.webp"
             alt=""
@@ -180,7 +177,16 @@ export function CapsuleHero() {
             className="cap-scene__hatch"
             draggable={false}
           />
-          <div className="cap-scene__gap" aria-hidden="true" />
+
+          {/* Circular hatch: rim lights, two door leaves, chamber beyond */}
+          <div className="cap-portal" aria-hidden="true">
+            <div className="cap-portal__room">
+              <div className="cap-portal__window" />
+            </div>
+            <div className="cap-door cap-door--l" />
+            <div className="cap-door cap-door--r" />
+            <div className="cap-ring" />
+          </div>
 
           <div className="cap-scene__flare" aria-hidden="true" />
 
