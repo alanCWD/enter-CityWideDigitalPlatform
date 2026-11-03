@@ -98,18 +98,25 @@ function Field({
   label,
   error,
   optional,
+  required = true,
   children,
 }: {
   id: string;
   label: string;
   error?: string;
   optional?: boolean;
+  required?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div>
       <Label htmlFor={id} className="text-xs font-semibold text-foreground">
-        {label} {optional ? <span className="text-muted-foreground font-normal">(optional)</span> : <span className="text-primary">*</span>}
+        {label}{" "}
+        {optional ? (
+          <span className="text-muted-foreground font-normal">(optional)</span>
+        ) : required ? (
+          <span className="text-primary">*</span>
+        ) : null}
       </Label>
       {children}
       {error && (
@@ -478,12 +485,16 @@ export function TrialIntake({
                     </Field>
                   </div>
                   <div className="sm:col-span-2">
-                    <Field id="website" label="Current website" optional>
+                    <Field
+                      id="website"
+                      label="Current website (enter your social media account if no website)"
+                      required={false}
+                    >
                       <Input
                         id="website"
                         value={form.website}
                         onChange={(e) => set("website", e.target.value)}
-                        placeholder="https://yourbusiness.com"
+                        placeholder="https://yourbusiness.com or @yourbusiness"
                         className="mt-1.5"
                       />
                     </Field>
