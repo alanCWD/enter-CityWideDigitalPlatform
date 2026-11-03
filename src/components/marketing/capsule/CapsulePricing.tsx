@@ -85,6 +85,7 @@ export function CapsulePricing() {
                       {tier.period}
                     </span>
                   </div>
+                  <p className="cap-mono mt-2 text-[0.5625rem] text-[var(--cap-ink-40)]">CAD · plus GST</p>
                   <p className="mt-3 text-sm font-light text-[var(--cap-ink-55)]">{tier.tagline}</p>
 
                   <ul className="mt-8 flex-1 space-y-3 border-t border-white/10 pt-6">

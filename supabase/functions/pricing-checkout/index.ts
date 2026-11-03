@@ -22,6 +22,35 @@ const PLANS = {
 
 type PlanKey = keyof typeof PLANS;
 
+// GST (5%, exclusive) is applied to every plan subscription, matching the
+// tax rate used for CRM subscriptions and invoices.
+const GST_PERCENT = 5;
+
+let cachedGstTaxRateId: string | null = null;
+async function ensureGstTaxRate(stripe: Stripe): Promise<string> {
+  if (cachedGstTaxRateId) return cachedGstTaxRateId;
+  const rates = await stripe.taxRates.list({ active: true, limit: 100 });
+  const existing = rates.data.find(
+    (r) => Math.abs(r.percentage - GST_PERCENT) < 0.01 && !r.inclusive &&
+      (r.country === "CA" || (r.display_name ?? "").toUpperCase().includes("GST")),
+  );
+  if (existing) {
+    cachedGstTaxRateId = existing.id;
+    return existing.id;
+  }
+  const created = await stripe.taxRates.create({
+    display_name: "GST",
+    description: "Canadian Goods and Services Tax",
+    jurisdiction: "CA",
+    percentage: GST_PERCENT,
+    inclusive: false,
+    country: "CA",
+    tax_type: "gst",
+  });
+  cachedGstTaxRateId = created.id;
+  return created.id;
+}
+
 async function getOrCreatePriceId(stripe: Stripe, planKey: PlanKey): Promise<string> {
   const plan = PLANS[planKey];
 
@@ -87,13 +116,23 @@ Deno.serve(async (req) => {
 
     const priceId = await getOrCreatePriceId(stripe, plan as PlanKey);
 
+    // Fail closed: a checkout that silently drops GST would under-bill.
+    const gstTaxRateId = await ensureGstTaxRate(stripe).catch((e) => {
+      console.error("pricing-checkout GST rate error:", e);
+      return null;
+    });
+    if (!gstTaxRateId) {
+      return json({ error: "GST could not be applied to this checkout. Please try again." }, 500);
+    }
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
-      line_items: [{ price: priceId, quantity: 1 }],
+      line_items: [{ price: priceId, quantity: 1, tax_rates: [gstTaxRateId] }],
       payment_method_collection: "if_required",
       subscription_data: {
         trial_period_days: 30,
         trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
+        default_tax_rates: [gstTaxRateId],
         metadata: { citywide_plan: plan },
       },
       success_url,

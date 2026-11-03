@@ -131,7 +131,7 @@ const features: Feature[] = [
 const faqs = [
   {
     q: "Is there really no credit card required for the free trial?",
-    a: "Correct. You start with your customer and billing details — no card. Your trial runs 30 days, then you pay by credit card through Stripe or by Direct Deposit. Nothing is charged until your payment method is confirmed with our team.",
+    a: "Correct. You start with your customer and billing details — no card. Your trial runs 30 days, then you pay the plan price plus GST, by credit card through Stripe or by Direct Deposit. Nothing is charged until your payment method is confirmed with our team.",
   },
   {
     q: "How long does setup take?",
@@ -226,10 +226,13 @@ export default function Pricing() {
                 <div className={`text-xs font-bold uppercase tracking-widest mb-2 ${tier.featured ? "text-primary" : "text-muted-foreground"}`}>
                   {tier.name}
                 </div>
-                <div className="flex items-baseline gap-1 mb-2">
+                <div className="flex items-baseline gap-1 mb-1">
                   <span className={`text-4xl font-extrabold ${tier.featured ? "text-[#EEF1FA]" : "text-foreground"}`}>{tier.price}</span>
                   <span className={`text-sm ${tier.featured ? "text-[rgba(238,241,250,0.6)]" : "text-muted-foreground"}`}>{tier.period}</span>
                 </div>
+                <p className={`text-[11px] mb-2 ${tier.featured ? "text-[rgba(238,241,250,0.5)]" : "text-muted-foreground/70"}`}>
+                  CAD · plus GST
+                </p>
                 <p className={`text-sm mb-5 ${tier.featured ? "text-[rgba(238,241,250,0.7)]" : "text-muted-foreground"}`}>{tier.tagline}</p>
 
                 {/* Feature list */}

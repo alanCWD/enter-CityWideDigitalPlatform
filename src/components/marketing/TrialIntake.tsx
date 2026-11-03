@@ -225,7 +225,7 @@ export function TrialIntake({
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-8">
               No credit card. We ask for your customer and billing details now so your account and first
-              invoice are ready the moment your trial ends.
+              invoice are ready the moment your trial ends. Plan prices are in CAD, plus GST.
             </p>
 
             <ul className="space-y-5 mb-8">
@@ -243,7 +243,7 @@ export function TrialIntake({
                 {
                   icon: Lock,
                   title: "Then Stripe or Direct Deposit",
-                  body: "After 30 days you pay by card through Stripe, or by Direct Deposit. Our team confirms your choice before the trial ends.",
+                  body: "After 30 days you pay the plan price plus GST, by card through Stripe or by Direct Deposit. Our team confirms your choice before the trial ends.",
                 },
               ].map(({ icon: Icon, title, body }) => (
                 <li key={title} className="flex gap-3.5">
@@ -325,7 +325,7 @@ export function TrialIntake({
                 <div className="rounded-xl border border-border bg-muted/40 p-4">
                   <p className="text-xs font-bold text-foreground mb-1">Payment after 30 days</p>
                   <p className="text-[13px] text-muted-foreground leading-relaxed">
-                    {successPlan ? `${successPlan.name} is ${successPlan.price}${successPlan.period}. ` : ""}
+                    {successPlan ? `${successPlan.name} is ${successPlan.price}${successPlan.period} plus GST. ` : ""}
                     You'll pay by credit card through Stripe, or by Direct Deposit. No card was collected today and
                     nothing is charged until the method is confirmed with you.
                   </p>
@@ -393,6 +393,7 @@ export function TrialIntake({
                         <span className="block text-lg font-extrabold text-foreground leading-tight mt-0.5">
                           {option.price}
                           <span className="text-[11px] font-medium text-muted-foreground">{option.period}</span>
+                          <span className="block text-[10px] font-medium text-muted-foreground/80 mt-0.5">+ GST</span>
                         </span>
                       </button>
                     );
