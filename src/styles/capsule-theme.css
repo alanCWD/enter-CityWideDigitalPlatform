@@ -72,7 +72,7 @@
   padding: 0.85rem 1.4rem;
   border: 1px solid rgba(255, 255, 255, 0.9);
   background: var(--cap-ink);
-  color: #06080c;
+  color: #06080c !important;
   border-radius: 2px;
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 0.625rem;
@@ -670,4 +670,222 @@
     animation: none !important;
     transition: none !important;
   }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DEMO-FAITHFUL CAPSULE JOURNEY (scroll-scrubbed transit video)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.capsule-page {
+  --cap-void: 210 50% 2%;
+  --cap-ink: 200 25% 96%;
+  --cap-dim: 205 15% 76%;
+  --cap-line: 205 20% 60%;
+  --cap-edge: clamp(1.5rem, 4vw, 4.5rem);
+}
+
+.cap-journey {
+  position: relative;
+  height: 700svh;
+}
+
+.cap-scene {
+  position: sticky;
+  inset: auto;
+  top: 0;
+  height: 100svh;
+  overflow: hidden;
+  isolation: isolate;
+  background: hsl(var(--cap-void));
+  --hatch-opacity: 1;
+  --end-opacity: 0;
+  --intro-opacity: 1;
+  --cabin-copy-opacity: 0;
+  --space-copy-opacity: 0;
+  --journey-progress: 0;
+}
+
+.cap-media {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 177.778svh);
+  height: max(100svh, 56.25vw);
+  transform: translate(-50%, -50%);
+}
+
+.cap-video,
+.cap-still {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.cap-hatch { opacity: var(--hatch-opacity); }
+.cap-end { opacity: var(--end-opacity); }
+
+.cap-scrim {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      180deg,
+      hsl(var(--cap-void) / 0.58),
+      transparent 24%,
+      transparent 50%,
+      hsl(var(--cap-void) / 0.85)
+    ),
+    linear-gradient(90deg, hsl(var(--cap-void) / 0.18), transparent 45%);
+}
+
+.cap-header,
+.cap-footer {
+  position: absolute;
+  right: max(var(--cap-edge), env(safe-area-inset-right));
+  left: max(var(--cap-edge), env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  z-index: 4;
+}
+
+.cap-header { top: max(2rem, env(safe-area-inset-top)); }
+
+.cap-eyebrow {
+  display: block;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.55rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: hsl(var(--cap-dim));
+}
+
+.cap-header .cap-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cap-copy {
+  position: absolute;
+  left: max(var(--cap-edge), env(safe-area-inset-left));
+  right: var(--cap-edge);
+  bottom: max(7.5rem, 14svh);
+  z-index: 3;
+  pointer-events: none;
+}
+
+.cap-copy > div {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  transition: opacity 120ms linear;
+}
+
+.cap-intro { pointer-events: auto; }
+
+.cap-copy h1,
+.cap-copy h2 {
+  margin: 0.9rem 0 0;
+  font-size: clamp(2.1rem, 4.2vw, 3.9rem);
+  line-height: 1.06;
+  letter-spacing: -0.04em;
+  font-weight: 300;
+  color: var(--cap-ink);
+}
+
+.cap-copy h1 span,
+.cap-copy h2 span { color: hsl(var(--cap-dim)); }
+
+.cap-copy p {
+  margin-top: 1.1rem;
+  max-width: 34rem;
+  font-size: 0.8rem;
+  line-height: 1.7;
+  color: hsl(var(--cap-dim));
+}
+
+.cap-powered {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-top: 1.3rem;
+}
+
+.cap-powered__label {
+  font-size: 0.5rem;
+  margin: 0;
+  color: var(--cap-ink-72);
+}
+
+.cap-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.6rem;
+  pointer-events: auto;
+}
+
+.cap-footer { bottom: max(1.75rem, env(safe-area-inset-bottom)); }
+
+.cap-scroll-cue {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.56rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: hsl(var(--cap-dim));
+}
+
+.cap-cue-forward,
+.cap-cue-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cap-cue-back { display: none; }
+.cap-scene[data-position="end"] .cap-cue-forward { display: none; }
+.cap-scene[data-position="end"] .cap-cue-back { display: inline-flex; }
+
+.cap-track {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  color: hsl(var(--cap-dim));
+}
+
+.cap-track > span:first-child {
+  display: block;
+  width: 4.5rem;
+  height: 1px;
+  background: hsl(var(--cap-line) / 0.4);
+  overflow: hidden;
+}
+
+.cap-track i {
+  display: block;
+  height: 100%;
+  background: hsl(var(--cap-ink));
+  transform: scaleX(var(--journey-progress));
+  transform-origin: left;
+}
+
+@media (max-width: 767px) {
+  .cap-header { top: 1.5rem; }
+  .cap-copy { bottom: 6.5rem; }
+  .cap-copy h1,
+  .cap-copy h2 { font-size: clamp(1.9rem, 7.6vw, 3rem); }
+  .cap-copy p { max-width: 22rem; font-size: 0.74rem; }
+  .cap-track > span:first-child { width: 2.75rem; }
+  .cap-footer .cap-eyebrow { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cap-copy > div { transition: none; }
 }
