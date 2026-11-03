@@ -55,8 +55,11 @@ export function CapsuleHero() {
     video.src = source;
 
     let videoOk = false;
+    let fallback = false;
     const onMeta = () => {
-      videoOk = Number.isFinite(video.duration) && video.duration > 0;
+      const seekable = video.seekable.length > 0 && video.seekable.end(0) > 0;
+      videoOk = Number.isFinite(video.duration) && video.duration > 0 && seekable;
+      if (!videoOk) fallback = true;
       setReady(videoOk);
       setFailed(!videoOk);
       render();
@@ -77,19 +80,30 @@ export function CapsuleHero() {
       const g = clamp01((b - 0.055) / 0.885);
       const duration = videoOk ? Math.max(0, video.duration - 1 / 60) : 0;
 
-      if (videoOk) {
+      if (videoOk && !fallback) {
         const target = g * duration;
         if (!video.seeking && Math.abs(video.currentTime - target) > 1 / 60) {
           video.currentTime = target;
+          /* Some hosts refuse range requests: if the seek never lands, use stills. */
+          window.setTimeout(() => {
+            if (!fallback && Math.abs(video.currentTime - target) > 0.25 && Math.abs(video.currentTime) < 0.05) {
+              fallback = true;
+              render();
+            }
+          }, 900);
         }
       }
 
-      const time = videoOk ? video.currentTime : 0;
-      const hatch = videoOk ? 1 - smooth(b / 0.055) : b < 0.5 ? 1 : 0;
-      const end = videoOk ? smooth((Math.min(b, 1) - 0.94) / 0.06) : b >= 0.5 ? 1 : 0;
-      const intro = videoOk ? 1 - smooth((time - 0.8) / 1.4) : b < 0.5 ? 1 : 0;
-      const cabin = videoOk ? smooth((time - 3) / 0.8) * (1 - smooth((time - 8) / 0.8)) : 0;
-      const space = videoOk ? smooth((time - 12.8) / 0.8) : b >= 0.5 ? 1 : 0;
+      const live = videoOk && !fallback;
+      const time = live ? video.currentTime : b * 14;
+      /* Still-driven fallback (also used when the host cannot seek the video). */
+      const hatch = live ? 1 - smooth(b / 0.055) : 1 - smooth(b / 0.45);
+      const end = live ? smooth((Math.min(b, 1) - 0.94) / 0.06) : smooth((b - 0.32) / 0.3);
+      const intro = live ? 1 - smooth((time - 0.8) / 1.4) : 1 - smooth(b / 0.18);
+      const cabin = live
+        ? smooth((time - 3) / 0.8) * (1 - smooth((time - 8) / 0.8))
+        : smooth((b - 0.14) / 0.14) * (1 - smooth((b - 0.4) / 0.16));
+      const space = live ? smooth((time - 12.8) / 0.8) : smooth((b - 0.48) / 0.22);
 
       scene.style.setProperty("--hatch-opacity", String(hatch));
       scene.style.setProperty("--end-opacity", String(end));
