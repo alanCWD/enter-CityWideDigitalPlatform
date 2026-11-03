@@ -72,14 +72,12 @@ export function CapsuleHero() {
       const scene = sceneRef.current;
       if (scene) {
         const zoom = 1 + smooth(range(p, 0.03, 0.62)) * 0.42;
-        const iris = smooth(range(p, 0.34, 0.82)) * Math.hypot(vw, vh) * 0.8;
         const fade = smooth(range(p, 0.7, 0.88));
 
         scene.style.setProperty("--hatch-scale", String(zoom));
-        scene.style.setProperty("--iris-r", `${iris}px`);
         scene.style.setProperty("--hatch-opacity", String(1 - fade));
         scene.style.setProperty("--space-scale", String(1.12 - smooth(range(p, 0.2, 0.95)) * 0.12));
-        scene.style.setProperty("--iris-opacity", String(Math.min(1, iris / 40) * (1 - smooth(range(p, 0.72, 0.92)))));
+        scene.style.setProperty("--gap", `${smooth(range(p, 0.08, 0.5)) * Math.min(vw, vh) * 0.16}px`);
         scene.style.setProperty("--flare", String(0.35 * Math.sin(Math.PI * clamp01(range(p, 0.24, 0.62)))));
         scene.style.setProperty("--chamber-scale", String(1 + smooth(range(p, 0.62, 0.9)) * 2.4));
         scene.style.setProperty("--chamber-opacity", String(1 - smooth(range(p, 0.8, 0.95))));
@@ -182,7 +180,8 @@ export function CapsuleHero() {
             className="cap-scene__hatch"
             draggable={false}
           />
-          <div className="cap-scene__iris" aria-hidden="true" />
+          <div className="cap-scene__gap" aria-hidden="true" />
+
           <div className="cap-scene__flare" aria-hidden="true" />
 
           <div ref={networkRef} className="cap-scene__network" aria-hidden="true">
