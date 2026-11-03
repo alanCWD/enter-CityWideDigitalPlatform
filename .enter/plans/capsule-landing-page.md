@@ -82,4 +82,7 @@ Scrolling past the world continues into a rebuilt page in the same language, kee
 
 **Sequence update (full simulation):** the hero now plays the complete sequence from the demo: sealed hatch → hatch doors swinging open → travelling through the lit cabin ribs → out into orbit over the self-running network, driven by scroll, the hatch itself, "Run the capsule", or the arrow keys, with a stage read-out (01 Hatch / 02 Cabin / 03 Orbit) and a progress rail. Verified by screenshot at 1280 px in the sealed, hatch-open, mid-traverse and orbit states, and at 390 px in the sealed state; the mobile orbit state was verified before the hatch was resized for small screens.
 
+**Replication pass (photographic):** the CSS-built hatch was replaced with the demo's own scene imagery — the capsule cabin plate for scene one and the Earth-from-orbit plate for scene two (both served from this project now, so no third-party requests). The sequence is a slow dolly into the cabin, an iris opening on the hatch centre that reveals Earth, then the orbit view with a self-running data constellation and the HUD. The separate world-map dataset and its dependencies were dropped, so nothing beyond the two scene images loads for the experience. Verified at 1280 px in the sealed, iris-opening and orbit states and at 390 px sealed; the temporary progress override used to capture those states was removed before completion.
+
+
 

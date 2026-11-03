@@ -162,254 +162,155 @@
   background: radial-gradient(115% 85% at 50% 45%, transparent 35%, rgba(0, 0, 0, 0.72) 100%);
 }
 
-/* ── Capsule simulation ─────────────────────────────────────────────────── */
+/* ── Capsule scene (photographic sequence) ──────────────────────────────── */
 
-.cap-sim {
+.cap-scene {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  perspective: 1500px;
-  perspective-origin: 50% 48%;
+  background: #04060a;
   /* driven from the hero on scroll */
-  --cap-r: 240px;
-  --door-angle: 0;
-  --door-opacity: 1;
-  --cabin-scale: 1;
-  --cabin-opacity: 1;
-  --hull-scale: 1;
-  --hull-opacity: 1;
-  --glow: 0.1;
-  --cap-cy: 48%;
+  --cap-cy: 52%;
+  --hatch-scale: 1;
+  --hatch-opacity: 1;
+  --iris-r: 0px;
+  --iris-opacity: 0;
+  --space-scale: 1.12;
+  --flare: 0;
+  --network-opacity: 0;
 }
 
-@media (max-width: 767px) {
-  .cap-sim { --cap-cy: 33%; }
-  .cap-sim__plate { display: none; }
-}
-
-.cap-sim__space {
+.cap-scene__space,
+.cap-scene__hatch {
   position: absolute;
   inset: 0;
-}
-
-/* Exterior hull: a solid metal surround with a circular aperture.
-   Built with box-shadow spread (not a mask) so the hatch hole can never
-   disappear in browsers with partial mask support. */
-.cap-sim__hull {
-  position: absolute;
-  left: 50%;
-  top: var(--cap-cy);
-  width: calc(var(--cap-r) * 2);
-  height: calc(var(--cap-r) * 2);
-  transform: translate(-50%, -50%) scale(var(--hull-scale));
-  border-radius: 9999px;
-  background:
-    radial-gradient(circle, transparent 0 86%, rgba(30, 40, 55, 0.55) 86.5% 93%, rgba(6, 9, 13, 0.9) 93.5%),
-    conic-gradient(
-      from 0deg,
-      rgba(255, 255, 255, 0.05) 0deg 0.4deg,
-      transparent 0.4deg 6deg
-    );
-  box-shadow:
-    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
-    inset 0 0 70px rgba(0, 0, 0, 0.75),
-    0 0 0 1px rgba(255, 255, 255, 0.05),
-    0 0 0 100vmax #05070a;
-  opacity: var(--hull-opacity);
-  will-change: transform, opacity;
-}
-
-/* Faint structural ribs on the hull ring */
-.cap-sim__hull::before {
-  content: "";
-  position: absolute;
-  inset: 6%;
-  border-radius: 9999px;
-  border: 1px dashed rgba(255, 255, 255, 0.08);
-}
-
-/* Cabin ribs seen through the open hatch */
-.cap-sim__cabin {
-  position: absolute;
-  left: 50%;
-  top: var(--cap-cy);
-  width: calc(var(--cap-r) * 2.6);
-  aspect-ratio: 1;
-  transform: translate(-50%, -50%) scale(var(--cabin-scale));
-  opacity: var(--cabin-opacity);
-  will-change: transform, opacity;
-}
-
-.cap-sim__rib {
-  position: absolute;
-  border-radius: 9999px;
-  border: 1px solid rgba(158, 193, 255, 0.24);
-  box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.55);
-}
-
-.cap-sim__rib:nth-child(1) { inset: 0; }
-.cap-sim__rib:nth-child(2) { inset: 9%; border-color: rgba(158, 193, 255, 0.18); }
-.cap-sim__rib:nth-child(3) { inset: 18%; border-color: rgba(158, 193, 255, 0.14); }
-.cap-sim__rib:nth-child(4) { inset: 27%; border-color: rgba(158, 193, 255, 0.1); }
-
-/* Aperture: doors + rim live here */
-.cap-sim__aperture {
-  position: absolute;
-  left: 50%;
-  top: var(--cap-cy);
-  width: calc(var(--cap-r) * 2);
-  height: calc(var(--cap-r) * 2);
-  transform: translate(-50%, -50%);
-  transform-style: preserve-3d;
-}
-
-.cap-sim__rim {
-  position: absolute;
-  left: 50%;
-  top: var(--cap-cy);
-  width: calc(var(--cap-r) * 2 + 18px);
-  height: calc(var(--cap-r) * 2 + 18px);
-  transform: translate(-50%, -50%);
-  border-radius: 9999px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow:
-    inset 0 0 30px rgba(0, 0, 0, 0.7),
-    0 0 40px rgba(120, 160, 230, 0.12);
-  pointer-events: none;
-  opacity: var(--hull-opacity);
-}
-
-/* Segment lights around the hatch rim */
-.cap-sim__rim::before {
-  content: "";
-  position: absolute;
-  inset: -9px;
-  border-radius: 9999px;
-  background: repeating-conic-gradient(
-    from 0deg,
-    rgba(196, 219, 255, 0.5) 0deg 0.7deg,
-    transparent 0.7deg 15deg
-  );
-  -webkit-mask-image: radial-gradient(circle, transparent 0 47%, #000 47.5% 52%, transparent 52.5%);
-  mask-image: radial-gradient(circle, transparent 0 47%, #000 47.5% 52%, transparent 52.5%);
-  opacity: 0.55;
-}
-
-/* Hatch label plate */
-.cap-sim__plate {
-  position: absolute;
-  left: 50%;
-  bottom: 7%;
-  transform: translateX(-50%);
-  padding: 0.3rem 0.7rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 0.5rem;
-  letter-spacing: 0.32em;
-  text-transform: uppercase;
-  color: var(--cap-ink-55);
-  opacity: calc(1 - var(--door-angle) / 104);
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-.cap-sim__door {
-  position: absolute;
-  top: 0;
+  width: 100%;
   height: 100%;
-  width: 50%;
-  background:
-    radial-gradient(120% 90% at 50% 30%, rgba(66, 82, 108, 0.55) 0%, rgba(23, 30, 42, 0.85) 48%, rgba(8, 11, 16, 0.95) 100%),
-    linear-gradient(rgba(255, 255, 255, 0.03), rgba(0, 0, 0, 0.25));
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    inset 0 0 60px rgba(0, 0, 0, 0.6);
-  opacity: var(--door-opacity);
+  object-fit: cover;
+  object-position: 50% 50%;
+  user-select: none;
+  pointer-events: none;
+}
+
+.cap-scene__space {
+  transform: scale(var(--space-scale));
+  transform-origin: 50% 58%;
+}
+
+.cap-scene__hatch {
+  transform: scale(var(--hatch-scale));
+  transform-origin: 50% var(--cap-cy);
+  opacity: var(--hatch-opacity);
   will-change: transform, opacity;
-  backface-visibility: hidden;
-}
-
-.cap-sim__door--l {
-  left: 0;
-  transform-origin: left center;
-  transform: rotateY(calc(var(--door-angle) * -1deg));
-  border-radius: 100% 0 0 100% / 50% 0 0 50%;
-}
-
-.cap-sim__door--r {
-  right: 0;
-  transform-origin: right center;
-  transform: rotateY(calc(var(--door-angle) * 1deg));
-  border-radius: 0 100% 100% 0 / 0 50% 50% 0;
-}
-
-/* Central seam + bolts on the closed hatch */
-.cap-sim__door--l::after,
-.cap-sim__door--r::after {
-  content: "";
-  position: absolute;
-  top: 8%;
-  bottom: 8%;
-  width: 1px;
-  background: linear-gradient(
-    to bottom,
-    transparent,
-    rgba(255, 255, 255, 0.18) 22%,
-    rgba(255, 255, 255, 0.18) 78%,
-    transparent
+  -webkit-mask-image: radial-gradient(
+    circle at 50% var(--cap-cy),
+    transparent 0 var(--iris-r),
+    #000 calc(var(--iris-r) + 3px)
+  );
+  mask-image: radial-gradient(
+    circle at 50% var(--cap-cy),
+    transparent 0 var(--iris-r),
+    #000 calc(var(--iris-r) + 3px)
   );
 }
 
-.cap-sim__door--l::after { right: 0; }
-.cap-sim__door--r::after { left: 0; }
-
-.cap-sim__door--l::before,
-.cap-sim__door--r::before {
-  content: "";
-  position: absolute;
-  inset: 12%;
-  border-radius: inherit;
-  border: 1px dashed rgba(255, 255, 255, 0.07);
-}
-
-/* Hatch control: the aperture itself is clickable while closed */
-.cap-sim__trigger {
+/* Luminous edge of the opening hatch */
+.cap-scene__iris {
   position: absolute;
   left: 50%;
   top: var(--cap-cy);
-  width: calc(var(--cap-r) * 2);
-  height: calc(var(--cap-r) * 2);
+  width: calc(var(--iris-r) * 2);
+  aspect-ratio: 1;
   transform: translate(-50%, -50%);
   border-radius: 9999px;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  z-index: 5;
+  border: 1px solid rgba(198, 220, 255, 0.4);
+  box-shadow:
+    inset 0 0 70px rgba(120, 170, 235, 0.28),
+    0 0 60px rgba(120, 170, 235, 0.2);
+  opacity: var(--iris-opacity);
+  pointer-events: none;
+  will-change: width, opacity;
 }
 
-.cap-sim__trigger:focus-visible {
+/* Cabin light bleeding through the opening */
+.cap-scene__flare {
+  position: absolute;
+  left: 50%;
+  top: var(--cap-cy);
+  width: min(80vmin, 900px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(214, 233, 255, 0.9) 0%, rgba(150, 190, 245, 0.25) 32%, transparent 62%);
+  opacity: var(--flare);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+.cap-scene__network {
+  position: absolute;
+  inset: 0;
+  opacity: var(--network-opacity);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+/* Readability scrims over the photograph */
+.cap-scene__scrim {
+  position: absolute;
+  left: 0;
+  right: 0;
+  pointer-events: none;
+}
+
+.cap-scene__scrim--top {
+  top: 0;
+  height: 30%;
+  background: linear-gradient(to bottom, rgba(3, 5, 9, 0.86), rgba(3, 5, 9, 0.25) 55%, transparent);
+}
+
+.cap-scene__scrim--bottom {
+  bottom: 0;
+  height: 76%;
+  background:
+    linear-gradient(
+      to top,
+      rgba(3, 5, 9, 0.96) 0%,
+      rgba(3, 5, 9, 0.78) 28%,
+      rgba(3, 5, 9, 0.32) 62%,
+      transparent 100%
+    ),
+    linear-gradient(90deg, rgba(3, 5, 9, 0.62) 0%, rgba(3, 5, 9, 0.2) 45%, transparent 68%);
+}
+
+/* The hatch is the button while the sequence is closed */
+.cap-scene__trigger {
+  position: absolute;
+  left: 50%;
+  top: var(--cap-cy);
+  width: clamp(220px, 34vmin, 420px);
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  z-index: 6;
+  transition: box-shadow 250ms ease;
+}
+
+.cap-scene__trigger:hover {
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.cap-scene__trigger:focus-visible {
   outline: 1px solid var(--cap-accent);
   outline-offset: 6px;
 }
 
-.cap-sim__trigger[disabled] {
+.cap-scene__trigger[disabled] {
   pointer-events: none;
   cursor: default;
-}
-
-/* Light spilling through the opening hatch */
-.cap-sim__glow {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    circle at 50% var(--cap-cy),
-    rgba(150, 190, 255, var(--glow)) 0%,
-    rgba(90, 130, 210, calc(var(--glow) * 0.5)) 26%,
-    transparent 58%
-  );
-  mix-blend-mode: screen;
 }
 
 /* Stage read-out (right rail) */
@@ -460,13 +361,12 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .cap-sim__door,
-  .cap-sim__hull,
-  .cap-sim__cabin {
+  .cap-scene__hatch,
+  .cap-scene__iris,
+  .cap-scene__space {
     transition: none !important;
   }
 }
-
 
 /* ── World stage HUD ────────────────────────────────────────────────────── */
 

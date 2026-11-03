@@ -2,18 +2,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowDown, X } from "lucide-react";
 import { GoogleMark } from "@/components/branding/GoogleMark";
-import { WorldStage } from "./WorldStage";
+import { SkyNetwork } from "./SkyNetwork";
 
 /**
- * Capsule hero — the full simulation.
+ * Capsule hero — the full photographic sequence.
  *
- * A pinned, scroll-driven sequence in four movements:
- *   01 the sealed hatch, 02 the hatch swinging open, 03 traversing the cabin,
- *   04 out into orbit over the self-running network.
- *
- * Clicking the hatch (or arrow keys) walks the same timeline, so the gesture
- * matches the scroll. Everything is CSS layers over the world canvas; no
- * pointer input is required once the sequence starts.
+ * Scroll (or click / ↓ / "Run the capsule") drives it:
+ *   01 the sealed capsule cabin,  02 the hatch iris opening as the cabin zooms
+ *   through it,  03 out over Earth from orbit, where the network runs itself.
  */
 
 const clamp01 = (n: number) => Math.min(1, Math.max(0, n));
@@ -24,22 +20,22 @@ const STAGES = ["01 · Hatch", "02 · Cabin", "03 · Orbit"];
 
 export function CapsuleHero() {
   const sectionRef = useRef<HTMLElement>(null);
-  const simRef = useRef<HTMLDivElement>(null);
-  const worldRef = useRef<HTMLDivElement>(null);
+  const sceneRef = useRef<HTMLDivElement>(null);
+  const networkRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const [stageMounted, setStageMounted] = useState(false);
+  const [networkMounted, setNetworkMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [stage, setStage] = useState(0);
-  const [announcement, setAnnouncement] = useState("Hatch sealed");
+  const [announcement, setAnnouncement] = useState("Capsule sealed");
 
   const openTargetY = useCallback(() => {
     const section = sectionRef.current;
     if (!section) return 0;
     const vh = window.innerHeight;
-    return section.offsetTop + (section.offsetHeight - vh) * 0.74;
+    return section.offsetTop + (section.offsetHeight - vh) * 0.9;
   }, []);
 
   const openCapsule = useCallback(() => {
@@ -55,8 +51,7 @@ export function CapsuleHero() {
     const section = sectionRef.current;
     if (!section) return;
 
-    /* On a reload the browser can restore a scroll position from inside the
-       sequence, which looks like the capsule has vanished. Start at the hatch. */
+    /* A restored scroll position can land inside the sequence; start at the hatch. */
     if (window.scrollY > 0 && window.scrollY < section.offsetHeight) {
       window.scrollTo({ top: 0 });
     }
@@ -69,41 +64,34 @@ export function CapsuleHero() {
     const update = () => {
       frame = 0;
       const vh = window.innerHeight || 1;
+      const vw = window.innerWidth || 1;
       const rect = section.getBoundingClientRect();
       const span = Math.max(1, section.offsetHeight - vh);
       const p = clamp01(-rect.top / span);
 
-      const sim = simRef.current;
-      if (sim) {
-        const hatch = smooth(range(p, 0.1, 0.42));
-        const dolly = smooth(range(p, 0.36, 0.7));
-        const base = Math.min(window.innerWidth, vh) * (window.innerWidth < 700 ? 0.24 : 0.33);
-        const radius = base * (1 + dolly * 2.6);
+      const scene = sceneRef.current;
+      if (scene) {
+        const zoom = 1 + smooth(range(p, 0.03, 0.62)) * 0.42;
+        const iris = smooth(range(p, 0.34, 0.82)) * Math.hypot(vw, vh) * 0.8;
+        const fade = smooth(range(p, 0.7, 0.88));
 
-        sim.style.setProperty("--cap-r", `${radius}px`);
-        sim.style.setProperty("--door-angle", String(hatch * 104));
-        sim.style.setProperty("--door-opacity", String(1 - smooth(range(p, 0.44, 0.62))));
-        sim.style.setProperty("--cabin-scale", String(1 + dolly * 2.3));
-        sim.style.setProperty("--cabin-opacity", String(Math.max(0, 1 - dolly * 1.15)));
-        sim.style.setProperty("--hull-scale", String(1 + dolly * 0.5));
-        sim.style.setProperty("--hull-opacity", String(1 - smooth(range(p, 0.56, 0.76))));
-        const reveal = smooth(range(p, 0.34, 0.7));
-        sim.style.setProperty(
-          "--glow",
-          String((0.05 + hatch * 0.2 + dolly * 0.16) * (1 - reveal * 0.9)),
-        );
+        scene.style.setProperty("--hatch-scale", String(zoom));
+        scene.style.setProperty("--iris-r", `${iris}px`);
+        scene.style.setProperty("--hatch-opacity", String(1 - fade));
+        scene.style.setProperty("--space-scale", String(1.12 - smooth(range(p, 0.2, 0.95)) * 0.12));
+        scene.style.setProperty("--iris-opacity", String(Math.min(1, iris / 40) * (1 - smooth(range(p, 0.72, 0.92)))));
+        scene.style.setProperty("--flare", String(0.35 * Math.sin(Math.PI * clamp01(range(p, 0.24, 0.62)))));
       }
 
-      const worldEl = worldRef.current;
-      if (worldEl) {
-        const reveal = smooth(range(p, 0.34, 0.7));
-        worldEl.style.opacity = String(reveal);
-        worldEl.style.transform = `scale(${0.96 + reveal * 0.04})`;
+      const networkEl = networkRef.current;
+      if (networkEl) {
+        const reveal = smooth(range(p, 0.78, 0.95));
+        networkEl.style.opacity = String(reveal * 0.82);
       }
 
       const headlineEl = headlineRef.current;
       if (headlineEl) {
-        const fade = range(p, 0.04, 0.24);
+        const fade = range(p, 0.03, 0.2);
         headlineEl.style.opacity = String(1 - fade);
         headlineEl.style.transform = `translateY(${-24 * fade}px)`;
         headlineEl.style.pointerEvents = fade > 0.6 ? "none" : "auto";
@@ -112,24 +100,23 @@ export function CapsuleHero() {
       if (progressRef.current) {
         progressRef.current.style.transform = `scaleX(${p})`;
       }
-
       if (triggerRef.current) {
-        triggerRef.current.disabled = p > 0.08;
+        triggerRef.current.disabled = p > 0.1;
       }
 
-      if (!mounted && p > 0.02) {
+      if (!mounted && p > 0.55) {
         mounted = true;
-        setStageMounted(true);
+        setNetworkMounted(true);
       }
 
-      const nextStage = p < 0.1 ? 0 : p < 0.56 ? 1 : 2;
+      const nextStage = p < 0.15 ? 0 : p < 0.7 ? 1 : 2;
       if (nextStage !== lastStage) {
         lastStage = nextStage;
         setStage(nextStage);
         setAnnouncement(STAGES[nextStage]);
       }
 
-      const nowOpen = p > 0.6;
+      const nowOpen = p > 0.8;
       if (nowOpen !== lastOpen) {
         lastOpen = nowOpen;
         setOpen(nowOpen);
@@ -170,48 +157,41 @@ export function CapsuleHero() {
       ref={sectionRef}
       id="capsule-hero"
       aria-labelledby="capsule-hero-title"
-      className="relative h-[260vh]"
+      className="relative h-[280vh]"
     >
       <div className="sticky top-0 h-[100svh] overflow-hidden">
-        <div className="cap-stars opacity-70" aria-hidden="true" />
+        {/* ── Scene ── */}
+        <div ref={sceneRef} className="cap-scene">
+          <img
+            src="/capsule/space-v3.webp"
+            alt=""
+            aria-hidden="true"
+            className="cap-scene__space"
+            draggable={false}
+          />
+          <img
+            src="/capsule/hatch-v3.webp"
+            alt=""
+            aria-hidden="true"
+            className="cap-scene__hatch"
+            draggable={false}
+          />
+          <div className="cap-scene__iris" aria-hidden="true" />
+          <div className="cap-scene__flare" aria-hidden="true" />
 
-        {/* ── Capsule simulation ── */}
-        <div ref={simRef} className="cap-sim">
-          {/* World seen through the hatch */}
-          <div
-            ref={worldRef}
-            className="cap-sim__space opacity-0"
-            style={{ willChange: "opacity, transform" }}
-          >
-            {stageMounted && <WorldStage active={stageMounted} />}
+          <div ref={networkRef} className="cap-scene__network" aria-hidden="true">
+            {networkMounted && <SkyNetwork active={networkMounted} />}
           </div>
 
-          {/* Cabin ribs */}
-          <div className="cap-sim__cabin" aria-hidden="true">
-            <span className="cap-sim__rib" />
-            <span className="cap-sim__rib" />
-            <span className="cap-sim__rib" />
-            <span className="cap-sim__rib" />
-          </div>
-
-          {/* Hull + hatch doors */}
-          <div className="cap-sim__hull" aria-hidden="true" />
-          <div className="cap-sim__aperture" aria-hidden="true">
-            <div className="cap-sim__door cap-sim__door--l" />
-            <div className="cap-sim__door cap-sim__door--r" />
-            <div className="cap-sim__plate">CW · Entry 01</div>
-          </div>
-          <div className="cap-sim__rim" aria-hidden="true" />
-
-          {/* Light spilling through the opening hatch */}
-          <div className="cap-sim__glow" aria-hidden="true" />
+          <div className="cap-scene__scrim cap-scene__scrim--top" aria-hidden="true" />
+          <div className="cap-scene__scrim cap-scene__scrim--bottom" aria-hidden="true" />
 
           <button
             ref={triggerRef}
             type="button"
             onClick={openCapsule}
-            className="cap-sim__trigger"
-            aria-label="Open the hatch — run the capsule sequence"
+            className="cap-scene__trigger"
+            aria-label="Open the capsule hatch and run the sequence"
           />
         </div>
 
@@ -219,7 +199,6 @@ export function CapsuleHero() {
 
         {/* ── HUD ── */}
         <div className="pointer-events-none absolute inset-0 z-20 flex flex-col justify-between px-6 pb-8 pt-24 md:px-10 md:pb-10 md:pt-28">
-          {/* Top rail */}
           <div className="flex items-start justify-between gap-6">
             <span className="cap-kicker leading-relaxed">
               Managed local presence
@@ -232,8 +211,8 @@ export function CapsuleHero() {
             </span>
           </div>
 
-          {/* Right rail: stages + opened metrics */}
-          <div className="pointer-events-none hidden md:block absolute right-10 top-1/2 -translate-y-1/2 text-right">
+          {/* Right rail: stages + orbit metrics */}
+          <div className="pointer-events-none absolute right-10 top-1/2 hidden -translate-y-1/2 text-right md:block">
             {open && (
               <dl className="mb-8 w-56 text-left">
                 {[
@@ -261,10 +240,9 @@ export function CapsuleHero() {
             </div>
           </div>
 
-          {/* Bottom rail */}
-          <div>
+          <div className="relative">
             {open && (
-              <div className="mb-6 max-w-md">
+              <div className="absolute inset-x-0 bottom-[3.75rem] max-w-md">
                 <p className="cap-kicker mb-3">03 / Over the continents</p>
                 <h2 className="text-2xl font-light tracking-tight text-[var(--cap-ink)] md:text-3xl">
                   Earth, live.
@@ -278,7 +256,7 @@ export function CapsuleHero() {
 
             <div ref={headlineRef} className="max-w-2xl">
               <p className="cap-kicker mb-4">01 / The capsule</p>
-              <h1 id="capsule-hero-title" className="cap-display text-[clamp(2rem,4.4vw,3.75rem)]">
+              <h1 id="capsule-hero-title" className="cap-display text-[clamp(1.9rem,4.2vw,3.6rem)]">
                 Your Business
                 <br />
                 Website Runs
@@ -309,7 +287,6 @@ export function CapsuleHero() {
               </div>
             </div>
 
-            {/* Footer rail */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-4">
               {open ? (
                 <button type="button" onClick={closeCapsule} className="cap-close">
@@ -319,9 +296,7 @@ export function CapsuleHero() {
                 </button>
               ) : (
                 <button type="button" onClick={openCapsule} className="cap-scroll-cue pointer-events-auto">
-                  {stage === 0
-                    ? "Scroll or press ↓ to open the hatch"
-                    : "Hatch open — keep scrolling through the cabin"}
+                  {stage === 0 ? "Scroll or press ↓ to open the hatch" : "Keep scrolling through the hatch"}
                   <ArrowDown className="h-3 w-3" aria-hidden="true" />
                 </button>
               )}
