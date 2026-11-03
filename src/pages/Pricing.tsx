@@ -82,7 +82,7 @@ const features: Feature[] = [
       { name: "Niche-specific template", starter: true, growth: true, pro: true },
       { name: "Auto-updating content", starter: true, growth: true, pro: true },
       { name: "Custom domain support", starter: true, growth: true, pro: true },
-      { name: "SEO optimization", starter: "Basic", growth: "Advanced", pro: "Full" },
+      { name: "SEO optimization", starter: "Advanced", growth: "Advanced", pro: "Advanced" },
     ],
   },
   {
