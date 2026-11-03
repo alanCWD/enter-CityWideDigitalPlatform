@@ -149,7 +149,7 @@ export function CapsuleHero() {
             decoding="async"
           />
           <img className="cap-still cap-end" src={END_STILL} alt="" width={1920} height={1080} />
-          <EarthData src={END_STILL} />
+          <EarthData />
         </div>
 
         <div className="cap-scrim" aria-hidden="true" />

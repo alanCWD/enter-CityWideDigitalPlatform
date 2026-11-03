@@ -1,16 +1,25 @@
 import { useEffect, useRef } from "react";
 
 /**
- * Earth data layer.
+ * Earth data layer (continent-accurate).
  *
- * Once the journey reaches the orbit frame, businesses are plotted on the planet
- * as data points whose size reflects the business, joined by lines that stay
- * inside the visible landmasses. Land is detected from the orbit plate itself
- * (so points follow its continents and perspective), and bright cloud tops are
- * excluded, leaving the weather untouched.
+ * Real Natural Earth land outlines are projected orthographically onto the
+ * orbit frame, fitted to the planet's visible limb. Business points are then
+ * sampled from those landmasses — three sizes — and joined by links that only
+ * run between nearby land points, so the network stays over the continents.
+ * The photograph (clouds included) remains underneath, untouched.
  */
 
-const CHANNEL_COLORS = [
+type Vec3 = [number, number, number];
+
+/** Sphere fit for the orbit plate, in fractions of the media box. */
+const CENTRE_X = 0.5;
+const CENTRE_Y = 1.5;
+const RADIUS = 1.02;
+const YAW = -0.6;
+const PITCH = 0.32;
+
+const COLORS = [
   "234, 179, 8",
   "168, 85, 247",
   "56, 189, 248",
@@ -20,24 +29,58 @@ const CHANNEL_COLORS = [
   "248, 113, 113",
 ];
 
-interface Point {
-  x: number;
-  y: number;
+const toRad = (d: number) => (d * Math.PI) / 180;
+
+const toVec = (lon: number, lat: number): Vec3 => {
+  const la = toRad(lat);
+  const lo = toRad(lon);
+  const c = Math.cos(la);
+  return [c * Math.cos(lo), Math.sin(la), c * Math.sin(lo)];
+};
+
+interface Dot {
+  v: Vec3;
   r: number;
   color: string;
-  halo: number;
 }
 
-interface Edge {
+interface Link {
   a: number;
   b: number;
   color: string;
-  width: number;
+  w: number;
 }
 
-const SAMPLE_W = 520;
+const pointInRing = (lon: number, lat: number, ring: number[][]) => {
+  let inside = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const xi = ring[i][0];
+    const yi = ring[i][1];
+    const xj = ring[j][0];
+    const yj = ring[j][1];
+    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) {
+      inside = !inside;
+    }
+  }
+  return inside;
+};
 
-export function EarthData({ src }: { src: string }) {
+interface GeoLike {
+  type?: string;
+  coordinates?: number[][][][];
+  geometry?: GeoLike | null;
+  features?: { geometry: GeoLike | null }[];
+}
+
+function collect(node: GeoLike | null | undefined, out: number[][][][]) {
+  if (!node) return;
+  if (node.type === "Polygon" && node.coordinates) out.push(node.coordinates as number[][][][]);
+  else if (node.type === "MultiPolygon" && node.coordinates) out.push(...(node.coordinates as number[][][][]));
+  else if (node.type === "Feature") collect(node.geometry, out);
+  else if (node.type === "FeatureCollection") for (const f of node.features ?? []) collect(f.geometry, out);
+}
+
+export function EarthData() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -49,154 +92,103 @@ export function EarthData({ src }: { src: string }) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    let points: Point[] = [];
-    let edges: Edge[] = [];
-    let mask: Uint8Array | null = null;
-    let maskW = 0;
-    let maskH = 0;
+    let dots: Dot[] = [];
+    let links: Link[] = [];
     let disposed = false;
-    let frame = 0;
-    let lastDrawn = -1;
+    let raf = 0;
+    let lastProgress = -1;
 
     const smooth = (t: number) => {
       const x = Math.min(1, Math.max(0, t));
       return x * x * (3 - 2 * x);
     };
 
-    const progress = () => {
+    const journeyProgress = () => {
       const span = Math.max(1, host.offsetHeight - window.innerHeight);
       return Math.min(1, Math.max(0, (window.scrollY - host.offsetTop) / span));
     };
 
-    /** Land = not ocean, not cloud, not empty space. */
-    const buildFromPlate = (image: HTMLImageElement) => {
-      const h = Math.round((image.height / image.width) * SAMPLE_W);
-      const off = document.createElement("canvas");
-      off.width = SAMPLE_W;
-      off.height = h;
-      const offCtx = off.getContext("2d");
-      if (!offCtx) return;
-      offCtx.drawImage(image, 0, 0, SAMPLE_W, h);
-      const data = offCtx.getImageData(0, 0, SAMPLE_W, h).data;
-      maskW = SAMPLE_W;
-      maskH = h;
-      const m = new Uint8Array(SAMPLE_W * h);
+    const project = (v: Vec3, w: number, h: number) => {
+      const cy = Math.cos(YAW);
+      const sy = Math.sin(YAW);
+      const x1 = v[0] * cy + v[2] * sy;
+      const z1 = -v[0] * sy + v[2] * cy;
+      const cp = Math.cos(PITCH);
+      const sp = Math.sin(PITCH);
+      const y2 = v[1] * cp - z1 * sp;
+      const z2 = v[1] * sp + z1 * cp;
+      const r = RADIUS * h;
+      return {
+        x: CENTRE_X * w + x1 * r,
+        y: CENTRE_Y * h - y2 * r,
+        z: z2,
+      };
+    };
 
-      for (let y = 0; y < h; y++) {
-        for (let x = 0; x < SAMPLE_W; x++) {
-          const i = (y * SAMPLE_W + x) * 4;
-          const r = data[i];
-          const g = data[i + 1];
-          const b = data[i + 2];
-          const bright = (r + g + b) / 3;
-          const max = Math.max(r, g, b);
-          const min = Math.min(r, g, b);
-          const sat = max === 0 ? 0 : (max - min) / max;
-
-          const isSpace = bright < 16;
-          const isCloud = bright > 158 && sat < 0.22;
-          const isOcean = b > r * 1.12 && b > g * 1.06 && bright < 132;
-          const isLand =
-            !isSpace &&
-            !isCloud &&
-            !isOcean &&
-            (r > b * 1.04 || g > b * 1.04 || (sat > 0.12 && bright > 28 && bright < 190));
-
-          m[y * SAMPLE_W + x] = isLand ? 1 : 0;
+    const seed = (polygons: number[][][][]) => {
+      const outers = polygons.map((poly) => {
+        const ring = poly[0];
+        let minLon = 180;
+        let maxLon = -180;
+        let minLat = 90;
+        let maxLat = -90;
+        for (const [lon, lat] of ring) {
+          if (lon < minLon) minLon = lon;
+          if (lon > maxLon) maxLon = lon;
+          if (lat < minLat) minLat = lat;
+          if (lat > maxLat) maxLat = lat;
         }
-      }
-      /* If the plate is mostly cloud/ocean, relax to "any planetary surface". */
-      let landCount = 0;
-      for (let i = 0; i < m.length; i++) landCount += m[i];
-      if (landCount < m.length * 0.02) {
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < SAMPLE_W; x++) {
-            const i = (y * SAMPLE_W + x) * 4;
-            const r = data[i];
-            const g = data[i + 1];
-            const b = data[i + 2];
-            const bright = (r + g + b) / 3;
-            const max = Math.max(r, g, b);
-            const min = Math.min(r, g, b);
-            const sat = max === 0 ? 0 : (max - min) / max;
-            const isSpace = bright < 14;
-            const isCloud = bright > 168 && sat < 0.16;
-            m[y * SAMPLE_W + x] = !isSpace && !isCloud && bright < 205 ? 1 : 0;
-          }
-        }
-      }
-      mask = m;
+        return { ring, minLon, maxLon, minLat, maxLat };
+      });
 
-      /* Collect candidate business points on land, in clusters. */
-      const candidates: { x: number; y: number }[] = [];
-      for (let y = 2; y < h - 2; y += 3) {
-        for (let x = 2; x < SAMPLE_W - 2; x += 3) {
-          if (!m[y * SAMPLE_W + x]) continue;
-          let solid = 0;
-          for (let dy = -2; dy <= 2; dy += 2) {
-            for (let dx = -2; dx <= 2; dx += 2) {
-              solid += m[(y + dy) * SAMPLE_W + (x + dx)] ?? 0;
+      /* Business points: sample land on a coarse grid, weighted to clusters. */
+      const samples: { lon: number; lat: number }[] = [];
+      for (let lat = -76; lat <= 78; lat += 2.6) {
+        for (let lon = -180; lon <= 180; lon += 2.6) {
+          for (const poly of outers) {
+            if (lat < poly.minLat || lat > poly.maxLat || lon < poly.minLon || lon > poly.maxLon) continue;
+            if (pointInRing(lon, lat, poly.ring)) {
+              samples.push({ lon, lat });
+              break;
             }
           }
-          if (solid < 5) continue;
-          if (Math.random() > 0.34) continue;
-          candidates.push({
-            x: (x + (Math.random() - 0.5) * 2) / SAMPLE_W,
-            y: (y + (Math.random() - 0.5) * 2) / h,
-          });
         }
       }
 
-      const picked = candidates.slice(0, 420);
-      points = picked.map((p) => {
-        const sizeRoll = Math.random();
-        const r = sizeRoll > 0.94 ? 2.6 : sizeRoll > 0.74 ? 1.7 : 1.0;
+      dots = samples.map((s) => {
+        const roll = Math.random();
         return {
-          x: p.x,
-          y: p.y,
-          r,
-          color: CHANNEL_COLORS[Math.floor(Math.random() * CHANNEL_COLORS.length)],
-          halo: r > 2 ? 7 : 4,
+          v: toVec(s.lon, s.lat),
+          r: roll > 0.94 ? 2.4 : roll > 0.72 ? 1.55 : 0.95,
+          color: COLORS[Math.floor(Math.random() * COLORS.length)],
         };
       });
 
-      /* Links between nearby businesses, kept over land. */
-      const landAt = (x: number, y: number) => {
-        const px = Math.min(SAMPLE_W - 1, Math.max(0, Math.round(x * SAMPLE_W)));
-        const py = Math.min(h - 1, Math.max(0, Math.round(y * h)));
-        return m[py * SAMPLE_W + px] === 1;
-      };
-
-      const next: Edge[] = [];
-      for (let i = 0; i < points.length; i++) {
-        const a = points[i];
-        const maxDist = 0.14;
-        const near = points
-          .map((p, j) => ({ p, j, d: Math.hypot(p.x - a.x, p.y - a.y) }))
-          .filter((o) => o.j !== i && o.d > 0.012 && o.d < maxDist)
-          .sort((u, v) => u.d - v.d)
-          .slice(0, 3);
-
-        for (const candidate of near) {
-          const j = candidate.j;
-          if (next.some((e) => (e.a === j && e.b === i) || (e.a === i && e.b === j))) continue;
-          const steps = 12;
-          let onLand = 0;
-          for (let s = 1; s < steps; s++) {
-            const t = s / steps;
-            if (landAt(a.x + (points[j].x - a.x) * t, a.y + (points[j].y - a.y) * t)) onLand++;
+      /* Links: nearest neighbours only, so segments stay over land. */
+      const next: Link[] = [];
+      for (let i = 0; i < dots.length; i++) {
+        let best = -1;
+        let bestDot = -1;
+        for (let c = 0; c < 6; c++) {
+          const j = Math.floor(Math.random() * dots.length);
+          if (j === i) continue;
+          const d =
+            dots[i].v[0] * dots[j].v[0] + dots[i].v[1] * dots[j].v[1] + dots[i].v[2] * dots[j].v[2];
+          if (d > bestDot) {
+            bestDot = d;
+            best = j;
           }
-          if (onLand / (steps - 1) < 0.75) continue;
-          next.push({
-            a: i,
-            b: j,
-            color: CHANNEL_COLORS[Math.floor(Math.random() * CHANNEL_COLORS.length)],
-            width: 0.5 + Math.random() * 0.4,
-          });
-          if (next.length > 460) break;
         }
+        if (best === -1 || bestDot < 0.985) continue; // ~10 degrees
+        if (next.some((l) => (l.a === best && l.b === i) || (l.a === i && l.b === best))) continue;
+        next.push({
+          a: i,
+          b: best,
+          color: COLORS[Math.floor(Math.random() * COLORS.length)],
+          w: 0.5 + Math.random() * 0.4,
+        });
       }
-      edges = next;
+      links = next;
       draw();
     };
 
@@ -214,79 +206,88 @@ export function EarthData({ src }: { src: string }) {
       const w = rect.width;
       const h = rect.height;
       ctx.clearRect(0, 0, w, h);
-      if (!points.length) return;
+      if (!dots.length) return;
 
-      /* Embellish only once the windows are behind us. */
-      const p = progress();
-      const reveal = smooth((p - 0.9) / 0.1);
+      const p = journeyProgress();
+      lastProgress = p;
+      const reveal = smooth((p - 0.88) / 0.12);
       if (reveal <= 0) return;
-      lastDrawn = p;
 
-      const shown = Math.max(1, Math.floor(points.length * reveal));
-      const visible = new Set<number>();
+      const shown = Math.max(1, Math.floor(dots.length * reveal));
+      const pos = dots.slice(0, shown).map((d) => project(d.v, w, h));
 
-      for (let i = 0; i < shown; i++) {
-        visible.add(i);
-        const pt = points[i];
-        const x = pt.x * w;
-        const y = pt.y * h;
-
-        ctx.fillStyle = `rgba(${pt.color}, ${0.1 * reveal})`;
+      /* Links first so points sit on top. */
+      for (const link of links) {
+        if (link.a >= shown || link.b >= shown) continue;
+        const a = pos[link.a];
+        const b = pos[link.b];
+        if (!a || !b || a.z <= 0.02 || b.z <= 0.02) continue;
+        ctx.strokeStyle = `rgba(${link.color}, ${0.28 * reveal})`;
+        ctx.lineWidth = link.w;
         ctx.beginPath();
-        ctx.arc(x, y, pt.r * pt.halo, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.fillStyle = `rgba(224, 238, 255, ${0.75 * reveal})`;
-        ctx.beginPath();
-        ctx.arc(x, y, pt.r, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
       }
 
-      for (const edge of edges) {
-        if (!visible.has(edge.a) || !visible.has(edge.b)) continue;
-        const a = points[edge.a];
-        const b = points[edge.b];
-        ctx.strokeStyle = `rgba(${edge.color}, ${0.3 * reveal})`;
-        ctx.lineWidth = edge.width;
+      for (let i = 0; i < shown; i++) {
+        const d = dots[i];
+        const posI = pos[i];
+        if (!posI || posI.z <= 0.02) continue;
+        ctx.fillStyle = `rgba(${d.color}, ${0.07 * reveal})`;
         ctx.beginPath();
-        ctx.moveTo(a.x * w, a.y * h);
-        ctx.lineTo(b.x * w, b.y * h);
-        ctx.stroke();
+        ctx.arc(posI.x, posI.y, d.r * (d.r > 2 ? 5.5 : 4), 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = `rgba(226, 238, 255, ${0.72 * reveal})`;
+        ctx.beginPath();
+        ctx.arc(posI.x, posI.y, d.r, 0, Math.PI * 2);
+        ctx.fill();
       }
     };
 
     const onScroll = () => {
-      if (frame) return;
-      frame = requestAnimationFrame(() => {
-        frame = 0;
-        const p = progress();
-        if (Math.abs(p - lastDrawn) > 0.002) draw();
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const p = journeyProgress();
+        if (Math.abs(p - lastProgress) > 0.002) draw();
       });
     };
 
-    const image = new Image();
-    image.crossOrigin = "anonymous";
-    image.onload = () => {
-      if (disposed) return;
-      buildFromPlate(image);
-      resize();
-    };
-    image.src = src;
-
     resize();
-    window.addEventListener("scroll", onScroll, { passive: true });
     const ro = new ResizeObserver(resize);
     ro.observe(wrap);
-    void mask;
+    window.addEventListener("scroll", onScroll, { passive: true });
+
+    (async () => {
+      try {
+        if (disposed) return;
+        const [topojson, landModule] = await Promise.all([
+          import("topojson-client"),
+          import("world-atlas/land-110m.json"),
+        ]);
+        const topology = ((landModule as unknown as { default?: unknown }).default ??
+          landModule) as { objects: { land: unknown } };
+        const geo = topojson.feature(
+          topology as never,
+          topology.objects.land as never,
+        ) as unknown as GeoLike;
+        const polygons: number[][][][] = [];
+        collect(geo, polygons);
+        seed(polygons);
+      } catch {
+        /* Leave the planet clean if the outlines cannot load. */
+      }
+    })();
 
     return () => {
       disposed = true;
-      if (frame) cancelAnimationFrame(frame);
+      if (raf) cancelAnimationFrame(raf);
       window.removeEventListener("scroll", onScroll);
       ro.disconnect();
-      image.onload = null;
     };
-  }, [src]);
+  }, []);
 
   return (
     <div ref={wrapRef} className="cap-data" aria-hidden="true">
