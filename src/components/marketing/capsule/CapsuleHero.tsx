@@ -79,13 +79,23 @@ export function CapsuleHero() {
 
     let videoOk = false;
     let fallback = false;
+    let seekFailures = 0;
+
     const onMeta = () => {
-      const seekable = video.seekable.length > 0 && video.seekable.end(0) > 0;
-      videoOk = Number.isFinite(video.duration) && video.duration > 0 && seekable;
-      if (!videoOk) fallback = true;
+      videoOk = Number.isFinite(video.duration) && video.duration > 0;
       setReady(videoOk);
       setFailed(!videoOk);
       render();
+    };
+
+    /* A successful seek clears the fallback, so scrubbing works again after
+       scrolling back up and forward. */
+    const onSeeked = () => {
+      seekFailures = 0;
+      if (fallback && videoOk) {
+        fallback = false;
+        render();
+      }
     };
     const onError = () => {
       videoOk = false;
@@ -93,6 +103,8 @@ export function CapsuleHero() {
       render();
     };
     video.addEventListener("loadedmetadata", onMeta);
+    video.addEventListener("seeked", onSeeked);
+    video.addEventListener("canplay", onSeeked);
     video.addEventListener("error", onError);
 
     let frame = 0;
@@ -103,17 +115,21 @@ export function CapsuleHero() {
       const g = clamp01((b - 0.055) / 0.885);
       const duration = videoOk ? Math.max(0, video.duration - 1 / 60) : 0;
 
-      if (videoOk && !fallback) {
+      /* Keep asking for the right frame even while in fallback, so a host that
+         becomes seekable again restores the filmed sequence. */
+      if (videoOk) {
         const target = g * duration;
         if (!video.seeking && Math.abs(video.currentTime - target) > 1 / 60) {
           video.currentTime = target;
-          /* Some hosts refuse range requests: if the seek never lands, use stills. */
           window.setTimeout(() => {
-            if (!fallback && Math.abs(video.currentTime - target) > 0.25 && Math.abs(video.currentTime) < 0.05) {
-              fallback = true;
-              render();
+            if (Math.abs(video.currentTime - target) > 0.6) {
+              seekFailures += 1;
+              if (seekFailures >= 3 && !fallback) {
+                fallback = true;
+                render();
+              }
             }
-          }, 900);
+          }, 1400);
         }
       }
 
@@ -155,6 +171,8 @@ export function CapsuleHero() {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
       video.removeEventListener("loadedmetadata", onMeta);
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("canplay", onSeeked);
       video.removeEventListener("error", onError);
       window.removeEventListener("touchstart", unlock);
       window.removeEventListener("pointerdown", unlock);
