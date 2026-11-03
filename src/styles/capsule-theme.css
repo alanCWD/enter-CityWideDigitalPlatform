@@ -889,3 +889,11 @@
 @media (prefers-reduced-motion: reduce) {
   .cap-copy > div { transition: none; }
 }
+
+.cap-data {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}

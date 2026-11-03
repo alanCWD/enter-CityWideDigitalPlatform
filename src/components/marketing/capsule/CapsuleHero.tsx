@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { GoogleMark } from "@/components/branding/GoogleMark";
+import { EarthData } from "./EarthData";
 
 /**
  * Capsule journey — a replica of the reference demo's scroll-scrubbed transit.
@@ -148,6 +149,7 @@ export function CapsuleHero() {
             decoding="async"
           />
           <img className="cap-still cap-end" src={END_STILL} alt="" width={1920} height={1080} />
+          <EarthData src={END_STILL} />
         </div>
 
         <div className="cap-scrim" aria-hidden="true" />
