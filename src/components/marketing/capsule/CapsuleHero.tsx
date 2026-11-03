@@ -217,9 +217,9 @@ export function CapsuleHero() {
           <div className="cap-space" style={{ opacity: "var(--space-copy-opacity)" }}>
             <span className="cap-eyebrow">03 / Beyond the window</span>
             <h2>
-              Earth, live.
+              A Live Website.
               <br />
-              <span>A universe of channels.</span>
+              <span>A World of Signals.</span>
             </h2>
             <p>
               Posted, synced, listing-accurate and reviewed — 4 social channels, 40+ directories,
