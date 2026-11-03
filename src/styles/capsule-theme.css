@@ -71,8 +71,8 @@
   gap: 0.6rem;
   padding: 0.85rem 1.4rem;
   border: 1px solid rgba(255, 255, 255, 0.9);
-  background: var(--cap-ink);
-  color: #06080c !important;
+  background: hsl(var(--cap-ink));
+  color: #06080c;
   border-radius: 2px;
   font-family: "IBM Plex Mono", ui-monospace, monospace;
   font-size: 0.625rem;
@@ -83,7 +83,7 @@
 
 .cap-btn:hover {
   background: transparent;
-  color: var(--cap-ink);
+  color: hsl(var(--cap-ink));
   border-color: rgba(255, 255, 255, 0.55);
 }
 
@@ -792,6 +792,7 @@
 
 .cap-copy h1,
 .cap-copy h2 {
+  color: hsl(var(--cap-ink));
   margin: 0.9rem 0 0;
   font-size: clamp(2.1rem, 4.2vw, 3.9rem);
   line-height: 1.06;
@@ -896,4 +897,33 @@
   z-index: 2;
   pointer-events: none;
   mix-blend-mode: screen;
+}
+
+/* Header CTA: quiet hairline pill with white text */
+.cap-btn-nav {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.55rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 0.5625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
+}
+
+.cap-btn-nav:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.55);
+  color: #ffffff;
+}
+
+.cap-btn-nav:focus-visible {
+  outline: 1px solid var(--cap-accent, #9ec1ff);
+  outline-offset: 4px;
 }

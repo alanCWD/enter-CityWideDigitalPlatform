@@ -107,8 +107,8 @@ export default function Navbar({ variant = "default" }: NavbarProps) {
                 >
                   Book a demo
                 </a>
-                <Link to="/pricing" className="cap-btn px-4 py-2 text-[0.5625rem]">
-                  Start trial
+                <Link to="/pricing" className="cap-btn-nav">
+                  Start Trial
                 </Link>
               </>
             ) : (
@@ -203,8 +203,8 @@ export default function Navbar({ variant = "default" }: NavbarProps) {
                 >
                   Book a demo
                 </a>
-                <Link to="/pricing" className="cap-btn w-full">
-                  Start trial
+                <Link to="/pricing" className="cap-btn-nav w-full">
+                  Start Trial
                 </Link>
               </>
             ) : (

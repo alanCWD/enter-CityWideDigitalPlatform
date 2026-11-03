@@ -196,7 +196,7 @@ export function CapsuleHero() {
             </p>
             <div className="cap-actions">
               <Link to="/pricing" className="cap-btn">
-                Start free trial
+                Start the trial
               </Link>
               <button type="button" onClick={() => scrollToProgress(0.62)} className="cap-btn-ghost">
                 Run the capsule
@@ -243,9 +243,7 @@ export function CapsuleHero() {
             <span>
               <i ref={trackRef as React.RefObject<HTMLElement>} />
             </span>
-            <span className="cap-eyebrow" style={{ margin: 0 }}>
-              {failed ? "Still" : ready ? "Cabin" : "Loading"}
-            </span>
+
           </div>
         </footer>
 
