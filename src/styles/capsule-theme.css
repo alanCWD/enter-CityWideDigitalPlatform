@@ -192,36 +192,40 @@
   inset: 0;
 }
 
-/* Exterior hull: opaque metal with a growing circular aperture */
+/* Exterior hull: a solid metal surround with a circular aperture.
+   Built with box-shadow spread (not a mask) so the hatch hole can never
+   disappear in browsers with partial mask support. */
 .cap-sim__hull {
   position: absolute;
-  inset: -12%;
+  left: 50%;
+  top: var(--cap-cy);
+  width: calc(var(--cap-r) * 2);
+  height: calc(var(--cap-r) * 2);
+  transform: translate(-50%, -50%) scale(var(--hull-scale));
+  border-radius: 9999px;
   background:
-    repeating-radial-gradient(
-      circle at 50% var(--cap-cy),
-      rgba(255, 255, 255, 0.022) 0 1px,
-      transparent 1px 46px
-    ),
-    repeating-conic-gradient(
-      from 0deg at 50% var(--cap-cy),
-      rgba(255, 255, 255, 0.016) 0deg 0.4deg,
+    radial-gradient(circle, transparent 0 86%, rgba(30, 40, 55, 0.55) 86.5% 93%, rgba(6, 9, 13, 0.9) 93.5%),
+    conic-gradient(
+      from 0deg,
+      rgba(255, 255, 255, 0.05) 0deg 0.4deg,
       transparent 0.4deg 6deg
-    ),
-    radial-gradient(circle at 50% 44%, rgba(38, 49, 66, 0.95) 0%, rgba(11, 15, 21, 0.97) 52%, #04060a 100%);
-  -webkit-mask-image: radial-gradient(
-    circle at 50% var(--cap-cy),
-    transparent 0 var(--cap-r),
-    #000 calc(var(--cap-r) + 2px)
-  );
-  mask-image: radial-gradient(
-    circle at 50% var(--cap-cy),
-    transparent 0 var(--cap-r),
-    #000 calc(var(--cap-r) + 2px)
-  );
-  transform: scale(var(--hull-scale));
-  transform-origin: 50% 48%;
+    );
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+    inset 0 0 70px rgba(0, 0, 0, 0.75),
+    0 0 0 1px rgba(255, 255, 255, 0.05),
+    0 0 0 100vmax #05070a;
   opacity: var(--hull-opacity);
   will-change: transform, opacity;
+}
+
+/* Faint structural ribs on the hull ring */
+.cap-sim__hull::before {
+  content: "";
+  position: absolute;
+  inset: 6%;
+  border-radius: 9999px;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
 }
 
 /* Cabin ribs seen through the open hatch */

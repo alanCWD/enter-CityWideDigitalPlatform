@@ -55,6 +55,12 @@ export function CapsuleHero() {
     const section = sectionRef.current;
     if (!section) return;
 
+    /* On a reload the browser can restore a scroll position from inside the
+       sequence, which looks like the capsule has vanished. Start at the hatch. */
+    if (window.scrollY > 0 && window.scrollY < section.offsetHeight) {
+      window.scrollTo({ top: 0 });
+    }
+
     let frame = 0;
     let mounted = false;
     let lastStage = -1;
@@ -188,17 +194,17 @@ export function CapsuleHero() {
             <span className="cap-sim__rib" />
           </div>
 
-          {/* Light spill */}
-          <div className="cap-sim__glow" aria-hidden="true" />
-
           {/* Hull + hatch doors */}
           <div className="cap-sim__hull" aria-hidden="true" />
-              <div className="cap-sim__aperture" aria-hidden="true">
-                <div className="cap-sim__door cap-sim__door--l" />
-                <div className="cap-sim__door cap-sim__door--r" />
-                <div className="cap-sim__plate">CW · Entry 01</div>
-              </div>
+          <div className="cap-sim__aperture" aria-hidden="true">
+            <div className="cap-sim__door cap-sim__door--l" />
+            <div className="cap-sim__door cap-sim__door--r" />
+            <div className="cap-sim__plate">CW · Entry 01</div>
+          </div>
           <div className="cap-sim__rim" aria-hidden="true" />
+
+          {/* Light spilling through the opening hatch */}
+          <div className="cap-sim__glow" aria-hidden="true" />
 
           <button
             ref={triggerRef}
