@@ -53,6 +53,29 @@ export function CapsuleHero() {
     /* Load the variant the demo loads, based on width. */
     const source = window.matchMedia("(max-width: 767px)").matches ? MOBILE_VIDEO : DESKTOP_VIDEO;
     video.src = source;
+    video.muted = true;
+    video.load();
+
+    /* iOS only decodes frames for a video that has been played once; unlock it
+       on the first interaction so scrubbing shows real frames, not black. */
+    let unlocked = false;
+    const unlock = () => {
+      if (unlocked) return;
+      unlocked = true;
+      const playing = video.play();
+      if (playing && typeof playing.then === "function") {
+        playing
+          .then(() => {
+            video.pause();
+            render();
+          })
+          .catch(() => {
+            /* Autoplay refused: leave it; the user's scroll still seeks. */
+          });
+      }
+    };
+    window.addEventListener("touchstart", unlock, { once: true, passive: true });
+    window.addEventListener("pointerdown", unlock, { once: true });
 
     let videoOk = false;
     let fallback = false;
@@ -133,6 +156,8 @@ export function CapsuleHero() {
       window.removeEventListener("resize", onScroll);
       video.removeEventListener("loadedmetadata", onMeta);
       video.removeEventListener("error", onError);
+      window.removeEventListener("touchstart", unlock);
+      window.removeEventListener("pointerdown", unlock);
     };
   }, []);
 
