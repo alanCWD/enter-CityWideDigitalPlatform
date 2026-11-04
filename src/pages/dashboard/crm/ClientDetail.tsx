@@ -24,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { EditPaymentDialog, MarkPaidDialog } from "@/components/crm/InvoicePaymentDialog";
 import { paymentMethodLabel } from "@/lib/paymentMethods";
+import { Logo } from "@/components/branding/Logo";
 
 const ADMIN_EMAIL = "alan@citywidedigital.ca";
 function useIsAdmin() {
@@ -1469,11 +1470,42 @@ function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
   const [marking, setMarking] = useState(false);
   const [showMarkPaid, setShowMarkPaid] = useState(false);
   const [showEditPay, setShowEditPay] = useState(false);
+  const [sending, setSending] = useState(false);
+  const { toast } = useToast();
   const items: Array<{ description: string; quantity: number; unit_amount_cents: number }> =
     invoice.line_items ? JSON.parse(invoice.line_items as unknown as string) : [];
 
   const stripeHref = invoice.hosted_invoice_url
     ?? (invoice.stripe_invoice_id ? `https://dashboard.stripe.com/invoices/${invoice.stripe_invoice_id}` : null);
+
+  const sendOfficialInvoice = async () => {
+    setSending(true);
+    try {
+      if (invoice.stripe_invoice_id) {
+        await crm("invoices.resend", { id: invoice.id });
+        toast({
+          title: "Stripe invoice sent",
+          description: `${invoice.number ?? "Invoice"} was emailed from Stripe to ${client.billing_email ?? client.name}.`,
+        });
+      } else {
+        await crm("invoices.send", { id: invoice.id });
+        toast({
+          title: "Invoice created in Stripe and sent",
+          description: `${invoice.number ?? "Invoice"} now exists as a real Stripe invoice and was emailed to ${client.billing_email ?? client.name}.`,
+        });
+      }
+      onReload();
+      onClose();
+    } catch (e) {
+      toast({
+        title: "Could not send invoice",
+        description: (e as Error).message ?? "Try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSending(false);
+    }
+  };
 
   const markUnpaid = async () => {
     if (!confirm("Mark this invoice as unpaid / open?")) return;
@@ -1498,8 +1530,21 @@ function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
 
         {/* Toolbar */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-muted/30 rounded-t-2xl print:hidden">
-          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Invoice Preview</span>
+          <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Invoice Preview <span className="normal-case font-normal">— CityWide copy, not the Stripe invoice</span>
+          </span>
           <div className="flex items-center gap-2">
+            {(invoice.status === "draft" || invoice.status === "open" || invoice.status === "past_due") && (
+              <button
+                onClick={sendOfficialInvoice}
+                disabled={sending}
+                title="Email the client the actual Stripe invoice (creates it in Stripe first if this row has none)"
+                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Send className="w-3.5 h-3.5" />
+                {sending ? "Sending…" : invoice.stripe_invoice_id ? "Resend Stripe invoice" : "Send Stripe invoice"}
+              </button>
+            )}
             {stripeHref && (
               <a
                 href={stripeHref}
@@ -1508,7 +1553,7 @@ function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
                 title={invoice.status === "paid"
                   ? "Open the official invoice in Stripe"
                   : "Open the Stripe payment page for this invoice"}
-                className="text-xs font-bold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center gap-1.5"
+                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-muted hover:bg-accent text-foreground transition-colors inline-flex items-center gap-1.5 border border-border"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 {invoice.status === "paid" ? "View in Stripe" : "Pay in Stripe"}
@@ -1563,12 +1608,7 @@ function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
               <p className="text-lg font-bold text-primary mt-0.5">{invoice.number ?? invoice.id.slice(0, 8)}</p>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <img
-                src="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100027458/citywide_logo_3f1986ed.png"
-                crossOrigin="anonymous"
-                alt="Citywide Digital"
-                className="h-12 w-auto object-contain"
-              />
+              <Logo size="lg" />
               <span className={cn(
                 "px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border",
                 statusColors[invoice.status] ?? statusColors.draft,
@@ -1583,7 +1623,7 @@ function InvoicePreviewModal({ invoice, client, onClose, onReload }: {
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">From</p>
               <p className="text-sm font-bold text-foreground">Citywide Digital</p>
-              <p className="text-xs text-muted-foreground mt-0.5">alan@citywidedigital.ca</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{ADMIN_EMAIL}</p>
             </div>
             <div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Bill To</p>

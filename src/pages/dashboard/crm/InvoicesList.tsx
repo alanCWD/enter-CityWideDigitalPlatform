@@ -139,20 +139,39 @@ function CloseStripeDialog({ invoice, onClose, onSuccess }: CloseStripeDialogPro
   );
 }
 
-// ── Resend invoice button (re-emails the client; recreates in Stripe if the linked invoice is broken) ─
+// ── Send the real Stripe invoice ─────────────────────────────────────────────
+// Emails the official Stripe invoice, never a dashboard copy. When the CRM row
+// has no Stripe invoice yet (a draft, or a row that never synced), this creates
+// it in Stripe from the stored line items, finalizes it, then emails it.
 
-function ResendInvoiceButton({ invoice, onRefresh }: { invoice: CrmInvoice; onRefresh: () => void }) {
+function SendInvoiceButton({ invoice, onRefresh }: { invoice: CrmInvoice; onRefresh: () => void }) {
   const [sending, setSending] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const { toast } = useToast();
+  const linked = !!invoice.stripe_invoice_id;
 
-  const handleResend = async () => {
+  const handleSend = async () => {
     setSending(true);
     setErr(null);
     try {
-      await crm("invoices.resend", { id: invoice.id });
+      if (linked) {
+        await crm("invoices.resend", { id: invoice.id });
+        toast({
+          title: "Stripe invoice sent",
+          description: `${invoice.number ?? "Invoice"} was emailed from Stripe to ${invoice.client_name ?? "the client"}.`,
+        });
+      } else {
+        await crm("invoices.send", { id: invoice.id });
+        toast({
+          title: "Invoice created in Stripe and sent",
+          description: `${invoice.number ?? "Invoice"} now exists as a real Stripe invoice and was emailed to ${invoice.client_name ?? "the client"}.`,
+        });
+      }
       onRefresh();
     } catch (e) {
-      setErr((e as Error).message ?? "Resend failed");
+      const msg = (e as Error).message ?? "Send failed";
+      setErr(msg);
+      toast({ title: "Could not send invoice", description: msg, variant: "destructive" });
     } finally {
       setSending(false);
     }
@@ -161,13 +180,15 @@ function ResendInvoiceButton({ invoice, onRefresh }: { invoice: CrmInvoice; onRe
   return (
     <div className="flex flex-col items-center">
       <button
-        onClick={handleResend}
+        onClick={handleSend}
         disabled={sending}
-        title="Resend this invoice email to the client (recreates it in Stripe if the current one is broken)"
-        className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground border border-border transition-colors disabled:opacity-50 whitespace-nowrap"
+        title={linked
+          ? "Email the actual Stripe invoice to the client again"
+          : "Create this invoice in Stripe and email the actual Stripe invoice to the client"}
+        className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 whitespace-nowrap"
       >
         <Send className={`w-3.5 h-3.5 ${sending ? "animate-pulse" : ""}`} />
-        {sending ? "Sending…" : "Resend"}
+        {sending ? "Sending…" : linked ? "Resend" : "Send"}
       </button>
       {err && (
         <span className="text-[9px] text-destructive leading-none text-center max-w-[90px] mt-1" title={err}>
@@ -498,9 +519,10 @@ export function InvoicesList() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center justify-center gap-1 flex-wrap">
-                          {/* Resend — for sent, unpaid invoices linked to Stripe */}
-                          {(inv.status === "open" || inv.status === "past_due") && inv.stripe_invoice_id && (
-                            <ResendInvoiceButton invoice={inv} onRefresh={load} />
+                          {/* Send the actual Stripe invoice. Drafts and unsynced rows get
+                              created in Stripe first, so "Send" always emails the real one. */}
+                          {(inv.status === "draft" || inv.status === "open" || inv.status === "past_due") && (
+                            <SendInvoiceButton invoice={inv} onRefresh={load} />
                           )}
 
                           {/* Mark as Paid — only for open / past_due */}
@@ -557,16 +579,17 @@ export function InvoicesList() {
                             <StripeActionsCell invoice={inv} onRefresh={load} />
                           )}
 
-                          {/* Invoice / PDF links */}
+                          {/* Invoice / PDF links — labeled so the real Stripe invoice is findable */}
                           {inv.hosted_invoice_url && (
                             <a
                               href={inv.hosted_invoice_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title="View invoice in Stripe"
-                              className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                              title="Open the actual Stripe invoice"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground border border-border transition-colors whitespace-nowrap"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
+                              Stripe
                             </a>
                           )}
                           {inv.pdf_url && (
@@ -574,10 +597,11 @@ export function InvoicesList() {
                               href={inv.pdf_url}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title="Download PDF"
-                              className="p-1.5 rounded-md hover:bg-primary/10 text-muted-foreground hover:text-primary transition-colors"
+                              title="Download the Stripe invoice PDF"
+                              className="flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground border border-border transition-colors whitespace-nowrap"
                             >
                               <FileText className="w-3.5 h-3.5" />
+                              PDF
                             </a>
                           )}
                           {inv.status !== "open" && inv.status !== "past_due" && inv.status !== "paid" && !inv.hosted_invoice_url && !inv.pdf_url && (
@@ -596,7 +620,7 @@ export function InvoicesList() {
         {/* Legend */}
         <p className="text-xs text-muted-foreground/60 flex items-center gap-1">
           <CloudLightning className="w-3 h-3" />
-          Paid invoices: <strong className="font-semibold">Undo Paid</strong> returns an invoice to open, <strong className="font-semibold">Details</strong> records the method and reference, and <strong className="font-semibold">Close in Stripe</strong> syncs the paid status to Stripe. The lightning icon checks live Stripe status.
+          <strong className="font-semibold">Send</strong> emails the client the actual Stripe invoice (creating it in Stripe first if this row has no Stripe invoice yet). <strong className="font-semibold">Stripe</strong> / <strong className="font-semibold">PDF</strong> open that same Stripe invoice. Paid invoices: <strong className="font-semibold">Undo Paid</strong> returns an invoice to open, <strong className="font-semibold">Details</strong> records the method and reference, and <strong className="font-semibold">Close in Stripe</strong> syncs the paid status.
         </p>
       </div>
 
