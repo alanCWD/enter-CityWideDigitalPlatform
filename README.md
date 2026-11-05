@@ -114,11 +114,15 @@ Field meanings
 | Field | Source |
 | --- | --- |
 | `id` | Stable CRM client id — never the email |
-| `email` / `phone` | Primary contact, falling back to the client's billing email / phone |
+| `email` / `phone` | Primary contact first, then any other contact, falling back to the client's billing email / phone |
+| `website` | Client website, then the linked Google profile, then the site recorded in trial-intake notes, then the last site audit. Always an absolute URL (`https://…`), `null` when none is known |
+| `industry` | Client industry, then the business type recorded in notes, then the Google profile category |
 | `city` | City and region as displayed in the dashboard (`Surrey, BC`) |
-| `plan` | Current subscription product: `Starter`, `Growth`, `Pro`, or `null` |
+| `plan` | Current subscription product: `Starter`, `Growth`, `Pro`, or `null` when the client has no subscription |
 | `status` | `active`, `trial` (leads and prospects), `paused`, `cancelled` (churned or archived) |
 | `archived` | `true` for archived clients |
+
+`website` and `industry` are only as complete as the CRM records behind them. Where a client has none of those sources, the field is `null` — nothing is guessed from the business name.
 
 ### Errors
 

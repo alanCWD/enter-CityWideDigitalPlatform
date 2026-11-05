@@ -185,14 +185,51 @@ interface ClientObject {
   updated_at: string | null;
 }
 
-function toClient(row: Row): ClientObject {
+interface ProfileInfo { website: string | null; category: string | null }
+
+/** Website as an absolute URL, or null when the value is not a usable domain.
+ *  Accepts bare domains and strips the trailing period trial notes add. */
+function websiteValue(v: SqlValue | undefined, originOnly = false): string | null {
+  const raw = textOrNull(v);
+  if (!raw) return null;
+  const trimmed = raw.replace(/[.,;:]+$/, "").trim();
+  if (!trimmed || /\s/.test(trimmed)) return null;
+  const withScheme = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed.replace(/^\/+/, "")}`;
+  try {
+    const url = new URL(withScheme);
+    if (!url.hostname.includes(".")) return null;
+    if (originOnly) return url.origin;
+    const pathname = url.pathname === "/" ? "" : url.pathname;
+    return `${url.origin}${pathname}${url.search}`;
+  } catch {
+    return null;
+  }
+}
+
+/** Free-text industry, ignoring the placeholders people type into notes. */
+function industryValue(v: SqlValue | undefined): string | null {
+  const s = textOrNull(v)?.replace(/[.,;:]+$/, "").trim();
+  if (!s) return null;
+  return /^(n\/?a|none|unknown|null|-{1,3}|—)$/i.test(s) ? null : s;
+}
+
+function toClient(row: Row, profile?: ProfileInfo): ClientObject {
+  const website = websiteValue(row.website)
+    ?? websiteValue(profile?.website)
+    ?? websiteValue(row.notes_website)
+    ?? websiteValue(row.audit_url, true);
+
   return {
     id: String(row.id),
     name: String(row.name ?? ""),
-    email: textOrNull(row.primary_email) ?? textOrNull(row.billing_email),
-    phone: phoneValue(row.primary_phone) ?? phoneValue(row.phone),
-    website: textOrNull(row.website),
-    industry: textOrNull(row.industry),
+    email: textOrNull(row.contact_email) ?? textOrNull(row.billing_email),
+    phone: phoneValue(row.contact_phone) ?? phoneValue(row.phone),
+    website,
+    industry: industryValue(row.industry)
+      ?? industryValue(row.notes_industry)
+      ?? industryValue(row.notes_industry_alt)
+      ?? industryValue(row.notes_category)
+      ?? industryValue(profile?.category),
     city: displayCity(row),
     plan: planLabel(row.plan_name),
     status: mapStatus(row.status),
@@ -202,18 +239,66 @@ function toClient(row: Row): ClientObject {
   };
 }
 
+/** Loads the linked Google profile data for the clients on this page. */
+async function loadProfiles(rows: Row[]): Promise<Map<string, ProfileInfo>> {
+  const ids = [...new Set(
+    rows.map((r) => textOrNull(r.gbp_connection_id)).filter((v): v is string => !!v),
+  )];
+  const byId = new Map<string, ProfileInfo>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const chunk = ids.slice(i, i + 100);
+    const { data, error } = await db
+      .from("gbp_connections")
+      .select("id, website, category")
+      .in("id", chunk);
+    if (error) {
+      console.error("seo-api profile lookup failed:", error.message);
+      continue;
+    }
+    for (const p of data ?? []) {
+      byId.set(String(p.id), {
+        website: (p.website as string | null) ?? null,
+        category: (p.category as string | null) ?? null,
+      });
+    }
+  }
+  return byId;
+}
+
+/** Extracts the value on a `Marker: value` line of a free-text field.
+ *  Trial-intake clients record their website and business type this way. */
+function notesLine(column: string, marker: string): string {
+  const start = `INSTR(${column}, '${marker}') + ${marker.length}`;
+  const rest = `SUBSTR(${column}, ${start})`;
+  return `(CASE WHEN INSTR(COALESCE(${column}, ''), '${marker}') > 0 THEN
+      TRIM(REPLACE(SUBSTR(${column}, ${start},
+        CASE WHEN INSTR(${rest}, CHAR(10)) > 0 THEN INSTR(${rest}, CHAR(10)) - 1 ELSE LENGTH(${column}) END
+      ), CHAR(13), ''))
+    END)`;
+}
+
 const CLIENT_SELECT = `
   SELECT c.id, c.name, c.billing_email, c.phone, c.city, c.region, c.status,
-         c.website, c.industry, c.created_at, c.updated_at,
+         c.website, c.industry, c.gbp_connection_id, c.created_at, c.updated_at,
          (SELECT ct.email FROM contacts ct
-           WHERE ct.client_id = c.id AND ct.is_primary = 1 AND TRIM(COALESCE(ct.email, '')) <> ''
-           ORDER BY ct.full_name ASC LIMIT 1) AS primary_email,
+           WHERE ct.client_id = c.id AND TRIM(COALESCE(ct.email, '')) <> ''
+           ORDER BY ct.is_primary DESC, ct.full_name ASC LIMIT 1) AS contact_email,
          (SELECT ct.phone FROM contacts ct
-           WHERE ct.client_id = c.id AND ct.is_primary = 1 AND TRIM(COALESCE(ct.phone, '')) <> ''
-           ORDER BY ct.full_name ASC LIMIT 1) AS primary_phone,
+           WHERE ct.client_id = c.id AND TRIM(COALESCE(ct.phone, '')) <> ''
+           ORDER BY ct.is_primary DESC, ct.full_name ASC LIMIT 1) AS contact_phone,
+         (SELECT h.url FROM health_audits h
+           WHERE h.client_id = c.id AND TRIM(COALESCE(h.url, '')) <> ''
+           ORDER BY h.created_at DESC LIMIT 1) AS audit_url,
+         ${notesLine("c.notes", "Website: ")} AS notes_website,
+         ${notesLine("c.notes", "Business type: ")} AS notes_industry,
+         ${notesLine("c.notes", "Industry: ")} AS notes_industry_alt,
+         ${notesLine("c.notes", "Category: ")} AS notes_category,
          (SELECT p.name FROM subscriptions s JOIN products p ON p.id = s.product_id
-           WHERE s.client_id = c.id AND s.status IN ('active', 'trialing', 'pending')
-           ORDER BY s.created_at DESC LIMIT 1) AS plan_name
+           WHERE s.client_id = c.id
+           ORDER BY CASE WHEN s.status IN ('active', 'trialing') THEN 0
+                         WHEN s.status = 'pending' THEN 1 ELSE 2 END,
+                    s.created_at DESC
+           LIMIT 1) AS plan_name
   FROM clients c`;
 
 let bootstrapped = false;
@@ -369,7 +454,8 @@ async function handleList(ctx: KeyCtx, url: URL): Promise<Response> {
   ]);
 
   const total = Number(countRows[0]?.total ?? 0);
-  const data = rows.map(toClient);
+  const profiles = await loadProfiles(rows);
+  const data = rows.map((row) => toClient(row, profiles.get(String(row.gbp_connection_id ?? ""))));
   return json({
     data,
     meta: { page, per_page: perPage, total, has_more: offset + data.length < total },
@@ -382,7 +468,8 @@ async function handleGetOne(ctx: KeyCtx, id: string): Promise<Response> {
     [id, ctx.agencyId],
   );
   if (!rows[0]) return apiError(404, "not_found", `No client with id ${id}`);
-  return json(toClient(rows[0]));
+  const profiles = await loadProfiles(rows);
+  return json(toClient(rows[0], profiles.get(String(rows[0].gbp_connection_id ?? ""))));
 }
 
 function parseSegments(rawPath: string): string[] {

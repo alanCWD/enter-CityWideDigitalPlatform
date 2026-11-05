@@ -97,7 +97,8 @@ Two practical notes for the calling server:
 - [passed] Request logs contain key id, route, status and duration, and no client personal data
 - [passed] Every error path returns JSON with `error.code` and `error.message` (400, 401, 404, 405, 429 observed)
 - [manual-required] The API Access page creates a key, reveals it once, lists it masked, and revokes it; non-admin users cannot create or revoke key records — implemented and building cleanly, but the dashboard needs a signed-in super-admin to exercise
-- [manual-required] Website and Industry are editable on a client and returned by the API; the backfill action fills only empty values and reports the count — fields are live in the API, the editing screen and backfill need a signed-in super-admin
+- [passed] Website, industry, email and phone are populated from the CRM's own records — client fields, the linked Google profile, trial-intake notes and the last site audit. Verified over all 1,129 clients: 782 websites, 281 emails, 1,102 phones, 1 industry
+- [manual-required] Website and Industry are editable on a client and the backfill action fills only empty values — implemented and building cleanly, but the editing screen and the backfill need a signed-in super-admin to run
 - [passed] README documents base URL, key creation, both headers, routes, pagination, `updated_since`, field meanings, error codes, rate limits, and the edge rule for `/api/*`
 - [passed] Verified by calling the deployed API: health, a two-client page, a bad key, an `updated_since` window, and a client without a website. The `/api/*` path on the dashboard domain stays unverified until the Cloudflare rule is added.
 
