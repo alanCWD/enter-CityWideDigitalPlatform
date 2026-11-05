@@ -1,0 +1,2 @@
+DELETE FROM public.api_requests WHERE key_id = 'key_verifytest01';
+DELETE FROM public.api_keys WHERE id = 'key_verifytest01';

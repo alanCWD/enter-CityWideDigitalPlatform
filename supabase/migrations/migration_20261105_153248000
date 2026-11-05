@@ -1,0 +1,32 @@
+CREATE TABLE IF NOT EXISTS public.api_keys (
+  id TEXT PRIMARY KEY,
+  agency_id TEXT NOT NULL DEFAULT 'citywide',
+  label TEXT NOT NULL DEFAULT '',
+  key_prefix TEXT NOT NULL,
+  key_hash TEXT NOT NULL UNIQUE,
+  scopes TEXT NOT NULL DEFAULT 'clients:read',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_used_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS public.api_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  key_id TEXT REFERENCES public.api_keys(id) ON DELETE SET NULL,
+  route TEXT NOT NULL,
+  method TEXT NOT NULL,
+  status INTEGER NOT NULL,
+  duration_ms INTEGER NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS api_keys_hash_idx ON public.api_keys (key_hash);
+CREATE INDEX IF NOT EXISTS api_keys_agency_idx ON public.api_keys (agency_id);
+CREATE INDEX IF NOT EXISTS api_requests_key_time_idx ON public.api_requests (key_id, created_at);
+CREATE INDEX IF NOT EXISTS api_requests_created_idx ON public.api_requests (created_at);
+
+ALTER TABLE public.api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.api_requests ENABLE ROW LEVEL SECURITY;
+
+COMMENT ON TABLE public.api_keys IS 'Long-lived read-only API keys for the SEO monitoring API (seo-api backend function).';
+COMMENT ON TABLE public.api_requests IS 'Per-request log for the SEO monitoring API. No client personal data.';

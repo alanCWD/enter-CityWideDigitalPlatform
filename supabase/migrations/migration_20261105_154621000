@@ -1,0 +1,2 @@
+DELETE FROM public.api_requests WHERE key_id IN ('key_verifytest01', 'key_verifytest02');
+DELETE FROM public.api_keys WHERE id IN ('key_verifytest01', 'key_verifytest02');

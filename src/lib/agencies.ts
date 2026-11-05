@@ -15,6 +15,7 @@ import {
   Inbox,
   Star,
   Sparkles,
+  KeyRound,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -52,6 +53,7 @@ const crmNav: AgencyNavItem[] = [
   { name: "Clients",           path: "/dashboard/crm/clients",  icon: Users           },
   { name: "Products & Plans",  path: "/dashboard/crm/catalog",  icon: Package         },
   { name: "Invoices",          path: "/dashboard/crm/invoices", icon: FileText        },
+  { name: "API Access",        path: "/dashboard/crm/api",      icon: KeyRound        },
 ];
 
 /**

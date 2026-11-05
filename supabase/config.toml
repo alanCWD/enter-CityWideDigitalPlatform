@@ -8,3 +8,8 @@ verify_jwt = false
 
 [functions.trial-intake]
 verify_jwt = false
+
+# Read-only client feed for the SEO monitoring app. Authenticates with its own
+# long-lived workspace keys (not user sessions), so the JWT check must be off.
+[functions.seo-api]
+verify_jwt = false

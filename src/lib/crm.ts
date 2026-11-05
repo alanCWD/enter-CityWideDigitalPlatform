@@ -15,6 +15,8 @@ export interface CrmClient {
   region: string | null;
   postal_code: string | null;
   country: string | null;
+  website: string | null;
+  industry: string | null;
   notes: string | null;
   agency_id: string;
   created_at: string;
@@ -104,6 +106,19 @@ export interface CrmMetrics {
   mrr_cents: number;
   outstanding_cents: number;
   overdue_count: number;
+}
+
+/** A read-only API key shown in the dashboard. The secret is only returned once,
+ *  by `apiKeys.create`, and is never re-readable. */
+export interface CrmApiKey {
+  id: string;
+  agency_id: string;
+  label: string;
+  key_prefix: string;
+  scopes: string;
+  created_at: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
 }
 
 /** How long a single backend call may take before we give up. Without a bound,

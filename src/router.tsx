@@ -31,6 +31,7 @@ import { ClientsList } from "./pages/dashboard/crm/ClientsList";
 import { ClientDetail } from "./pages/dashboard/crm/ClientDetail";
 import { Catalog } from "./pages/dashboard/crm/Catalog";
 import { InvoicesList } from "./pages/dashboard/crm/InvoicesList";
+import { ApiAccess } from "./pages/dashboard/crm/ApiAccess";
 import SocialProfiles from "./pages/dashboard/social/profiles";
 import ContentCalendar from "./pages/dashboard/social/calendar";
 import SocialInbox from "./pages/dashboard/social/inbox";
@@ -265,6 +266,11 @@ export const routers = [
     path: "/dashboard/crm/invoices",
     name: "crm-invoices",
     element: <Auth><InvoicesList /></Auth>,
+  },
+  {
+    path: "/dashboard/crm/api",
+    name: "crm-api",
+    element: <Auth><ApiAccess /></Auth>,
   },
   {
     path: "/dashboard/social/profiles",

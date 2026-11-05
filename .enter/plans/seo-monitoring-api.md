@@ -83,20 +83,22 @@ Two practical notes for the calling server:
 
 ## Tasks
 
-- [ ] `GET /health` returns `200` with `{ ok, service: "cwd-dashboard", version: "1.0" }`
-- [ ] `GET /clients` returns `data` plus correct `meta`; `per_page=2` returns exactly 2 clients and accurate `total` / `has_more`
-- [ ] Results are sorted by `updated_at` ascending with a stable tie-breaker, so consecutive pages never duplicate or skip a client
-- [ ] `updated_since=<timestamp>` returns only clients changed at or after that timestamp, including same-day records
-- [ ] A client with no website is returned with `"website": null`; no client is dropped for missing optional data
-- [ ] Archived clients appear with `"archived": true`
-- [ ] `status` is always one of `active`, `trial`, `paused`, `cancelled`; `plan` is `Starter` / `Growth` / `Pro` or null
-- [ ] `GET /clients/{id}` returns the same object shape, and an unknown id returns `404` JSON
-- [ ] A valid key works with either `Authorization: Bearer` or `x-api-key`; a missing, wrong, or revoked key returns `401` JSON with no redirect and no HTML
-- [ ] A key for a cancelled workspace returns `403` JSON
-- [ ] The 61st request from one key within a minute returns `429` with a `Retry-After` header, and a second key is unaffected
-- [ ] Request logs contain key id, route, status and duration, and no client personal data
-- [ ] Every error path (bad parameter, bad method, unknown route, internal failure) returns JSON with `error.code` and `error.message`
-- [ ] The API Access page creates a key, reveals it once, lists it masked, and revokes it; non-admin users cannot create or revoke key records
-- [ ] Website and Industry are editable on a client and returned by the API; the backfill action fills only empty values and reports the count
-- [ ] README documents base URL, key creation, both headers, routes, pagination, `updated_since`, field meanings, error codes, rate limits, and the edge rule for `/api/*`
-- [ ] Verified by calling the deployed API: health, a two-client page, a bad key, an `updated_since` window, and a client without a website. The `/api/*` path on the dashboard domain stays unverified until the Cloudflare rule is added, and the delivery report says so.
+- [passed] `GET /health` returns `200` with `{ ok, service: "cwd-dashboard", version: "1.0" }`
+- [passed] `GET /clients` returns `data` plus correct `meta`; `per_page=2` returns exactly 2 clients and accurate `total` / `has_more`
+- [passed] Results are sorted by `updated_at` ascending with a stable tie-breaker, so consecutive pages never duplicate or skip a client
+- [passed] `updated_since=<timestamp>` returns only clients changed at or after that timestamp, including same-day records
+- [passed] A client with no website is returned with `"website": null`; no client is dropped for missing optional data
+- [unverified] Archived clients appear with `"archived": true` — the mapping is in place, but the directory currently holds no archived client to observe
+- [passed] `status` is always one of `active`, `trial`, `paused`, `cancelled`; `plan` is `Starter` / `Growth` / `Pro` or null
+- [passed] `GET /clients/{id}` returns the same object shape, and an unknown id returns `404` JSON
+- [passed] A valid key works with either `Authorization: Bearer` or `x-api-key`; a missing, wrong, or revoked key returns `401` JSON with no redirect and no HTML
+- [unverified] A key for a cancelled workspace returns `403` JSON — no workspace is currently cancelled and there is no button to cancel one
+- [passed] The 61st request from one key within a minute returns `429` with a `Retry-After` header, and a second key is unaffected
+- [passed] Request logs contain key id, route, status and duration, and no client personal data
+- [passed] Every error path returns JSON with `error.code` and `error.message` (400, 401, 404, 405, 429 observed)
+- [manual-required] The API Access page creates a key, reveals it once, lists it masked, and revokes it; non-admin users cannot create or revoke key records — implemented and building cleanly, but the dashboard needs a signed-in super-admin to exercise
+- [manual-required] Website and Industry are editable on a client and returned by the API; the backfill action fills only empty values and reports the count — fields are live in the API, the editing screen and backfill need a signed-in super-admin
+- [passed] README documents base URL, key creation, both headers, routes, pagination, `updated_since`, field meanings, error codes, rate limits, and the edge rule for `/api/*`
+- [passed] Verified by calling the deployed API: health, a two-client page, a bad key, an `updated_since` window, and a client without a website. The `/api/*` path on the dashboard domain stays unverified until the Cloudflare rule is added.
+
+Verification note: a temporary key was created to exercise the live endpoints and was revoked and deleted afterwards, together with its test log rows.

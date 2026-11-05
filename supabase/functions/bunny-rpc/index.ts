@@ -76,6 +76,12 @@ async function execMany(stmts: ExecRequest[]) {
 function uuid() { return crypto.randomUUID(); }
 function now() { return new Date().toISOString(); }
 
+/** SHA-256 hex digest — API keys are stored only as their hash. */
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 let bootstrapped = false;
 async function bootstrapBatch(stmts: string[]) {
   const res = await fetch(`${bunnyHttpBase()}/v2/pipeline`, {
@@ -109,8 +115,14 @@ async function bootstrap() {
     `ALTER TABLE clients ADD COLUMN created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`,
     `ALTER TABLE clients ADD COLUMN updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP`,
     `ALTER TABLE clients ADD COLUMN agency_id TEXT NOT NULL DEFAULT 'citywide'`,
+    `ALTER TABLE clients ADD COLUMN website TEXT`,
+    `ALTER TABLE clients ADD COLUMN industry TEXT`,
     `UPDATE clients SET agency_id = 'citywide' WHERE agency_id IS NULL OR agency_id = ''`,
     `CREATE INDEX IF NOT EXISTS clients_agency_idx ON clients(agency_id)`,
+    // Read-only public API (seo-api function): the workspace status that can
+    // disable that workspace's keys. Keys and request logs live in the managed
+    // database (public.api_keys / public.api_requests).
+    `ALTER TABLE agencies ADD COLUMN status TEXT NOT NULL DEFAULT 'active'`,
     `CREATE TABLE IF NOT EXISTS contacts (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, full_name TEXT NOT NULL DEFAULT '', email TEXT, phone TEXT, role TEXT, is_primary INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `ALTER TABLE contacts ADD COLUMN full_name TEXT NOT NULL DEFAULT ''`,
     `UPDATE contacts SET full_name = name WHERE full_name = '' AND name IS NOT NULL`,
@@ -428,13 +440,13 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const id = (payload.id as string) || uuid();
       // Super-admin can stamp a specific agency; otherwise use authenticated agency
       const agencyId = (ctx.isSuperAdmin && payload.agency_id) ? (payload.agency_id as string) : ctx.agencyId;
-      await exec({ sql: `INSERT INTO clients (id, name, status, source, owner_id, billing_email, phone, address_line1, city, region, postal_code, country, gbp_connection_id, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.name as string, (payload.status as string) ?? "lead", (payload.source as string) ?? null, (payload.owner_id as string) ?? null, (payload.billing_email as string) ?? null, (payload.phone as string) ?? null, (payload.address_line1 as string) ?? null, (payload.city as string) ?? null, (payload.region as string) ?? null, (payload.postal_code as string) ?? null, (payload.country as string) ?? null, (payload.gbp_connection_id as string) ?? null, (payload.notes as string) ?? null, agencyId] });
+      await exec({ sql: `INSERT INTO clients (id, name, status, source, owner_id, billing_email, phone, address_line1, city, region, postal_code, country, gbp_connection_id, website, industry, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.name as string, (payload.status as string) ?? "lead", (payload.source as string) ?? null, (payload.owner_id as string) ?? null, (payload.billing_email as string) ?? null, (payload.phone as string) ?? null, (payload.address_line1 as string) ?? null, (payload.city as string) ?? null, (payload.region as string) ?? null, (payload.postal_code as string) ?? null, (payload.country as string) ?? null, (payload.gbp_connection_id as string) ?? null, (payload.website as string) ?? null, (payload.industry as string) ?? null, (payload.notes as string) ?? null, agencyId] });
       return { id };
     }
     case "clients.update": {
       const id = payload.id as string; await assertClientAccess(ctx, id);
       const fields: string[] = []; const args: SqlValue[] = [];
-      const updatable = ["name","status","source","owner_id","billing_email","phone","address_line1","city","region","postal_code","country","gbp_connection_id","stripe_customer_id","notes"];
+      const updatable = ["name","status","source","owner_id","billing_email","phone","address_line1","city","region","postal_code","country","gbp_connection_id","stripe_customer_id","website","industry","notes"];
       // Super-admin can re-assign a client to a different agency
       if (ctx.isSuperAdmin) updatable.push("agency_id");
       for (const k of updatable) if (k in payload) { fields.push(`${k} = ?`); args.push((payload[k] as SqlValue) ?? null); }
@@ -464,7 +476,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       for (const r of items) {
         const id = uuid();
         try {
-          await exec({ sql: `INSERT INTO clients (id, name, status, source, billing_email, phone, address_line1, city, region, postal_code, country, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, (r.name as string) ?? "Untitled", (r.status as string) ?? "lead", (r.source as string) ?? "import", (r.billing_email as string) ?? null, (r.phone as string) ?? null, (r.address_line1 as string) ?? null, (r.city as string) ?? null, (r.region as string) ?? null, (r.postal_code as string) ?? null, (r.country as string) ?? null, (r.notes as string) ?? null, ctx.agencyId] });
+          await exec({ sql: `INSERT INTO clients (id, name, status, source, billing_email, phone, address_line1, city, region, postal_code, country, website, industry, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, (r.name as string) ?? "Untitled", (r.status as string) ?? "lead", (r.source as string) ?? "import", (r.billing_email as string) ?? null, (r.phone as string) ?? null, (r.address_line1 as string) ?? null, (r.city as string) ?? null, (r.region as string) ?? null, (r.postal_code as string) ?? null, (r.country as string) ?? null, (r.website as string) ?? null, (r.industry as string) ?? null, (r.notes as string) ?? null, ctx.agencyId] });
           created++;
         } catch { skipped++; }
       }
@@ -903,6 +915,96 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       if (!ctx.isSuperAdmin) return { error: "Forbidden: super-admin only" };
       const { rows } = await exec({ sql: `SELECT * FROM agencies ORDER BY name ASC` });
       return rows;
+    }
+
+    // ─── Read-only public API keys (consumed by the seo-api function) ──────
+    case "apiKeys.list": {
+      const payloadAgency = payload.agency_id as string | undefined;
+      const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+      let query = adminClient
+        .from("api_keys")
+        .select("id, agency_id, label, key_prefix, scopes, created_at, last_used_at, revoked_at")
+        .order("created_at", { ascending: false });
+      if (!ctx.isSuperAdmin) query = query.eq("agency_id", ctx.agencyId);
+      else if (payloadAgency && payloadAgency !== "all") query = query.eq("agency_id", payloadAgency);
+      const { data, error } = await query;
+      if (error) return { error: error.message };
+      return { keys: data ?? [] };
+    }
+    case "apiKeys.create": {
+      if (!ctx.isSuperAdmin) return { error: "Forbidden: super-admin only" };
+      const label = ((payload.label as string) ?? "").trim().slice(0, 80) || "Untitled key";
+      const agencyId = ((payload.agency_id as string) || "citywide").trim();
+      const { rows: agency } = await exec({ sql: `SELECT id, status FROM agencies WHERE id = ? LIMIT 1`, args: [agencyId] });
+      if (!agency[0]) return { error: `Workspace ${agencyId} not found` };
+      if (String(agency[0].status ?? "active").toLowerCase() === "cancelled") {
+        return { error: "This workspace is cancelled — its API keys cannot be used" };
+      }
+
+      const bytes = new Uint8Array(24);
+      crypto.getRandomValues(bytes);
+      const key = `cwd_live_${Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+      const id = `key_${uuid().slice(0, 8)}`;
+      const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+      const { error } = await adminClient.from("api_keys").insert({
+        id,
+        agency_id: agencyId,
+        label,
+        key_prefix: key.slice(0, 16),
+        key_hash: await sha256Hex(key),
+        scopes: "clients:read",
+      });
+      if (error) return { error: error.message };
+      // The plaintext key is returned once and never stored.
+      return { id, key, key_prefix: key.slice(0, 16), label, agency_id: agencyId, scopes: "clients:read" };
+    }
+    case "apiKeys.revoke": {
+      if (!ctx.isSuperAdmin) return { error: "Forbidden: super-admin only" };
+      const id = payload.id as string;
+      if (!id) return { error: "missing key id" };
+      const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+      const { error } = await adminClient
+        .from("api_keys")
+        .update({ revoked_at: now() })
+        .eq("id", id)
+        .is("revoked_at", null);
+      if (error) return { error: error.message };
+      return { ok: true };
+    }
+    case "apiKeys.backfillProfiles": {
+      if (!ctx.isSuperAdmin) return { error: "Forbidden: super-admin only" };
+      const { rows: targets } = await exec({
+        sql: `SELECT id, gbp_connection_id FROM clients
+              WHERE gbp_connection_id IS NOT NULL AND gbp_connection_id <> ''
+                AND (website IS NULL OR website = '' OR industry IS NULL OR industry = '')`,
+      });
+      if (targets.length === 0) return { examined: 0, updated: 0 };
+
+      const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+      const { data: profiles, error } = await adminClient
+        .from("gbp_connections")
+        .select("id, website, category");
+      if (error) return { error: error.message };
+      const byId = new Map<string, { website: string | null; category: string | null }>();
+      for (const p of profiles ?? []) {
+        byId.set(String(p.id), {
+          website: (p.website as string | null) ?? null,
+          category: (p.category as string | null) ?? null,
+        });
+      }
+
+      let updated = 0;
+      const stamp = now();
+      for (const t of targets) {
+        const profile = byId.get(String(t.gbp_connection_id));
+        if (!profile) continue;
+        await exec({
+          sql: `UPDATE clients SET website = COALESCE(NULLIF(website, ''), ?), industry = COALESCE(NULLIF(industry, ''), ?), updated_at = ? WHERE id = ?`,
+          args: [profile.website, profile.category, stamp, String(t.id)],
+        });
+        updated++;
+      }
+      return { examined: targets.length, updated };
     }
 
     case "health.summary": {

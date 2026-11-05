@@ -414,6 +414,8 @@ function ClientEditForm({ client, onSaved, onCancel }: { client: ClientRow; onSa
     { key: "region",        label: "Province / State", placeholder: "BC" },
     { key: "postal_code",   label: "Postal / ZIP",   placeholder: "V5K 0A1" },
     { key: "country",       label: "Country",        placeholder: "CA" },
+    { key: "website",       label: "Website",        type: "url", placeholder: "https://company.ca" },
+    { key: "industry",      label: "Industry",       placeholder: "Landscaping" },
     { key: "notes",         label: "Notes",          placeholder: "Internal notes…" },
   ];
 
