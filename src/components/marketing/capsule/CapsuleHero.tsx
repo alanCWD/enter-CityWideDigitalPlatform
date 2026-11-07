@@ -141,7 +141,7 @@ export function CapsuleHero() {
     let autoActive = false;
     let autoRaf = 0;
 
-    /* "Run the capsule": play the transit at 0.8x, carrying the page with it so
+    /* "Run the capsule": play the transit at 0.9x, carrying the page with it so
        the panels advance, then glide onto panel 03 and let the signals settle. */
     const runCapsule = () => {
       cancelAnimationFrame(autoRaf);
@@ -177,7 +177,7 @@ export function CapsuleHero() {
         return;
       }
 
-      video.playbackRate = 0.8;
+      video.playbackRate = 0.9;
       try {
         video.currentTime = 0;
       } catch {
