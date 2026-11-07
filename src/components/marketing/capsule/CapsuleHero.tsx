@@ -62,11 +62,16 @@ export function CapsuleHero() {
     const unlock = () => {
       if (unlocked) return;
       unlocked = true;
+      interacted = true;
       const playing = video.play();
       if (playing && typeof playing.then === "function") {
         playing
           .then(() => {
             video.pause();
+            if (!seekVerified) {
+              probed = false;
+              probeSeek();
+            }
             render();
           })
           .catch(() => {
@@ -79,20 +84,53 @@ export function CapsuleHero() {
 
     let videoOk = false;
     let fallback = false;
-    let seekFailures = 0;
+
+    let probed = false;
+    let interacted = false;
+    let seekVerified = false;
+
+    /* One-shot capability probe, before any scrolling: if this host refuses
+       range seeks, use the stills for the whole journey rather than flickering
+       into them mid-scroll. Retried once after the first interaction, because
+       iOS may not honour a seek until the decoder has been unlocked. */
+    const probeSeek = () => {
+      if (!videoOk || probed) return;
+      probed = true;
+      let landed = false;
+      const onProbeSeeked = () => {
+        landed = true;
+        seekVerified = true;
+        video.removeEventListener("seeked", onProbeSeeked);
+      };
+      video.addEventListener("seeked", onProbeSeeked);
+      try {
+        video.currentTime = Math.min(1, video.duration * 0.05);
+      } catch {
+        landed = false;
+      }
+      window.setTimeout(() => {
+        video.removeEventListener("seeked", onProbeSeeked);
+        if (!landed) {
+          if (interacted) fallback = true;
+          else probed = false;
+        }
+        render();
+      }, 1600);
+    };
 
     const onMeta = () => {
       videoOk = Number.isFinite(video.duration) && video.duration > 0;
       setReady(videoOk);
       setFailed(!videoOk);
+      probeSeek();
       render();
     };
 
     /* A successful seek clears the fallback, so scrubbing works again after
        scrolling back up and forward. */
     const onSeeked = () => {
-      seekFailures = 0;
-      if (fallback && videoOk) {
+      /* Only restore the film when the host can genuinely seek this file. */
+      if (fallback && videoOk && video.seekable.length > 0 && video.seekable.end(0) > 0) {
         fallback = false;
         render();
       }
@@ -115,21 +153,11 @@ export function CapsuleHero() {
       const g = clamp01((b - 0.055) / 0.885);
       const duration = videoOk ? Math.max(0, video.duration - 1 / 60) : 0;
 
-      /* Keep asking for the right frame even while in fallback, so a host that
-         becomes seekable again restores the filmed sequence. */
+      /* Never switch modes mid-scroll: the probe below decides once, up front. */
       if (videoOk) {
         const target = g * duration;
         if (!video.seeking && Math.abs(video.currentTime - target) > 1 / 60) {
           video.currentTime = target;
-          window.setTimeout(() => {
-            if (Math.abs(video.currentTime - target) > 0.6) {
-              seekFailures += 1;
-              if (seekFailures >= 3 && !fallback) {
-                fallback = true;
-                render();
-              }
-            }
-          }, 1400);
         }
       }
 
