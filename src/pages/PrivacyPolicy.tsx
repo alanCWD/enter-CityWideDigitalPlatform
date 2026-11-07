@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
+import { GlassHero } from "@/components/marketing/glass/GlassHero";
 import { Shield, Mail, Phone } from "lucide-react";
 
 const EFFECTIVE_DATE = "July 7, 2026";
@@ -10,9 +11,9 @@ const PROVINCE = "British Columbia, Canada";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <section className="mb-10">
-      <h2 className="text-lg font-bold text-foreground mb-3 pb-2 border-b border-border">{title}</h2>
-      <div className="space-y-3 text-sm text-muted-foreground leading-relaxed">{children}</div>
+    <section className="mb-9">
+      <h2 className="gp-mono mb-3 border-b border-white/10 pb-3 text-[10px] text-[var(--gp-ice)]">{title}</h2>
+      <div className="space-y-3 text-sm font-light leading-relaxed text-[var(--gp-ink-72)]">{children}</div>
     </section>
   );
 }
@@ -31,23 +32,20 @@ function Ul({ items }: { items: string[] }) {
 
 export default function PrivacyPolicy() {
   return (
-    <Layout>
-      {/* Hero */}
-      <div className="bg-[#0A1120] border-b border-white/10 pt-32 pb-12">
-        <div className="max-w-3xl mx-auto px-6">
-          <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-[#0078D7] bg-[#0078D7]/10 border border-[#0078D7]/20 rounded-full px-3 py-1 mb-4">
-            <Shield className="w-3.5 h-3.5" /> Legal
-          </div>
-          <h1 className="text-4xl font-extrabold text-[#EEF1FA] mb-3">Privacy Policy</h1>
-          <p className="text-[rgba(238,241,250,0.6)] text-sm">
-            Effective Date: <strong className="text-[rgba(238,241,250,0.85)]">{EFFECTIVE_DATE}</strong>
-            &ensp;·&ensp;Last Updated: <strong className="text-[rgba(238,241,250,0.85)]">{EFFECTIVE_DATE}</strong>
-          </p>
-        </div>
-      </div>
+    <Layout variant="glass">
+      <GlassHero
+        kicker="Legal / Privacy"
+        title="Privacy Policy"
+        lede={`Effective ${EFFECTIVE_DATE} · Last updated ${EFFECTIVE_DATE}`}
+      >
+        <span className="gp-chip gp-chip--accent">
+          <Shield className="h-3 w-3" strokeWidth={1.75} /> Legal
+        </span>
+      </GlassHero>
 
       {/* Body */}
-      <div className="max-w-3xl mx-auto px-6 py-14">
+      <div className="gp-shell pb-20">
+        <div className="gp-panel mx-auto max-w-3xl px-6 py-10 md:px-10 md:py-12">
 
         <Section title="1. Introduction">
           <P>
@@ -176,26 +174,27 @@ export default function PrivacyPolicy() {
 
         <Section title="12. Contact Us">
           <P>If you have questions or concerns about this Privacy Policy, or to exercise your privacy rights, please contact:</P>
-          <div className="mt-3 rounded-xl bg-muted/40 border border-border p-4 space-y-2">
+          <div className="gp-inset mt-4 space-y-2 p-5">
             <p className="font-semibold text-foreground">{COMPANY}</p>
             <div className="flex items-center gap-2">
-              <Mail className="w-4 h-4 text-[#0078D7]" />
-              <a href={`mailto:${EMAIL}`} className="text-[#0078D7] hover:underline">{EMAIL}</a>
+              <Mail className="w-4 h-4 text-[var(--gp-ice)]" />
+              <a href={`mailto:${EMAIL}`} className="text-[var(--gp-ice)] hover:underline">{EMAIL}</a>
             </div>
             <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-[#0078D7]" />
-              <a href={`tel:${PHONE.replace(/-/g, "")}`} className="text-[#0078D7] hover:underline">{PHONE}</a>
+              <Phone className="w-4 h-4 text-[var(--gp-ice)]" />
+              <a href={`tel:${PHONE.replace(/-/g, "")}`} className="text-[var(--gp-ice)] hover:underline">{PHONE}</a>
             </div>
-            <p className="text-muted-foreground">{PROVINCE}</p>
+            <p className="text-[var(--gp-ink-72)]">{PROVINCE}</p>
           </div>
         </Section>
 
-        <div className="pt-6 border-t border-border flex flex-wrap gap-4 items-center justify-between text-xs text-muted-foreground">
+        <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 text-[11px] font-light text-[var(--gp-ink-38)]">
           <p>&copy; {new Date().getFullYear()} {COMPANY}. All rights reserved.</p>
           <div className="flex gap-4">
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms of Service</Link>
             <Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link>
           </div>
+        </div>
         </div>
       </div>
     </Layout>

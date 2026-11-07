@@ -221,13 +221,13 @@ export function TrialIntake({
   const successPlan = plans.find((p) => p.planKey === success?.plan);
 
   return (
-    <section id="start-trial" className="py-20 section-alt scroll-mt-28">
+    <section id="start-trial" className="gp-section scroll-mt-28">
       <div className="max-w-[1200px] mx-auto px-6">
         <div className="grid lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] gap-10 lg:gap-14 items-start">
           {/* Explanation column */}
           <div className="lg:sticky lg:top-28">
-            <p className="text-xs font-bold text-primary uppercase tracking-widest mb-3">Start free trial</p>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-foreground leading-tight mb-4">
+            <p className="gp-kicker mb-3">04 / Start free trial</p>
+            <h2 className="gp-display text-[clamp(1.7rem,3.4vw,2.6rem)] mb-4">
               Tell us about your business.
             </h2>
             <p className="text-muted-foreground leading-relaxed mb-8">
@@ -672,7 +672,7 @@ export function TrialIntake({
                 </div>
               </div>
 
-              <Button type="submit" size="lg" className="w-full mt-6" disabled={submitting}>
+              <Button type="submit" size="lg" className="gp-submit mt-6 w-full" disabled={submitting}>
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />

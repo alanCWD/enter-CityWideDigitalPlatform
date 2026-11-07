@@ -1,11 +1,10 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
-import { CheckCircle, Minus, Check } from "lucide-react";
+import { Minus, Check } from "lucide-react";
 import Layout from "@/components/layout/Layout";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { GlassHero } from "@/components/marketing/glass/GlassHero";
+import { GlassCTA } from "@/components/marketing/glass/GlassCTA";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import CTABanner from "@/components/marketing/CTABanner";
 import { TrialIntake } from "@/components/marketing/TrialIntake";
 
 const tiers = [
@@ -164,10 +163,17 @@ const faqs = [
   },
 ];
 
+const addons = [
+  { name: "Extra Social Connections", price: "$5 / connection", desc: "Add extra social platform connections beyond your plan's included count. Choose from any of the 15 supported platforms." },
+  { name: "Site Concierge Credits", price: "$15 / credit", desc: "Request any website change on demand. Standard requests completed in 3 business days." },
+  { name: "Extra Directories Pack", price: "$29 / mo", desc: "Expand your listing coverage to niche-specific and regional directories beyond the standard 40+." },
+  { name: "White-Label License", price: "Contact us", desc: "Resell CityWide Digital under your own brand. Includes sub-account management and commission program." },
+];
+
 function FeatureValue({ value }: { value: boolean | string }) {
-  if (value === false) return <Minus className="w-4 h-4 text-muted-foreground/40 mx-auto" />;
-  if (value === true) return <CheckCircle className="w-4 h-4 text-emerald-500 mx-auto" />;
-  return <span className="text-xs font-semibold text-primary">{value}</span>;
+  if (value === false) return <Minus className="mx-auto h-4 w-4 text-white/20" strokeWidth={1.5} />;
+  if (value === true) return <Check className="mx-auto h-4 w-4 text-[var(--gp-blue)]" strokeWidth={2} />;
+  return <span className="gp-mono text-[10px] text-[var(--gp-ice)]">{value}</span>;
 }
 
 export default function Pricing() {
@@ -192,134 +198,128 @@ export default function Pricing() {
   };
 
   return (
-    <Layout>
-      {/* Hero — extends behind the fixed navbar like the home hero */}
-      <section className="bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_100%)] -mt-[88px] pt-[128px] pb-20 md:pt-[152px] md:pb-28">
-        <div className="max-w-[1200px] mx-auto px-6 text-center">
-          <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Simple Pricing</p>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-[#EEF1FA] mb-5 leading-tight">
-            Transparent plans. No surprises.
-          </h1>
-          <p className="text-lg text-[rgba(238,241,250,0.7)] max-w-xl mx-auto">
-            Start with a 30-day free trial. Cancel anytime. No setup fees.
-          </p>
-        </div>
-      </section>
+    <Layout variant="glass">
+      <GlassHero
+        kicker="03 / Pricing"
+        title="Transparent plans. No surprises."
+        lede="Start with a 30-day free trial. Cancel anytime. No setup fees."
+      >
+        <span className="gp-chip gp-chip--accent">30-day free trial</span>
+        <span className="gp-chip">No credit card</span>
+        <span className="gp-chip">CAD pricing · plus GST</span>
+      </GlassHero>
 
-      {/* Tier Cards */}
-      <section className="py-16 bg-background">
-        <div className="max-w-[1200px] mx-auto px-6">
-          <div className="grid md:grid-cols-3 gap-6 items-start">
+      {/* Tier cards */}
+      <section className="gp-section">
+        <div className="gp-shell">
+          <div className="grid items-start gap-6 md:grid-cols-3">
             {tiers.map((tier) => (
               <div
                 key={tier.name}
-                className={
-                  tier.featured
-                    ? "relative rounded-2xl p-8 bg-[#1B2A4A] border-2 border-primary shadow-[0_8px_40px_rgba(0,120,215,0.25)]"
-                    : "relative rounded-2xl p-8 bg-card border border-border card-shadow"
-                }
+                className={`relative flex h-full flex-col p-8 ${
+                  tier.featured ? "gp-panel gp-panel--feature" : "gp-panel gp-panel--hover"
+                }`}
               >
                 {tier.featured && tier.badge && (
-                  <Badge variant="featured" className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs">
+                  <span className="gp-chip gp-chip--accent absolute -top-3 left-1/2 -translate-x-1/2 bg-[#0a1220]/90">
                     {tier.badge}
-                  </Badge>
+                  </span>
                 )}
-                <div className={`text-xs font-bold uppercase tracking-widest mb-2 ${tier.featured ? "text-primary" : "text-muted-foreground"}`}>
-                  {tier.name}
-                </div>
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className={`text-4xl font-extrabold ${tier.featured ? "text-[#EEF1FA]" : "text-foreground"}`}>{tier.price}</span>
-                  <span className={`text-sm ${tier.featured ? "text-[rgba(238,241,250,0.6)]" : "text-muted-foreground"}`}>{tier.period}</span>
-                </div>
-                <p className={`text-[11px] mb-2 ${tier.featured ? "text-[rgba(238,241,250,0.5)]" : "text-muted-foreground/70"}`}>
-                  CAD · plus GST
-                </p>
-                <p className={`text-sm mb-5 ${tier.featured ? "text-[rgba(238,241,250,0.7)]" : "text-muted-foreground"}`}>{tier.tagline}</p>
 
-                {/* Feature list */}
-                <ul className="space-y-2 mb-6">
+                <p className="gp-kicker">{tier.name}</p>
+                <div className="mt-4 flex items-baseline gap-1">
+                  <span className="gp-display text-[2.6rem]">{tier.price}</span>
+                  <span className="text-sm font-light text-[var(--gp-ink-55)]">{tier.period}</span>
+                </div>
+                <p className="gp-kicker mt-2">CAD · plus GST</p>
+                <p className="gp-body mt-4 text-sm">{tier.tagline}</p>
+
+                <div className="my-6 gp-hairline" />
+
+                <ul className="flex-1 space-y-2.5">
                   {tier.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2">
-                      <Check className={`w-4 h-4 mt-0.5 shrink-0 ${tier.featured ? "text-primary" : "text-emerald-500"}`} />
-                      <span className={`text-sm ${tier.featured ? "text-[rgba(238,241,250,0.8)]" : "text-foreground/80"}`}>{f}</span>
+                    <li key={f} className="flex items-start gap-2.5">
+                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--gp-blue)]" strokeWidth={2} />
+                      <span className="text-[13.5px] font-light leading-relaxed text-[var(--gp-ink-72)]">{f}</span>
                     </li>
                   ))}
                 </ul>
 
-                <Button
-                  variant={tier.featured ? "on-dark" : "outline"}
-                  className="w-full"
+                <button
+                  type="button"
                   onClick={() => startTrial(tier.planKey)}
+                  className={`mt-7 w-full ${tier.featured ? "gp-btn" : "gp-btn-ghost"}`}
                 >
                   {tier.cta}
-                </Button>
-                <p className={`text-center text-xs mt-3 ${tier.featured ? "text-[rgba(238,241,250,0.4)]" : "text-muted-foreground/60"}`}>
-                  30-day free trial · No credit card required
-                </p>
+                </button>
+                <p className="gp-kicker mt-4 text-center">30-day free trial · No card</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Free Trial intake */}
       <TrialIntake plans={tiers} plan={plan} onPlanChange={setPlan} />
 
-      {/* Feature Comparison Table */}
-      <section className="pb-20 bg-background">
-        <div className="max-w-[1200px] mx-auto px-6">
-          <div className="overflow-x-auto rounded-2xl border border-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-[#0A1120]">
-                  <th className="text-left p-5 text-[rgba(238,241,250,0.6)] font-medium w-1/2">Feature</th>
-                  {tiers.map((tier) => (
-                    <th key={tier.name} className={`text-center p-5 font-bold ${tier.featured ? "text-primary" : "text-[#EEF1FA]"}`}>
-                      {tier.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {features.map((category) => (
-                  <React.Fragment key={category.category}>
-                    <tr className="bg-muted/50">
-                      <td colSpan={4} className="px-5 py-3 text-xs font-bold uppercase tracking-widest text-primary">
-                        {category.category}
-                      </td>
-                    </tr>
-                    {category.items.map((item) => (
-                      <tr key={item.name} className="border-t border-border hover:bg-muted/30 transition-colors">
-                        <td className="p-4 pl-5 text-foreground">{item.name}</td>
-                        <td className="p-4 text-center"><FeatureValue value={item.starter} /></td>
-                        <td className="p-4 text-center bg-accent/20"><FeatureValue value={item.growth} /></td>
-                        <td className="p-4 text-center"><FeatureValue value={item.pro} /></td>
-                      </tr>
+      {/* Comparison */}
+      <section className="gp-section">
+        <div className="gp-shell">
+          <div className="mb-10 max-w-2xl">
+            <p className="gp-kicker">04 / Compare</p>
+            <h2 className="gp-display mt-4 text-[clamp(1.7rem,3.4vw,2.6rem)]">Everything, side by side</h2>
+          </div>
+
+          <div className="gp-panel overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="gp-table">
+                <thead>
+                  <tr className="border-b border-white/10">
+                    <th className="w-1/2">Feature</th>
+                    {tiers.map((tier) => (
+                      <th key={tier.name} className={`text-center ${tier.featured ? "text-[var(--gp-ice)]" : ""}`}>
+                        {tier.name}
+                      </th>
                     ))}
-                  </React.Fragment>
-                ))}
-              </tbody>
-            </table>
+                  </tr>
+                </thead>
+                <tbody>
+                  {features.map((category) => (
+                    <React.Fragment key={category.category}>
+                      <tr className="gp-table__group">
+                        <td colSpan={4}>{category.category}</td>
+                      </tr>
+                      {category.items.map((item) => (
+                        <tr key={item.name}>
+                          <td>{item.name}</td>
+                          <td className="text-center"><FeatureValue value={item.starter} /></td>
+                          <td className="text-center bg-white/[0.02]"><FeatureValue value={item.growth} /></td>
+                          <td className="text-center"><FeatureValue value={item.pro} /></td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Add-ons */}
-      <section className="py-16 section-alt">
-        <div className="max-w-[1200px] mx-auto px-6">
-          <h2 className="text-2xl font-bold text-foreground mb-2">Add-ons</h2>
-          <p className="text-muted-foreground mb-8">Optional extras available on any plan.</p>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {[
-              { name: "Extra Social Connections", price: "$5 / connection", desc: "Add extra social platform connections beyond your plan's included count. Choose from any of the 15 supported platforms." },
-              { name: "Site Concierge Credits", price: "$15 / credit", desc: "Request any website change on demand. Standard requests completed in 3 business days." },
-              { name: "Extra Directories Pack", price: "$29 / mo", desc: "Expand your listing coverage to niche-specific and regional directories beyond the standard 40+." },
-              { name: "White-Label License", price: "Contact us", desc: "Resell CityWide Digital under your own brand. Includes sub-account management and commission program." },
-            ].map((addon) => (
-              <div key={addon.name} className="bg-card rounded-2xl p-6 border border-border card-shadow">
-                <div className="text-xs font-bold text-primary mb-1 uppercase tracking-wider">{addon.price}</div>
-                <h3 className="text-lg font-bold text-foreground mb-2">{addon.name}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{addon.desc}</p>
+      <section className="gp-section">
+        <div className="gp-shell">
+          <div className="mb-10 max-w-2xl">
+            <p className="gp-kicker">05 / Extras</p>
+            <h2 className="gp-display mt-4 text-[clamp(1.7rem,3.4vw,2.6rem)]">Add-ons</h2>
+            <p className="gp-lede mt-4 text-sm">Optional extras available on any plan.</p>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {addons.map((addon) => (
+              <div key={addon.name} className="gp-panel gp-panel--soft gp-panel--hover p-6">
+                <p className="gp-kicker">{addon.price}</p>
+                <h3 className="mt-3 text-base font-normal text-[var(--gp-ink)]">{addon.name}</h3>
+                <p className="gp-body mt-2 text-[13px]">{addon.desc}</p>
               </div>
             ))}
           </div>
@@ -327,28 +327,34 @@ export default function Pricing() {
       </section>
 
       {/* FAQ */}
-      <section className="py-20 bg-background">
-        <div className="max-w-[800px] mx-auto px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-foreground mb-3">Frequently Asked Questions</h2>
-            <p className="text-muted-foreground">Everything you need to know before getting started.</p>
+      <section className="gp-section">
+        <div className="gp-shell">
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,0.5fr)_minmax(0,1fr)] lg:gap-16">
+            <div>
+              <p className="gp-kicker">06 / FAQ</p>
+              <h2 className="gp-display mt-4 text-[clamp(1.7rem,3.4vw,2.4rem)]">Frequently asked questions</h2>
+              <p className="gp-lede mt-4 text-sm">Everything you need to know before getting started.</p>
+            </div>
+
+            <Accordion type="single" collapsible className="space-y-3">
+              {faqs.map((faq, i) => (
+                <AccordionItem
+                  key={i}
+                  value={`faq-${i}`}
+                  className="gp-panel gp-panel--soft border-b-0 px-6"
+                >
+                  <AccordionTrigger className="gp-accordion-trigger py-5 text-left text-sm font-normal text-[var(--gp-ink)] hover:no-underline">
+                    {faq.q}
+                  </AccordionTrigger>
+                  <AccordionContent className="gp-body pb-5 text-[13.5px]">{faq.a}</AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
           </div>
-          <Accordion type="single" collapsible className="space-y-3">
-            {faqs.map((faq, i) => (
-              <AccordionItem key={i} value={`faq-${i}`} className="bg-card border border-border rounded-xl px-6">
-                <AccordionTrigger className="text-left font-semibold text-foreground hover:no-underline py-5">
-                  {faq.q}
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground leading-relaxed pb-5">
-                  {faq.a}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
         </div>
       </section>
 
-      <CTABanner />
+      <GlassCTA />
     </Layout>
   );
 }

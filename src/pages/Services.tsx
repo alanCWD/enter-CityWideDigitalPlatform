@@ -1,8 +1,8 @@
-import { Globe, Share2, MapPin, Video, Settings, CheckCircle, ArrowRight } from "lucide-react";
+import { Globe, Share2, MapPin, Video, Settings, Check, ArrowUpRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
-import { Button } from "@/components/ui/button";
-import CTABanner from "@/components/marketing/CTABanner";
+import { GlassHero } from "@/components/marketing/glass/GlassHero";
+import { GlassCTA } from "@/components/marketing/glass/GlassCTA";
 
 const services = [
   {
@@ -96,66 +96,66 @@ const services = [
 
 export default function Services() {
   return (
-    <Layout>
-      {/* Page Hero */}
-      <section className="bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_100%)] -mt-[88px] pt-[128px] pb-20 md:pt-[152px] md:pb-28">
-        <div className="max-w-[1200px] mx-auto px-6 text-center">
-          <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Our Products</p>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-[#EEF1FA] mb-5 leading-tight">
-            Every tool your business needs online
-          </h1>
-          <p className="text-lg text-[rgba(238,241,250,0.7)] max-w-xl mx-auto">
-            Five purpose-built tools that work better together. Use one or bundle all five for complete digital coverage.
-          </p>
-        </div>
-      </section>
+    <Layout variant="glass">
+      <GlassHero
+        kicker="02 / Products"
+        title="Every tool your business needs online"
+        lede="Five purpose-built tools that work better together. Use one or bundle all five for complete digital coverage."
+      >
+        <Link to="/pricing#start-trial" className="gp-btn">
+          Start free trial
+        </Link>
+        <Link to="/contact" className="gp-btn-ghost">
+          Talk to sales
+        </Link>
+      </GlassHero>
 
-      {/* Service Detail Sections */}
       {services.map((service, index) => (
-        <section
-          key={service.id}
-          id={service.id}
-          className={`py-20 md:py-28 ${index % 2 === 0 ? "bg-background" : "section-alt"}`}
-        >
-          <div className="max-w-[1200px] mx-auto px-6">
-            <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-              <div className={index % 2 !== 0 ? "lg:order-2" : ""}>
-                <div className="w-14 h-14 rounded-2xl bg-[linear-gradient(135deg,#0078D7,#00447A)] flex items-center justify-center mb-6 shadow-[0_4px_16px_rgba(0,120,215,0.3)]">
-                  <service.icon className="w-7 h-7 text-white" />
-                </div>
-                <div className="text-xs font-bold text-primary uppercase tracking-widest mb-2">{service.price}</div>
-                <h2 className="text-3xl font-extrabold text-foreground mb-3">{service.name}</h2>
-                <p className="text-lg font-medium text-foreground mb-4">{service.tagline}</p>
-                <p className="text-muted-foreground leading-relaxed mb-8">{service.description}</p>
+        <section key={service.id} id={service.id} className="gp-section scroll-mt-24">
+          <div className="gp-shell">
+            <article className="gp-panel gp-panel--hover overflow-hidden">
+              <div className="grid gap-10 p-7 md:p-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-14">
+                <div>
+                  <div className="flex items-center gap-4">
+                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.07]">
+                      <service.icon className="h-5 w-5 text-[var(--gp-ice)]" strokeWidth={1.5} />
+                    </span>
+                    <span className="gp-kicker">
+                      {String(index + 1).padStart(2, "0")} / {service.price}
+                    </span>
+                  </div>
 
-                <div className="flex gap-3">
-                  <Button asChild>
-                    <Link to="/pricing#start-trial">Start Free Trial <ArrowRight className="w-4 h-4" /></Link>
-                  </Button>
-                  <Button variant="outline" asChild>
-                    <Link to="/contact">Talk to Sales</Link>
-                  </Button>
-                </div>
-              </div>
+                  <h2 className="gp-display mt-7 text-[clamp(1.7rem,3.2vw,2.5rem)]">{service.name}</h2>
+                  <p className="mt-3 text-base font-light text-[var(--gp-ink)]">{service.tagline}</p>
+                  <p className="gp-body mt-4 text-[15px]">{service.description}</p>
 
-              <div className={index % 2 !== 0 ? "lg:order-1" : ""}>
-                <div className="bg-card rounded-2xl p-8 border border-border card-shadow">
-                  <h4 className="text-sm font-bold text-foreground uppercase tracking-wider mb-5">What's Included</h4>
-                  <ul className="space-y-3">
+                  <div className="mt-8 flex flex-wrap gap-3">
+                    <Link to="/pricing#start-trial" className="gp-btn">
+                      Start free trial <ArrowUpRight className="h-3.5 w-3.5" />
+                    </Link>
+                    <Link to="/contact" className="gp-btn-ghost">
+                      Talk to sales
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="gp-inset p-6 md:p-7">
+                  <p className="gp-kicker">What's included</p>
+                  <ul className="mt-5 space-y-3">
                     {service.features.map((f) => (
                       <li key={f} className="flex items-start gap-3">
-                        <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                        <span className="text-sm text-foreground leading-relaxed">{f}</span>
+                        <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[var(--gp-blue)]" strokeWidth={2} />
+                        <span className="text-[13.5px] font-light leading-relaxed text-[var(--gp-ink-72)]">{f}</span>
                       </li>
                     ))}
                   </ul>
 
                   {service.niches.length > 0 && (
-                    <div className="mt-6 pt-6 border-t border-border">
-                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider mb-3">Supported Industries</h4>
+                    <div className="mt-6 border-t border-white/10 pt-5">
+                      <p className="gp-kicker mb-3">Supported industries</p>
                       <div className="flex flex-wrap gap-2">
                         {service.niches.map((n) => (
-                          <span key={n} className="text-xs bg-accent text-accent-foreground rounded-full px-3 py-1 font-medium">
+                          <span key={n} className="gp-chip">
                             {n}
                           </span>
                         ))}
@@ -164,12 +164,12 @@ export default function Services() {
                   )}
                 </div>
               </div>
-            </div>
+            </article>
           </div>
         </section>
       ))}
 
-      <CTABanner />
+      <GlassCTA kicker="Next / Bundle" />
     </Layout>
   );
 }

@@ -1,27 +1,21 @@
 import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
-import CTABanner from "@/components/marketing/CTABanner";
+import { GlassHero } from "@/components/marketing/glass/GlassHero";
+import { GlassCTA } from "@/components/marketing/glass/GlassCTA";
 
 export default function GbpLocalListing() {
   return (
-    <Layout>
-      {/* Hero */}
-      <section className="bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_100%)] -mt-[88px] pt-[128px] pb-20 md:pt-[152px] md:pb-28">
-        <div className="max-w-[800px] mx-auto px-6 text-center">
-          <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Local SEO Guide</p>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-[#EEF1FA] mb-5 leading-tight text-balance">
-            Why Google Business Profile is Your Most Important Local Listing
-          </h1>
-          <p className="text-lg text-[rgba(238,241,250,0.7)] max-w-2xl mx-auto">
-            How connecting CityWide directly to your GBP turns one verified profile into the engine powering your entire online presence.
-          </p>
-        </div>
-      </section>
+    <Layout variant="glass">
+      <GlassHero
+        kicker="Local SEO Guide"
+        title="Why Google Business Profile is Your Most Important Local Listing"
+        lede="How connecting CityWide directly to your GBP turns one verified profile into the engine powering your entire online presence."
+      />
 
       {/* Article Body */}
-      <section className="py-16 md:py-24 bg-background">
-        <div className="max-w-[760px] mx-auto px-6">
+      <section className="gp-section">
+        <div className="gp-shell"><div className="gp-panel gp-article mx-auto max-w-[760px] px-6 py-10 md:px-10 md:py-12">
           <Link
             to="/about#faq"
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-12 transition-colors group"
@@ -215,9 +209,10 @@ export default function GbpLocalListing() {
 
           </div>
         </div>
+        </div>
       </section>
 
-      <CTABanner />
+      <GlassCTA kicker="Next / Get started" />
     </Layout>
   );
 }

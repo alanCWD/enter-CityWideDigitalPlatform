@@ -1,7 +1,8 @@
 import { Target, Lightbulb, Shield, Users, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
-import CTABanner from "@/components/marketing/CTABanner";
+import { GlassHero } from "@/components/marketing/glass/GlassHero";
+import { GlassCTA } from "@/components/marketing/glass/GlassCTA";
 import {
   Accordion,
   AccordionContent,
@@ -457,91 +458,95 @@ const faqSections = [
 
 export default function About() {
   return (
-    <Layout>
-      {/* Hero — extends behind the fixed navbar like the home hero */}
-      <section className="bg-[linear-gradient(135deg,#0A1120_0%,#1B2A4A_100%)] -mt-[88px] pt-[128px] pb-20 md:pt-[152px] md:pb-28">
-        <div className="max-w-[1200px] mx-auto px-6 text-center">
-          <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Our Story</p>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-[#EEF1FA] mb-5 leading-tight text-balance">
-            We built CityWide because local businesses deserve better
-          </h1>
-          <p className="text-lg text-[rgba(238,241,250,0.7)] max-w-2xl mx-auto">
-            Every local business owner we've ever met has the same problem: not enough time, not enough budget, and too many digital tools to manage.
-          </p>
-        </div>
-      </section>
+    <Layout variant="glass">
+      <GlassHero
+        kicker="01 / Our story"
+        title="We built CityWide because local businesses deserve better"
+        lede="Every local business owner we've ever met has the same problem: not enough time, not enough budget, and too many digital tools to manage."
+      />
 
-      {/* Story Section */}
-      <section className="py-20 md:py-28 bg-background">
-        <div className="max-w-[800px] mx-auto px-6">
-          <h2 className="text-3xl font-bold text-foreground mb-6">The problem we saw everywhere</h2>
-          <div className="space-y-4 text-muted-foreground leading-relaxed text-lg">
-            <p>
-              We spent years working with hundreds of small businesses across the country — restaurants, roofers, boutiques, salons. The same story repeated over and over: they had a Google Business Profile that was more or less up to date, but their website was outdated, their directory listings had the wrong phone number, and their social pages went silent for weeks at a time.
-            </p>
-            <p>
-              None of these owners were lazy. They were busy running their businesses. The problem wasn't effort — it was that managing a digital presence across five different platforms is a part-time job nobody signed up for.
-            </p>
-            <p>
-              So we built CityWide Digital. One platform that uses the data you already maintain on Google to keep your entire digital presence up to date — automatically.
-            </p>
+      {/* Story */}
+      <section className="gp-section">
+        <div className="gp-shell">
+          <div className="gp-panel p-7 md:p-12">
+            <div className="grid gap-8 lg:grid-cols-[minmax(0,0.4fr)_minmax(0,1fr)] lg:gap-14">
+              <div>
+                <p className="gp-kicker">02 / Why we exist</p>
+                <h2 className="gp-display mt-4 text-[clamp(1.6rem,2.8vw,2.2rem)]">
+                  The problem we saw everywhere
+                </h2>
+              </div>
+              <div className="gp-body space-y-5 text-[15px] md:text-base">
+                <p>
+                  We spent years working with hundreds of small businesses across the country — restaurants, roofers, boutiques, salons. The same story repeated over and over: they had a Google Business Profile that was more or less up to date, but their website was outdated, their directory listings had the wrong phone number, and their social pages went silent for weeks at a time.
+                </p>
+                <p>
+                  None of these owners were lazy. They were busy running their businesses. The problem wasn't effort — it was that managing a digital presence across five different platforms is a part-time job nobody signed up for.
+                </p>
+                <p className="text-[var(--gp-ink)]">
+                  So we built CityWide Digital. One platform that uses the data you already maintain on Google to keep your entire digital presence up to date — automatically.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Values */}
-      <section className="py-20 md:py-28 section-alt">
-        <div className="max-w-[1200px] mx-auto px-6">
-          <div className="text-center mb-14">
-            <h2 className="text-3xl font-bold text-foreground mb-4">What we stand for</h2>
-            <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-              Four principles guide every decision we make.
-            </p>
+      <section className="gp-section">
+        <div className="gp-shell">
+          <div className="mb-12 max-w-2xl">
+            <p className="gp-kicker">03 / Principles</p>
+            <h2 className="gp-display mt-4 text-[clamp(1.7rem,3.4vw,2.6rem)]">What we stand for</h2>
+            <p className="gp-lede mt-4">Four principles guide every decision we make.</p>
           </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {values.map((v) => (
-              <div key={v.title} className="bg-card rounded-2xl p-6 border border-border card-shadow">
-                <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center mb-5">
-                  <v.icon className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="text-lg font-bold text-foreground mb-2">{v.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{v.description}</p>
+              <div key={v.title} className="gp-panel gp-panel--soft gp-panel--hover p-6">
+                <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/12 bg-white/[0.06]">
+                  <v.icon className="h-5 w-5 text-[var(--gp-ice)]" strokeWidth={1.5} />
+                </span>
+                <h3 className="mt-5 text-base font-normal text-[var(--gp-ink)]">{v.title}</h3>
+                <p className="gp-body mt-2 text-[13px]">{v.description}</p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* FAQ Section */}
-      <section id="faq" className="py-20 md:py-28 bg-background scroll-mt-[88px]">
-        <div className="max-w-[860px] mx-auto px-6">
-          <div className="text-center mb-14">
-            <p className="text-sm font-semibold text-primary uppercase tracking-widest mb-3">Resources & FAQ</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-foreground mb-4">Simple answers to common questions</h2>
-            <p className="text-muted-foreground text-lg max-w-xl mx-auto">
+      {/* FAQ */}
+      <section id="faq" className="gp-section scroll-mt-24">
+        <div className="gp-shell">
+          <div className="mb-12 max-w-2xl">
+            <p className="gp-kicker">04 / Resources</p>
+            <h2 className="gp-display mt-4 text-[clamp(1.7rem,3.4vw,2.6rem)]">
+              Simple answers to common questions
+            </h2>
+            <p className="gp-lede mt-4">
               No jargon. Just clear explanations about why a modern web app beats the alternatives — and why it matters for your business.
             </p>
           </div>
 
-          <div className="space-y-10">
-            {faqSections.map((section) => (
-              <div key={section.id} className="bg-card rounded-2xl border border-border overflow-hidden">
-                <div className="px-6 py-5 border-b border-border bg-accent/40">
-                  <h3 className="text-lg font-bold text-foreground">{section.title}</h3>
-                  <p className="text-sm text-muted-foreground mt-0.5">{section.subtitle}</p>
+          <div className="space-y-6">
+            {faqSections.map((section, index) => (
+              <div key={section.id} className="gp-panel overflow-hidden">
+                <div className="border-b border-white/8 px-6 py-5 md:px-8">
+                  <p className="gp-kicker">{String(index + 1).padStart(2, "0")} / {section.title}</p>
+                  <p className="gp-body mt-2 text-[13px]">{section.subtitle}</p>
                 </div>
-                <div className="px-6">
+                <div className="px-6 md:px-8">
                   <Accordion type="single" collapsible>
                     {section.items.map((item, i) => (
-                      <AccordionItem key={i} value={`${section.id}-${i}`}>
-                        <AccordionTrigger className="text-left text-sm font-medium text-foreground hover:no-underline hover:text-primary py-4 gap-4">
+                      <AccordionItem key={i} value={`${section.id}-${i}`} className="border-b-0">
+                        <AccordionTrigger className="gp-accordion-trigger gap-4 py-4 text-left text-sm font-normal text-[var(--gp-ink)] hover:no-underline">
                           {item.q}
                         </AccordionTrigger>
-                        <AccordionContent>
+                        <AccordionContent className="gp-body text-[13.5px]">
                           {item.renderAnswer ? (
                             item.renderAnswer()
                           ) : (
-                            <p className="text-muted-foreground leading-relaxed">{item.a}</p>
+                            <p>{item.a}</p>
                           )}
                         </AccordionContent>
                       </AccordionItem>
@@ -554,7 +559,7 @@ export default function About() {
         </div>
       </section>
 
-      <CTABanner />
+      <GlassCTA kicker="05 / Get started" />
     </Layout>
   );
 }
