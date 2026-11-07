@@ -33,16 +33,7 @@ export function CapsuleHero() {
 
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
-
-  const scrollToProgress = useCallback((target: number) => {
-    const journey = journeyRef.current;
-    if (!journey) return;
-    const span = Math.max(1, journey.offsetHeight - window.innerHeight);
-    window.scrollTo({
-      top: journey.offsetTop + span * clamp01(target),
-      behavior: "smooth",
-    });
-  }, []);
+  const runRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     const journey = journeyRef.current;
@@ -146,6 +137,82 @@ export function CapsuleHero() {
     video.addEventListener("error", onError);
 
     let frame = 0;
+    /** True while the capsule is playing itself after "Run the capsule". */
+    let autoActive = false;
+    let autoRaf = 0;
+
+    /* "Run the capsule": play the transit at 0.8x, carrying the page with it so
+       the panels advance, then glide onto panel 03 and let the signals settle. */
+    const runCapsule = () => {
+      cancelAnimationFrame(autoRaf);
+      autoActive = true;
+      const span = Math.max(1, journey.offsetHeight - window.innerHeight);
+      const startY = journey.offsetTop;
+      window.scrollTo({ top: startY });
+
+      const settle = () => {
+        const from = window.scrollY;
+        const to = startY + span;
+        const t0 = performance.now();
+        const glide = (now: number) => {
+          const k = Math.min(1, (now - t0) / 900);
+          const eased = k * k * (3 - 2 * k);
+          window.scrollTo({ top: from + (to - from) * eased });
+          if (k < 1) autoRaf = requestAnimationFrame(glide);
+          else autoActive = false;
+        };
+        autoRaf = requestAnimationFrame(glide);
+      };
+
+      if (!videoOk || fallback) {
+        const t0 = performance.now();
+        const step = (now: number) => {
+          if (!autoActive) return;
+          const k = Math.min(1, (now - t0) / 6000);
+          window.scrollTo({ top: startY + span * (0.055 + k * 0.885) });
+          if (k < 1) autoRaf = requestAnimationFrame(step);
+          else settle();
+        };
+        autoRaf = requestAnimationFrame(step);
+        return;
+      }
+
+      video.playbackRate = 0.8;
+      try {
+        video.currentTime = 0;
+      } catch {
+        /* ignore */
+      }
+      const playing = video.play();
+      if (playing && typeof playing.catch === "function") playing.catch(() => {});
+
+      const follow = () => {
+        if (!autoActive) return;
+        const d = video.duration || 14;
+        const t = video.currentTime;
+        const b = 0.055 + Math.min(1, t / d) * 0.885;
+        window.scrollTo({ top: startY + span * b });
+        if (!video.ended && t < d - 0.04) autoRaf = requestAnimationFrame(follow);
+        else {
+          video.pause();
+          settle();
+        }
+      };
+      autoRaf = requestAnimationFrame(follow);
+    };
+
+    runRef.current = runCapsule;
+
+    /* Any deliberate input takes over from the automatic run. */
+    const cancelAuto = () => {
+      if (!autoActive) return;
+      autoActive = false;
+      cancelAnimationFrame(autoRaf);
+      video.pause();
+    };
+    window.addEventListener("wheel", cancelAuto, { passive: true });
+    window.addEventListener("touchstart", cancelAuto, { passive: true });
+
     const render = () => {
       frame = 0;
       const span = Math.max(1, journey.offsetHeight - window.innerHeight);
@@ -154,7 +221,7 @@ export function CapsuleHero() {
       const duration = videoOk ? Math.max(0, video.duration - 1 / 60) : 0;
 
       /* Never switch modes mid-scroll: the probe below decides once, up front. */
-      if (videoOk) {
+      if (videoOk && !autoActive) {
         const target = g * duration;
         if (!video.seeking && Math.abs(video.currentTime - target) > 1 / 60) {
           video.currentTime = target;
@@ -204,6 +271,9 @@ export function CapsuleHero() {
       video.removeEventListener("error", onError);
       window.removeEventListener("touchstart", unlock);
       window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("wheel", cancelAuto);
+      window.removeEventListener("touchstart", cancelAuto);
+      cancelAnimationFrame(autoRaf);
     };
   }, []);
 
@@ -269,7 +339,7 @@ export function CapsuleHero() {
               <Link to="/pricing#start-trial" className="cap-btn">
                 Start the trial
               </Link>
-              <button type="button" onClick={() => scrollToProgress(0.62)} className="cap-btn-ghost">
+              <button type="button" onClick={() => runRef.current()} className="cap-btn-ghost">
                 Run the capsule
               </button>
             </div>
