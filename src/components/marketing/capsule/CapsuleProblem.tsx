@@ -1,9 +1,9 @@
 const problems = [
   "Your website hasn't been updated in months",
-  "Posting to social media takes hours every week",
-  "Your business info is wrong on half the directories",
-  "You have no time to respond to or collect reviews",
-  "Customers can't find you online or find outdated info",
+  "Posting to social media takes hours every week — and posting on Google is an afterthought",
+  "Your business info is wrong on directories",
+  "Website visitors don't see all your reviews",
+  "Customers find outdated information online",
 ];
 
 const solutions = [
