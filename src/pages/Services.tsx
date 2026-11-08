@@ -100,7 +100,7 @@ export default function Services() {
       <GlassHero
         kicker="02 / Products"
         title="Every tool your business needs online"
-        lede="Five purpose-built tools that work better together. Use one or bundle all five for complete digital coverage."
+        lede="Purpose-built tools that work better together. Use separately or bundle for complete digital coverage."
       >
         <Link to="/pricing#start-trial" className="gp-btn">
           Start free trial
