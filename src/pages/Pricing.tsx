@@ -201,6 +201,7 @@ export default function Pricing() {
     <Layout variant="glass">
       <GlassHero
         kicker="03 / Pricing"
+        scene
         title="Transparent plans. No surprises."
         lede="Start with a 30-day free trial. Cancel anytime. No setup fees."
       >

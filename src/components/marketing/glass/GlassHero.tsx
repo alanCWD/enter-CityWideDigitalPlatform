@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { OrbitHeroScene } from "./OrbitHeroScene";
 
 interface GlassHeroProps {
   kicker: string;
@@ -9,6 +10,8 @@ interface GlassHeroProps {
   align?: "left" | "center";
   /** Extra classes for the display heading size. */
   titleClassName?: string;
+  /** Renders the live orbit scene behind the hero. */
+  scene?: boolean;
 }
 
 export function GlassHero({
@@ -18,11 +21,14 @@ export function GlassHero({
   children,
   align = "left",
   titleClassName = "text-[clamp(2.2rem,5.4vw,4.2rem)]",
+  scene = false,
 }: GlassHeroProps) {
   const centered = align === "center";
 
   return (
-    <header className="gp-hero">
+    <header className={`gp-hero${scene ? " gp-hero--scene" : ""}`}>
+      {scene && <OrbitHeroScene />}
+
       <div className="gp-shell">
         <div className={centered ? "mx-auto max-w-3xl text-center" : "max-w-3xl"}>
           <p className="gp-kicker">{kicker}</p>

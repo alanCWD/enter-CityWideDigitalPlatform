@@ -461,6 +461,7 @@ export default function About() {
     <Layout variant="glass">
       <GlassHero
         kicker="01 / Our story"
+        scene
         title="We built CityWide because local businesses deserve better"
         lede="Every local business owner we've ever met has the same problem: not enough time, not enough budget, and too many digital tools to manage."
       />

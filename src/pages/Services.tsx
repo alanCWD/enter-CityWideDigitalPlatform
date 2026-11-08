@@ -99,6 +99,7 @@ export default function Services() {
     <Layout variant="glass">
       <GlassHero
         kicker="02 / Products & Services"
+        scene
         title="Every tool your business needs online"
         lede="Purpose-built tools that work better together. Use separately or bundle for complete digital coverage."
       >
