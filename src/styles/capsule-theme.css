@@ -71,7 +71,7 @@
   gap: 0.6rem;
   padding: 0.85rem 1.4rem;
   border: 1px solid rgba(255, 255, 255, 0.9);
-  background: hsl(var(--cap-ink));
+  background: hsl(var(--cap-ink-hsl));
   color: #06080c;
   border-radius: 2px;
   font-family: "IBM Plex Mono", ui-monospace, monospace;
@@ -83,7 +83,7 @@
 
 .cap-btn:hover {
   background: transparent;
-  color: hsl(var(--cap-ink));
+  color: var(--cap-ink);
   border-color: rgba(255, 255, 255, 0.55);
 }
 
@@ -677,10 +677,12 @@
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .capsule-page {
+  /* HSL triples live beside the colour tokens, never on top of them —
+     redefining --cap-ink here made every `color: var(--cap-ink)` invalid. */
   --cap-void: 210 50% 2%;
-  --cap-ink: 200 25% 96%;
+  --cap-ink-hsl: 200 25% 96%;
   --cap-dim: 205 15% 76%;
-  --cap-line: 205 20% 60%;
+  --cap-line-hsl: 205 20% 60%;
   --cap-edge: clamp(1.5rem, 4vw, 4.5rem);
 }
 
@@ -792,13 +794,12 @@
 
 .cap-copy h1,
 .cap-copy h2 {
-  color: hsl(var(--cap-ink));
+  color: var(--cap-ink);
   margin: 0.9rem 0 0;
   font-size: clamp(2.1rem, 4.2vw, 3.9rem);
   line-height: 1.06;
   letter-spacing: -0.04em;
   font-weight: 300;
-  color: var(--cap-ink);
 }
 
 .cap-copy h1 span,
@@ -865,14 +866,14 @@
   display: block;
   width: 4.5rem;
   height: 1px;
-  background: hsl(var(--cap-line) / 0.4);
+  background: hsl(var(--cap-line-hsl) / 0.4);
   overflow: hidden;
 }
 
 .cap-track i {
   display: block;
   height: 100%;
-  background: hsl(var(--cap-ink));
+  background: hsl(var(--cap-ink-hsl));
   transform: scaleX(var(--journey-progress));
   transform-origin: left;
 }
