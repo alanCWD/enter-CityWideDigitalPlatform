@@ -63,7 +63,7 @@ export default function Navbar({ variant = "default" }: NavbarProps) {
             <LogoOnDark
               className={cn(
                 "w-auto transition-all duration-300 ease-out group-hover:opacity-90",
-                capsule ? "h-7" : scrolled ? "h-9" : "h-12",
+                capsule ? "h-[35px]" : scrolled ? "h-[45px]" : "h-[60px]",
               )}
             />
           </Link>
