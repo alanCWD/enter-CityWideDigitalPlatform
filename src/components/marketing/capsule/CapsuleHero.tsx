@@ -43,9 +43,41 @@ export function CapsuleHero() {
 
     /* Load the variant the demo loads, based on width. */
     const source = window.matchMedia("(max-width: 767px)").matches ? MOBILE_VIDEO : DESKTOP_VIDEO;
-    video.src = source;
     video.muted = true;
-    video.load();
+    video.preload = "auto";
+
+    const isIOS =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    /* Chrome refuses to seek a file that the host serves without byte ranges.
+       Pull the whole film into memory first (it is ~1.8 MB): a blob URL is fully
+       buffered, so every frame is locally seekable. iOS keeps the progressive
+       source, where blob playback is less reliable. */
+    const loadFilm = async () => {
+      if (isIOS) {
+        video.src = source;
+        video.load();
+        return;
+      }
+      try {
+        const response = await fetch(source, { cache: "force-cache" });
+        if (!response.ok) throw new Error(String(response.status));
+        const blob = await response.blob();
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        video.src = objectUrl;
+        video.load();
+      } catch {
+        if (cancelled) return;
+        video.src = source;
+        video.load();
+      }
+    };
+    void loadFilm();
 
     /* iOS only decodes frames for a video that has been played once; unlock it
        on the first interaction so scrubbing shows real frames, not black. */
@@ -180,6 +212,8 @@ export function CapsuleHero() {
        the panels advance, then glide onto panel 03 and let the signals settle. */
     const runCapsule = () => {
       cancelAnimationFrame(autoRaf);
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       autoActive = true;
       const span = Math.max(1, journey.offsetHeight - window.innerHeight);
       const startY = journey.offsetTop;
@@ -243,6 +277,8 @@ export function CapsuleHero() {
       if (!autoActive) return;
       autoActive = false;
       cancelAnimationFrame(autoRaf);
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
       video.pause();
     };
     window.addEventListener("wheel", cancelAuto, { passive: true });
@@ -312,6 +348,8 @@ export function CapsuleHero() {
       window.removeEventListener("wheel", cancelAuto);
       window.removeEventListener("touchstart", cancelAuto);
       cancelAnimationFrame(autoRaf);
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, []);
 
