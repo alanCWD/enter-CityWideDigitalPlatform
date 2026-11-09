@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/integrations/supabase/client";
+
+const OWNER_EMAIL = "alan@citywidedigital.ca";
 
 const businessTypes = [
   "Restaurant / Food & Beverage",
@@ -26,13 +29,42 @@ const details = [
 
 export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState({
-    name: "", business: "", email: "", phone: "", type: "", message: "",
+    name: "", business: "", email: "", phone: "", type: "", message: "", website: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    if (submitting) return;
+    setError(null);
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/contact-intake`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+        },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data?.success) {
+        setError(
+          (data?.error as string) ||
+            `We couldn't send your message. Please try again, or email ${OWNER_EMAIL}.`,
+        );
+        return;
+      }
+      setSubmitted(true);
+    } catch {
+      setError(
+        `We couldn't reach the server. Check your connection and try again, or email ${OWNER_EMAIL}.`,
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -114,6 +146,19 @@ export default function Contact() {
                     <h3 className="gp-display mt-3 text-2xl">Tell us what you need</h3>
                   </div>
 
+                  <div aria-hidden="true" className="absolute -left-[9999px] top-auto h-px w-px overflow-hidden">
+                    <label htmlFor="website">Website</label>
+                    <input
+                      id="website"
+                      name="website"
+                      type="text"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      value={form.website}
+                      onChange={(e) => setForm({ ...form, website: e.target.value })}
+                    />
+                  </div>
+
                   <div className="grid gap-5 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <Label htmlFor="name" className="gp-kicker">Full name *</Label>
@@ -192,8 +237,17 @@ export default function Contact() {
                     />
                   </div>
 
-                  <Button type="submit" size="lg" className="gp-submit w-full">
-                    Send Message
+                  {error && (
+                    <div
+                      role="alert"
+                      className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm font-light text-destructive"
+                    >
+                      {error}
+                    </div>
+                  )}
+
+                  <Button type="submit" size="lg" className="gp-submit w-full" disabled={submitting}>
+                    {submitting ? "Sending..." : "Send Message"}
                     <Send className="h-4 w-4" />
                   </Button>
 
