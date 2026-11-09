@@ -18,7 +18,7 @@ const footerLinks = {
     { label: "Partner Program", href: "/contact" },
   ],
   Support: [
-    { label: "Help Center", href: "/contact" },
+    { label: "Help Center", href: "/about#faq" },
     { label: "Book a Demo", href: "https://calendly.com/alan-citywidedigital/30min", external: true },
     { label: "Privacy Policy", href: "/privacy" },
     { label: "Terms of Service", href: "/terms" },
