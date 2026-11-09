@@ -1,0 +1,1 @@
+delete from public.portal_invites where email = 'invite-test.2f9a@example.com'; delete from auth.users where email = 'invite-test.2f9a@example.com';

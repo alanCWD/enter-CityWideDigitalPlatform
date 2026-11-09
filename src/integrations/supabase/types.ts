@@ -4050,6 +4050,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      has_portal_invite: {
+        Args: { _email: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -4058,6 +4062,10 @@ export type Database = {
         Returns: boolean
       }
       is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_agency: {
         Args: Record<PropertyKey, never>
         Returns: boolean
       }

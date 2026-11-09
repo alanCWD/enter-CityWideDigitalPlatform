@@ -1,0 +1,105 @@
+-- 1) Helper: agency staff = admin or agency role (security definer, safe for RLS)
+create or replace function public.is_agency()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from user_roles
+    where user_id = auth.uid() and role in ('admin'::app_role, 'agency'::app_role)
+  );
+$$;
+
+grant execute on function public.is_agency() to authenticated, anon;
+
+-- 2) gbp_connections: replace world-writable policy
+ drop policy if exists "Allow all for now" on public.gbp_connections;
+create policy "agency manages gbp_connections" on public.gbp_connections
+for all to authenticated using (public.is_agency()) with check (public.is_agency());
+
+-- 3) gbp_posts
+ drop policy if exists "Allow all for now" on public.gbp_posts;
+create policy "agency manages gbp_posts" on public.gbp_posts
+for all to authenticated using (public.is_agency()) with check (public.is_agency());
+
+-- 4) gbp_reviews
+ drop policy if exists "Allow all for now" on public.gbp_reviews;
+create policy "agency manages gbp_reviews" on public.gbp_reviews
+for all to authenticated using (public.is_agency()) with check (public.is_agency());
+
+-- 5) posts
+ drop policy if exists "allow_all_for_now" on public.posts;
+create policy "agency manages posts" on public.posts
+for all to authenticated using (public.is_agency()) with check (public.is_agency());
+
+-- 6) client_leads (connection_id is text here, portal_users is uuid)
+ drop policy if exists "service_role_all_cl" on public.client_leads;
+create policy "agency manages client_leads" on public.client_leads
+for all to authenticated using (public.is_agency()) with check (public.is_agency());
+
+ drop policy if exists "portal users see own client_leads" on public.client_leads;
+create policy "portal users see own client_leads" on public.client_leads
+for select to authenticated using (
+  exists (select 1 from portal_users pu where pu.user_id = auth.uid() and pu.connection_id::text = client_leads.connection_id)
+);
+
+ drop policy if exists "portal users insert own client_leads" on public.client_leads;
+create policy "portal users insert own client_leads" on public.client_leads
+for insert to authenticated with check (
+  exists (select 1 from portal_users pu where pu.user_id = auth.uid() and pu.connection_id::text = client_leads.connection_id)
+);
+
+ drop policy if exists "portal users update own client_leads" on public.client_leads;
+create policy "portal users update own client_leads" on public.client_leads
+for update to authenticated using (
+  exists (select 1 from portal_users pu where pu.user_id = auth.uid() and pu.connection_id::text = client_leads.connection_id)
+) with check (
+  exists (select 1 from portal_users pu where pu.user_id = auth.uid() and pu.connection_id::text = client_leads.connection_id)
+);
+
+-- 7) quickbooks_connections
+ drop policy if exists "auth_select_qbo_connections" on public.quickbooks_connections;
+ drop policy if exists "auth_update_qbo_connections" on public.quickbooks_connections;
+ drop policy if exists "auth_delete_qbo_connections" on public.quickbooks_connections;
+create policy "agency manages quickbooks_connections" on public.quickbooks_connections
+for all to authenticated using (public.is_agency()) with check (public.is_agency());
+
+-- 8) review_requests
+ drop policy if exists "auth_select_review_requests" on public.review_requests;
+create policy "agency reads review_requests" on public.review_requests
+for select to authenticated using (public.is_agency());
+
+-- 9) client_brand_assets
+ drop policy if exists "auth_select_brand_assets" on public.client_brand_assets;
+ drop policy if exists "auth_insert_brand_assets" on public.client_brand_assets;
+ drop policy if exists "auth_update_brand_assets" on public.client_brand_assets;
+ drop policy if exists "auth_delete_brand_assets" on public.client_brand_assets;
+create policy "agency manages client_brand_assets" on public.client_brand_assets
+for all to authenticated using (public.is_agency()) with check (public.is_agency());
+
+-- 10) qbo_connection_attempts
+ drop policy if exists "authenticated users view qbo_connection_attempts" on public.qbo_connection_attempts;
+create policy "agency reads qbo_connection_attempts" on public.qbo_connection_attempts
+for select to authenticated using (public.is_agency());
+
+-- 11) channel_connections
+ drop policy if exists "public_read_channels" on public.channel_connections;
+create policy "agency reads channel_connections" on public.channel_connections
+for select to authenticated using (public.is_agency());
+
+-- 12) scheduled_posts: service role only
+ drop policy if exists "service_role_all_sp" on public.scheduled_posts;
+create policy "service role manages scheduled_posts" on public.scheduled_posts
+for all using (auth.role() = 'service_role') with check (auth.role() = 'service_role');
+
+-- 13) gbp_connections tokens: rows stay readable for the agency UI, but browser
+--     sessions never receive OAuth tokens (portal clients included).
+revoke select on public.gbp_connections from anon, authenticated;
+grant select (
+  id, client_label, business_name, address, phone, website, category, rating,
+  review_count, last_synced_at, created_at, agency_id, location_id,
+  google_account_id, google_account_name, google_location_name,
+  synup_location_id, zernio_profile_id, token_expires_at, google_token_expiry
+) on public.gbp_connections to authenticated;
