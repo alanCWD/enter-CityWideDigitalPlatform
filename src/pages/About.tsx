@@ -479,13 +479,13 @@ export default function About() {
               </div>
               <div className="gp-body space-y-5 text-[15px] md:text-base">
                 <p>
-                  We spent years working with hundreds of small businesses across the country — restaurants, roofers, boutiques, salons. The same story repeated over and over: they had a Google Business Profile that was more or less up to date, but their website was outdated, their directory listings had the wrong phone number, and their social pages went silent for weeks at a time.
+                  We've spent years working with hundreds of small businesses — restaurants, contractors, retail operations. The same story repeated over and over: they had a Google Business Profile that was more or less up to date, but their website was outdated, their directory listings had errors such as the wrong phone number, and their social pages went silent for weeks or months at a time.
                 </p>
                 <p>
                   None of these owners were lazy. They were busy running their businesses. The problem wasn't effort — it was that managing a digital presence across five different platforms is a part-time job nobody signed up for.
                 </p>
                 <p className="text-[var(--gp-ink)]">
-                  So we built CityWide Digital. One platform that uses the data you already maintain on Google to keep your entire digital presence up to date — automatically.
+                  So we built CityWide Digital's platform that uses the data you already maintain on Google to keep your entire digital presence up to date — automatically.
                 </p>
               </div>
             </div>
