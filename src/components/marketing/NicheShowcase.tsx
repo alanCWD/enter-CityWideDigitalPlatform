@@ -25,7 +25,7 @@ const niches = [
     icon: Wrench,
     headline: "A contractor site that generates leads",
     description: "Services, service areas, photo galleries, and licensing info all pull from your GMB profile. Before/after photos, certifications, and quote requests are built in from day one.",
-    features: ["Services list from GMB", "Service area map", "Photo portfolio gallery", "License & insurance badges", "Lead capture form"],
+    features: ["Services list from GMB", "Service area map", "Photo portfolio gallery", "Licence & insurance badges", "Lead capture form"],
     color: "bg-blue-50 border-blue-100",
     accentColor: "text-primary",
     badgeColor: "bg-blue-100 text-primary",

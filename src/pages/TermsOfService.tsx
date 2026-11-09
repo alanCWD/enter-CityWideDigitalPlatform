@@ -36,7 +36,7 @@ export default function TermsOfService() {
       <GlassHero
         kicker="Legal / Terms"
         title="Terms of Service"
-        lede={`Effective ${EFFECTIVE_DATE} · Last updated ${EFFECTIVE_DATE}. This agreement also serves as the End User License Agreement (EULA) for the ${COMPANY} platform.`}
+        lede={`Effective ${EFFECTIVE_DATE} · Last updated ${EFFECTIVE_DATE}. This agreement also serves as the End User Licence Agreement (EULA) for the ${COMPANY} platform.`}
       >
         <span className="gp-chip gp-chip--accent">
           <FileText className="h-3 w-3" strokeWidth={1.75} /> Legal
@@ -85,9 +85,9 @@ export default function TermsOfService() {
           </P>
         </Section>
 
-        <Section title="4. License Grant">
+        <Section title="4. Licence Grant">
           <P>
-            Subject to these Terms and payment of applicable fees, {COMPANY} grants you a limited, non-exclusive, non-transferable, revocable license to access and use the Services solely for your internal business purposes during the term of your subscription.
+            Subject to these Terms and payment of applicable fees, {COMPANY} grants you a limited, non-exclusive, non-transferable, revocable licence to access and use the Services solely for your internal business purposes during the term of your subscription.
           </P>
           <P>
             You may not: (a) sublicense, resell, or redistribute access to the platform; (b) reverse-engineer, decompile, or disassemble any component of the Services; (c) use the Services to develop a competing product; or (d) remove any proprietary notices from the platform.
@@ -139,7 +139,7 @@ export default function TermsOfService() {
             All software, designs, content, trademarks, and materials constituting the {COMPANY} platform are owned by {COMPANY} or our licensors and are protected by applicable intellectual property laws. Nothing in these Terms transfers any intellectual property rights to you.
           </P>
           <P>
-            You retain all ownership of your business data, content, and materials that you upload to or connect through the Services. You grant {COMPANY} a limited license to use that data solely to provide the Services.
+            You retain all ownership of your business data, content, and materials that you upload to or connect through the Services. You grant {COMPANY} a limited licence to use that data solely to provide the Services.
           </P>
         </Section>
 

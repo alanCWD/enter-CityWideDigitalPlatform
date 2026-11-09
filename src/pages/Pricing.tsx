@@ -167,7 +167,7 @@ const addons = [
   { name: "Extra Social Connections", price: "$5 / connection", desc: "Add extra social platform connections beyond your plan's included count. Choose from any of the 15 supported platforms." },
   { name: "Site Concierge Credits", price: "$15 / credit", desc: "Request any website change on demand. Standard requests completed in 3 business days." },
   { name: "Extra Directories Pack", price: "$29 / mo", desc: "Expand your listing coverage to niche-specific and regional directories beyond the standard 40+." },
-  { name: "White-Label License", price: "Contact us", desc: "Resell CityWide Digital under your own brand. Includes sub-account management and commission program." },
+  { name: "White-Label Licence", price: "Contact us", desc: "Resell CityWide Digital under your own brand. Includes sub-account management and commission program." },
 ];
 
 function FeatureValue({ value }: { value: boolean | string }) {
