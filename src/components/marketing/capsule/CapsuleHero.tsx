@@ -79,13 +79,17 @@ export function CapsuleHero() {
     let probed = false;
     let interacted = false;
     let seekVerified = false;
+    /** Chrome refuses to seek until enough of the file is buffered. */
+    let canScrub = false;
+    let desiredTime = 0;
+    let scrubRaf = 0;
 
     /* One-shot capability probe, before any scrolling: if this host refuses
        range seeks, use the stills for the whole journey rather than flickering
        into them mid-scroll. Retried once after the first interaction, because
        iOS may not honour a seek until the decoder has been unlocked. */
     const probeSeek = () => {
-      if (!videoOk || probed) return;
+      if (!videoOk || probed || !canScrub) return;
       probed = true;
       let landed = false;
       const onProbeSeeked = () => {
@@ -102,7 +106,8 @@ export function CapsuleHero() {
       window.setTimeout(() => {
         video.removeEventListener("seeked", onProbeSeeked);
         if (!landed) {
-          if (interacted) fallback = true;
+          const started = window.scrollY > journey.offsetTop + 4;
+          if (interacted || started) fallback = true;
           else probed = false;
         }
         render();
@@ -113,8 +118,17 @@ export function CapsuleHero() {
       videoOk = Number.isFinite(video.duration) && video.duration > 0;
       setReady(videoOk);
       setFailed(!videoOk);
-      probeSeek();
       render();
+    };
+
+    /* Wait for real data before scrubbing — this is what Chrome needs. */
+    const onBuffered = () => {
+      if (!videoOk) return;
+      if (video.readyState >= 2) {
+        canScrub = true;
+        probeSeek();
+        queueScrub();
+      }
     };
 
     /* A successful seek clears the fallback, so scrubbing works again after
@@ -126,14 +140,35 @@ export function CapsuleHero() {
         render();
       }
     };
+    /* One seek per animation frame at most; repeated seeks are what wedge
+       Chrome's demuxer and leave black frames. */
+    const queueScrub = () => {
+      if (scrubRaf) return;
+      scrubRaf = requestAnimationFrame(() => {
+        scrubRaf = 0;
+        if (!videoOk || autoActive || !canScrub || video.seeking) return;
+        if (Math.abs(video.currentTime - desiredTime) > 0.04) {
+          try {
+            video.currentTime = desiredTime;
+          } catch {
+            /* ignore */
+          }
+        }
+      });
+    };
+
     const onError = () => {
       videoOk = false;
       setFailed(true);
       render();
     };
     video.addEventListener("loadedmetadata", onMeta);
+    video.addEventListener("loadeddata", onBuffered);
+    video.addEventListener("canplay", onBuffered);
+    video.addEventListener("canplaythrough", onBuffered);
+    video.addEventListener("progress", onBuffered);
     video.addEventListener("seeked", onSeeked);
-    video.addEventListener("canplay", onSeeked);
+    video.addEventListener("seeked", queueScrub);
     video.addEventListener("error", onError);
 
     let frame = 0;
@@ -220,12 +255,10 @@ export function CapsuleHero() {
       const g = clamp01((b - 0.055) / 0.885);
       const duration = videoOk ? Math.max(0, video.duration - 1 / 60) : 0;
 
-      /* Never switch modes mid-scroll: the probe below decides once, up front. */
+      /* Never switch modes mid-scroll: the probe decides once, up front. */
       if (videoOk && !autoActive) {
-        const target = g * duration;
-        if (!video.seeking && Math.abs(video.currentTime - target) > 1 / 60) {
-          video.currentTime = target;
-        }
+        desiredTime = g * duration;
+        queueScrub();
       }
 
       const live = videoOk && !fallback;
@@ -267,7 +300,12 @@ export function CapsuleHero() {
       window.removeEventListener("resize", onScroll);
       video.removeEventListener("loadedmetadata", onMeta);
       video.removeEventListener("seeked", onSeeked);
-      video.removeEventListener("canplay", onSeeked);
+      video.removeEventListener("seeked", queueScrub);
+      video.removeEventListener("loadeddata", onBuffered);
+      video.removeEventListener("canplay", onBuffered);
+      video.removeEventListener("canplaythrough", onBuffered);
+      video.removeEventListener("progress", onBuffered);
+      cancelAnimationFrame(scrubRaf);
       video.removeEventListener("error", onError);
       window.removeEventListener("touchstart", unlock);
       window.removeEventListener("pointerdown", unlock);
