@@ -273,6 +273,10 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-500/10 text-red-400 border border-red-500/20">
                 <AlertCircle className="w-3.5 h-3.5" /> Expired
               </span>
+            ) : connection.last_error ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                <AlertCircle className="w-3.5 h-3.5" /> Connected — last sync failed
+              </span>
             ) : (
               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-[#22C55E]/10 text-[#22C55E] border border-[#22C55E]/20">
                 <CheckCircle2 className="w-3.5 h-3.5" /> Connected
@@ -307,6 +311,11 @@ export function QuickBooksPanel({ clientId, clientEmail }: { clientId: string; c
               <p className="text-xs font-bold text-red-400 mb-1">Connection expired</p>
               <p className="text-xs text-red-400/70">
                 {connection.last_error || "The QuickBooks authorization has expired or was revoked."} Generate a new connection link and send it to the client to restore review requests.
+              </p>
+              <p className="text-[11px] text-red-400/50 mt-1">
+                {connection.last_invoice_sync_at
+                  ? `Invoices were last checked successfully on ${fmtDateTime(connection.last_invoice_sync_at)}. Anything paid after that has not produced a review request yet.`
+                  : "No invoice check has ever succeeded for this connection."}
               </p>
             </div>
 

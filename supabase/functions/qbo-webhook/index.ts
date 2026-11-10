@@ -101,8 +101,6 @@ Deno.serve(async (req) => {
   }
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const clientId = Deno.env.get("QBO_CLIENT_ID")!;
-  const clientSecret = Deno.env.get("QBO_CLIENT_SECRET")!;
   const resendApiKey = Deno.env.get("RESEND_API_KEY")!;
 
   const notifications = (payload.eventNotifications as Array<Record<string, unknown>>) || [];
@@ -131,31 +129,16 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      let accessToken = conn.access_token;
-      if (new Date(conn.token_expiry) <= new Date()) {
-        console.log("[qbo-webhook] Token expired, refreshing…");
-        const creds = btoa(`${clientId}:${clientSecret}`);
-        const refreshRes = await fetch("https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer", {
-          method: "POST",
-          headers: { "Authorization": `Basic ${creds}`, "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
-          body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: conn.refresh_token }),
-        });
-        const newTokens = await refreshRes.json() as { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string };
-        if (!newTokens.access_token) {
-          const errMsg = newTokens.error_description || newTokens.error || "Unknown refresh error";
-          console.error("[qbo-webhook] Token refresh failed:", errMsg);
-          if (conn.status !== "expired" && resendApiKey) await notifyExpired(resendApiKey, conn.crm_client_id, errMsg);
-          await supabase.from("quickbooks_connections").update({ status: "expired", last_error: errMsg, updated_at: new Date().toISOString() }).eq("id", conn.id);
-          continue;
-        }
-        accessToken = newTokens.access_token;
-        await supabase.from("quickbooks_connections").update({
-          access_token: accessToken,
-          refresh_token: newTokens.refresh_token || conn.refresh_token,
-          token_expiry: new Date(Date.now() + (newTokens.expires_in || 3600) * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-        }).eq("id", conn.id);
+      // Token renewal is owned by the scheduled jobs (qbo-refresh-tokens and
+      // qbo-poll-invoices), which rotate the refresh token under a guard so two
+      // runs can never invalidate each other. This webhook must NOT refresh on
+      // its own: a stale copy doing that is what permanently broke a client's
+      // connection. If the token is stale here, leave the invoice to the poller.
+      if (!conn.access_token || new Date(conn.token_expiry) <= new Date()) {
+        console.warn(`[qbo-webhook] Token expired for realm ${realmId} — leaving invoice ${entityId} to the scheduled poller`);
+        continue;
       }
+      const accessToken = conn.access_token;
 
       const invoiceRes = await fetch(`https://quickbooks.api.intuit.com/v3/company/${realmId}/invoice/${entityId}?minorversion=65`, {
         headers: { "Authorization": `Bearer ${accessToken}`, "Accept": "application/json" },

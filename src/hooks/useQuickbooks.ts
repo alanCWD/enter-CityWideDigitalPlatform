@@ -75,6 +75,19 @@ export function useQboConnection(clientId: string | undefined) {
   }, [clientId]);
 
   useEffect(() => { reload(); }, [reload]);
+
+  // Pick up a connection the client finished in another tab/window (the
+  // QuickBooks flow ends on a separate page), so "Expired" clears by itself.
+  useEffect(() => {
+    const refresh = () => { if (!document.hidden) reload(); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [reload]);
+
   return { connection, loading, reload };
 }
 

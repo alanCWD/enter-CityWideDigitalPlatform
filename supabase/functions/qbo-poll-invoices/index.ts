@@ -1,4 +1,125 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// ---------------------------------------------------------------------------
+// QuickBooks token handling.
+// QuickBooks rotates the refresh token on EVERY successful refresh, and reusing
+// an old one permanently invalidates the connection. qbo-refresh-tokens also
+// refreshes tokens, so every write below is a compare-and-swap on the refresh
+// token we actually used: whoever loses the race adopts the winner's new tokens
+// instead of burning the connection.
+// MUST be kept in sync with the copy in qbo-refresh-tokens/index.ts.
+// ---------------------------------------------------------------------------
+const QBO_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Db = any;
+
+interface TokenConn {
+  id: string;
+  access_token: string | null;
+  refresh_token: string | null;
+  token_expiry: string | null;
+  status: string;
+}
+
+function qboBasicAuth(): string {
+  return btoa(`${Deno.env.get("QBO_CLIENT_ID")!}:${Deno.env.get("QBO_CLIENT_SECRET")!}`);
+}
+
+function tokenUsable(accessToken: string | null, expiry: string | null): boolean {
+  if (!accessToken || !expiry) return false;
+  return new Date(expiry).getTime() > Date.now() + 60_000;
+}
+
+/** Mark a connection as needing re-authorization, without clobbering fresher tokens. */
+async function markConnectionExpired(supabase: Db, conn: TokenConn, error: string) {
+  await supabase
+    .from("quickbooks_connections")
+    .update({ status: "expired", last_error: error, updated_at: new Date().toISOString() })
+    .eq("id", conn.id)
+    .eq("refresh_token", conn.refresh_token ?? "");
+}
+
+async function storedTokens(supabase: Db, id: string) {
+  const { data } = await supabase
+    .from("quickbooks_connections")
+    .select("access_token, refresh_token, token_expiry")
+    .eq("id", id)
+    .maybeSingle();
+  return data as { access_token: string | null; refresh_token: string | null; token_expiry: string | null } | null;
+}
+
+type TokenOutcome = { ok: true; accessToken: string } | { ok: false; error: string };
+
+/** Returns a valid access token, refreshing only when the stored one has expired. */
+async function ensureAccessToken(supabase: Db, conn: TokenConn): Promise<TokenOutcome> {
+  if (tokenUsable(conn.access_token, conn.token_expiry)) {
+    // Heal a status left behind by an earlier failure: these tokens still work.
+    if (conn.status === "expired") {
+      await supabase
+        .from("quickbooks_connections")
+        .update({ status: "active", last_error: null, updated_at: new Date().toISOString() })
+        .eq("id", conn.id)
+        .eq("refresh_token", conn.refresh_token ?? "");
+    }
+    return { ok: true, accessToken: conn.access_token as string };
+  }
+
+  if (!conn.refresh_token) {
+    await markConnectionExpired(supabase, conn, "No refresh token stored — reconnect required.");
+    return { ok: false, error: "No refresh token stored" };
+  }
+
+  let tokens: { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string };
+  try {
+    const res = await fetch(QBO_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "Authorization": `Basic ${qboBasicAuth()}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+        "Accept": "application/json",
+      },
+      body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: conn.refresh_token }),
+    });
+    tokens = await res.json();
+  } catch (e) {
+    return { ok: false, error: `Token refresh request failed: ${(e as Error).message}` };
+  }
+
+  if (!tokens.access_token) {
+    const errMsg = tokens.error_description || tokens.error || "Unknown refresh error";
+    // Lost the race? Another job may already have rotated the token successfully.
+    const latest = await storedTokens(supabase, conn.id);
+    if (latest && latest.refresh_token !== conn.refresh_token && tokenUsable(latest.access_token, latest.token_expiry)) {
+      return { ok: true, accessToken: latest.access_token as string };
+    }
+    await markConnectionExpired(supabase, conn, errMsg);
+    return { ok: false, error: errMsg };
+  }
+
+  const expiresAt = new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString();
+  const { data: saved } = await supabase
+    .from("quickbooks_connections")
+    .update({
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token || conn.refresh_token,
+      token_expiry: expiresAt,
+      status: "active",
+      last_error: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", conn.id)
+    .eq("refresh_token", conn.refresh_token)
+    .select("id");
+
+  if (!Array.isArray(saved) || saved.length === 0) {
+    const latest = await storedTokens(supabase, conn.id);
+    if (latest && tokenUsable(latest.access_token, latest.token_expiry)) {
+      return { ok: true, accessToken: latest.access_token as string };
+    }
+  }
+
+  return { ok: true, accessToken: tokens.access_token };
+}
 
 // Runs on a daily pg_cron schedule (see migration). QuickBooks cannot push webhook
 // notifications directly to this platform's backend functions — the gateway in
@@ -40,6 +161,18 @@ function escapeHtml(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+// QuickBooks sometimes stores several addresses in one billing-email field
+// ("a@x.com, b@y.com"), and Resend rejects that as a recipient. Take the first
+// usable address instead of failing the review request.
+function firstValidEmail(raw: string | undefined | null): string | null {
+  if (!raw) return null;
+  for (const part of raw.split(/[,;]+/)) {
+    const match = part.trim().match(/^<?([^<>\s,;]+@[^<>\s,;]+\.[A-Za-z]{2,})>?$/);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 // Resolve the enabled review platforms for a connection, in fixed order.
@@ -156,8 +289,6 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*" } });
 
   const supabase = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const clientId = Deno.env.get("QBO_CLIENT_ID")!;
-  const clientSecret = Deno.env.get("QBO_CLIENT_SECRET")!;
   const resendApiKey = Deno.env.get("RESEND_API_KEY") || "";
 
   const { data: connections, error } = await supabase.from("quickbooks_connections").select("*");
@@ -172,38 +303,18 @@ Deno.serve(async (req) => {
   let deferred = 0;
 
   for (const conn of connections || []) {
-    if (conn.status === "expired") continue;
-
-    // Refresh token if expired
-    let accessToken = conn.access_token as string;
-    if (new Date(conn.token_expiry) <= new Date()) {
-      const creds = btoa(`${clientId}:${clientSecret}`);
-      try {
-        const refreshRes = await fetch("https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer", {
-          method: "POST",
-          headers: { "Authorization": `Basic ${creds}`, "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
-          body: new URLSearchParams({ grant_type: "refresh_token", refresh_token: conn.refresh_token }),
-        });
-        const newTokens = await refreshRes.json() as { access_token?: string; refresh_token?: string; expires_in?: number; error?: string; error_description?: string };
-        if (!newTokens.access_token) {
-          const errMsg = newTokens.error_description || newTokens.error || "Unknown refresh error";
-          console.error(`[qbo-poll-invoices] token refresh failed for ${conn.crm_client_id}:`, errMsg);
-          if (conn.status !== "expired" && resendApiKey) await notifyExpired(resendApiKey, conn.crm_client_id, errMsg);
-          await supabase.from("quickbooks_connections").update({ status: "expired", last_error: errMsg, updated_at: new Date().toISOString() }).eq("id", conn.id);
-          continue;
-        }
-        accessToken = newTokens.access_token;
-        await supabase.from("quickbooks_connections").update({
-          access_token: accessToken,
-          refresh_token: newTokens.refresh_token || conn.refresh_token,
-          token_expiry: new Date(Date.now() + (newTokens.expires_in || 3600) * 1000).toISOString(),
-          updated_at: new Date().toISOString(),
-        }).eq("id", conn.id);
-      } catch (e) {
-        console.error(`[qbo-poll-invoices] refresh exception for ${conn.crm_client_id}:`, e);
-        continue;
+    // Do NOT skip connections whose stored status says "expired": a client who
+    // has since re-authorized gets fresh tokens, and this run is what heals them.
+    // The connection is only treated as dead when QuickBooks actually rejects it.
+    const token = await ensureAccessToken(supabase, conn as TokenConn);
+    if (!token.ok) {
+      if (conn.status !== "expired" && resendApiKey) {
+        await notifyExpired(resendApiKey, conn.crm_client_id, token.error);
       }
+      console.error(`[qbo-poll-invoices] token refresh failed for ${conn.crm_client_id}:`, token.error);
+      continue;
     }
+    const accessToken = token.accessToken;
 
     const delayDays = typeof conn.review_delay_days === "number" ? conn.review_delay_days : 7;
     const overlapDays = delayDays + 2;
@@ -249,13 +360,23 @@ Deno.serve(async (req) => {
             MetaData?: { LastUpdatedTime?: string; CreateTime?: string };
           }>;
         };
-        Fault?: { Error: Array<{ Message: string }> };
+        Fault?: { type?: string; Error: Array<{ Message: string; code?: string }> };
       };
 
       if (data.Fault) {
         const faultMessage = data.Fault.Error?.map((e) => e.Message).filter(Boolean).join("; ") || "Unknown QuickBooks query error";
         console.error(`[qbo-poll-invoices] query error for ${conn.crm_client_id}:`, JSON.stringify(data.Fault));
-        await supabase.from("quickbooks_connections").update({ last_error: faultMessage, updated_at: new Date().toISOString() }).eq("id", conn.id);
+        // An authentication fault means the tokens themselves were rejected —
+        // that is the only case where the connection really is expired.
+        const isAuthFault = data.Fault.type === "AuthenticationFault" || res.status === 401;
+        if (isAuthFault) {
+          if (conn.status !== "expired" && resendApiKey) {
+            await notifyExpired(resendApiKey, conn.crm_client_id, faultMessage);
+          }
+          await markConnectionExpired(supabase, conn as TokenConn, faultMessage);
+        } else {
+          await supabase.from("quickbooks_connections").update({ last_error: faultMessage, updated_at: new Date().toISOString() }).eq("id", conn.id);
+        }
         continue;
       }
 
@@ -265,7 +386,7 @@ Deno.serve(async (req) => {
       for (const invoice of invoices) {
         if (invoice.Balance !== 0) continue; // still owes money — not paid yet
 
-        const customerEmail = invoice.BillEmail?.Address;
+        const customerEmail = firstValidEmail(invoice.BillEmail?.Address);
         const customerName = invoice.CustomerRef?.name || "Valued Customer";
         if (!customerEmail) {
           console.warn(`[qbo-poll-invoices] Invoice ${invoice.Id} has no billing email — skipping`);

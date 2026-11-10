@@ -76,14 +76,18 @@ export function QboCallback() {
           return;
         }
 
-        if (data?.success) {
+        // Only claim success when the saved connection is actually active —
+        // the token exchange can succeed while the stored connection stays broken.
+        const isActive = data?.status ? data.status === "active" : !!data?.success;
+
+        if (data?.success && isActive) {
           setStatus("success");
           setMessage("QuickBooks Online connected! Review requests are now active. You can close this window.");
           logAttempt("success", crmClientId, realmId);
         } else {
           setStatus("error");
-          setMessage(data?.error || "Connection failed.");
-          logAttempt("callback_failed", crmClientId, realmId, data?.error);
+          setMessage(data?.error || "The connection could not be saved. Please ask for a new connection link.");
+          logAttempt("callback_failed", crmClientId, realmId, data?.error || `status=${data?.status ?? "unknown"}`);
         }
       } catch (e) {
         setStatus("error");

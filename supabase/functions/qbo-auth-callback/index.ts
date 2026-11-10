@@ -141,12 +141,19 @@ Deno.serve(async (req) => {
 
     const tokenExpiry = new Date(Date.now() + (tokens.expires_in || 3600) * 1000).toISOString();
 
+    // A successful authorization always restores the connection: clear the
+    // stale error and the "expired" status, otherwise the CRM keeps showing
+    // the old failure and the invoice poller keeps skipping this client.
+    // last_invoice_sync_at is intentionally left alone so invoices paid while
+    // the connection was down are still picked up on the next poll.
     const payload = {
       crm_client_id: crmClientId || `realm_${realmId}`,
       realm_id: realmId,
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token || "",
       token_expiry: tokenExpiry,
+      status: "active",
+      last_error: null,
       updated_at: new Date().toISOString(),
     };
 
@@ -164,7 +171,7 @@ Deno.serve(async (req) => {
     // Fire-and-forget notification; don't block or fail the response on this
     notifyConnected(payload.crm_client_id, realmId);
 
-    return ok({ success: true, crmClientId, realmId });
+    return ok({ success: true, status: "active", crmClientId, realmId });
   } catch (err) {
     console.error("[qbo-auth-callback] exception:", err);
     return ok({ success: false, error: (err as Error).message || "Unexpected error" });
