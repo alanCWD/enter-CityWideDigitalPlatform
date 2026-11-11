@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useParams } from "react-router-dom";
-import { LogOut, Store, Share2, BarChart3, Home, Shield, Activity, Users, Sun, MapPin, Star, Search } from "lucide-react";
+import { LogOut, Store, Share2, BarChart3, Home, Shield, Activity, Users, Sun, MapPin, Star, Search, HeartPulse } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
@@ -13,6 +13,7 @@ const TABS = [
   { name: "Social",    path: "social",    icon: Share2,   end: false },
   { name: "SEO",       path: "seo",       icon: Search,   end: false },
   { name: "Health",    path: "health",    icon: Activity, end: false },
+  { name: "Online Health", path: "online-health", icon: HeartPulse, end: false },
   { name: "GBP",       path: "gbp",       icon: Store,    end: false },
   { name: "Analytics", path: "analytics", icon: BarChart3,end: false },
   { name: "Vault",     path: "vault",     icon: Shield,   end: false },

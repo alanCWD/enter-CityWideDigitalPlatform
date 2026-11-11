@@ -8,6 +8,7 @@ import { crm, fmtMoney, CrmClient, CrmInvoice } from "@/lib/crm";
 import { StatusPill } from "@/components/crm/StatusPill";
 import { VaultPanel } from "@/components/crm/vault/VaultPanel";
 import { HealthPanel } from "@/components/crm/health/HealthPanel";
+import { OnlineHealthEmbed } from "@/components/online-health/OnlineHealthEmbed";
 import { QuickBooksPanel } from "@/components/crm/quickbooks/QuickBooksPanel";
 import { LedgerBridgePanel } from "@/components/crm/quickbooks/LedgerBridgePanel";
 import {
@@ -44,7 +45,7 @@ export function ClientDetail() {
   const { detail, loading, error, reload } = useCrmClient(id);
   const isAdmin = useIsAdmin();
   const { toast } = useToast();
-  const [tab, setTab] = useState<"overview" | "health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp" | "integrations">("overview");
+  const [tab, setTab] = useState<"overview" | "health" | "online-health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp" | "integrations">("overview");
   const [integration, setIntegration] = useState<"qb-review" | "ledgerbridge">("qb-review");
   const [deleting, setDeleting] = useState(false);
   const [editingHeader, setEditingHeader] = useState(false);
@@ -283,6 +284,7 @@ export function ClientDetail() {
           const tabs: { key: typeof tab; label: string }[] = [
             { key: "overview", label: "Overview" },
             { key: "health", label: "Health" },
+            { key: "online-health" as const, label: "Online Health" },
             { key: "vault", label: "Vault" },
             ...(c.gbp_connection_id ? [{ key: "gbp" as const, label: "GBP / NAP" }] : []),
             { key: "subscriptions", label: "Subscriptions" },
@@ -315,6 +317,9 @@ export function ClientDetail() {
         )}
         {tab === "health" && (
           <HealthPanel clientId={detail.client.id} />
+        )}
+        {tab === "online-health" && (
+          <OnlineHealthEmbed connectionId={c.gbp_connection_id} clientName={c.name} />
         )}
         {tab === "vault" && (
           <VaultPanel clientId={detail.client.id} />

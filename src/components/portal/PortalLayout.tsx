@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { usePortalConnections, type PortalConnection } from "@/hooks/usePortalConnections";
 import { PortalTopBar } from "@/components/portal/PortalTopBar";
 import { RequirePortalAuth } from "@/components/portal/RequirePortalAuth";
+import { cn } from "@/lib/utils";
 
 interface PortalLayoutProps {
   /**
@@ -12,9 +13,11 @@ interface PortalLayoutProps {
    * without re-fetching.
    */
   children: (connection: PortalConnection) => ReactNode;
+  /** Let a page use the full content width (e.g. an embedded app). */
+  wide?: boolean;
 }
 
-function PortalLayoutInner({ children }: PortalLayoutProps) {
+function PortalLayoutInner({ children, wide }: PortalLayoutProps) {
   const { clientId } = useParams();
   const { user, loading: authLoading, signOut } = useAuth();
   const { connections, loading: connsLoading } = usePortalConnections(user?.id);
@@ -86,7 +89,7 @@ function PortalLayoutInner({ children }: PortalLayoutProps) {
     <div className="min-h-screen bg-background">
       <PortalTopBar connection={current} otherConnections={others} />
       <main className="pl-56 min-h-screen">
-        <div className="px-8 py-8 max-w-5xl">{children(current)}</div>
+        <div className={cn("px-8 py-8", wide ? "max-w-none" : "max-w-5xl")}>{children(current)}</div>
       </main>
     </div>
   );

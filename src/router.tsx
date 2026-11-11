@@ -22,6 +22,7 @@ import PortalAnalytics from "./pages/portal/PortalAnalytics";
 import PortalConnect from "./pages/portal/PortalConnect";
 import PortalVault from "./pages/portal/PortalVault";
 import PortalHealth from "./pages/portal/PortalHealth";
+import PortalOnlineHealth from "./pages/portal/PortalOnlineHealth";
 import PortalListings from "./pages/portal/PortalListings";
 import PortalReviews from "./pages/portal/PortalReviews";
 import PortalSEO from "./pages/portal/PortalSEO";
@@ -194,6 +195,11 @@ export const routers = [
     path: "/portal/:clientId/health",
     name: "portal-health",
     element: <PortalHealth />,
+  },
+  {
+    path: "/portal/:clientId/online-health",
+    name: "portal-online-health",
+    element: <PortalOnlineHealth />,
   },
   {
     path: "/portal/:clientId/listings",
