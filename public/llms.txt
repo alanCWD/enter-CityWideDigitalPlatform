@@ -12,7 +12,7 @@ Not synchronised: content that does not exist in Google, such as custom page cop
 
 ## Services
 
-- GBP-synced websites: managed, auto-updating local business websites on a customer's own domain.
+- GBP Website Builder: managed, auto-updating local business websites on a customer's own domain, synchronised with a Google Business Profile.
 - Social Sync Pro: publishes a Google Business Profile post to connected social platforms.
 - Listing Sync Pro: keeps name, address and phone consistent across 40+ directories.
 - Review Engine: collects customer reviews by SMS or email and displays approved reviews on the website.

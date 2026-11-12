@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 const products = [
   {
     icon: Globe,
-    name: "Smart Website Builder",
+    name: "GBP Website Builder",
     tagline: "A living website that updates itself",
     price: "from $197/mo",
     badge: "Most Popular",

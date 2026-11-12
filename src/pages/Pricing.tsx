@@ -75,7 +75,7 @@ type Feature = {
 
 const features: Feature[] = [
   {
-    category: "Website Builder",
+    category: "GBP Website Builder",
     items: [
       { name: "GMB-synced website", starter: true, growth: true, pro: true },
       { name: "Niche-specific template", starter: true, growth: true, pro: true },

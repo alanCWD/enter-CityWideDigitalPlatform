@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 const footerLinks = {
   Products: [
     { label: "GBP-Synced Websites", href: "/google-business-profile-website-sync.html", plain: true },
-    { label: "Website Builder", href: "/services#website-builder" },
+    { label: "GBP Website Builder", href: "/services#website-builder" },
     { label: "Social Sync Pro", href: "/services#social-sync" },
     { label: "Listing Sync Pro", href: "/services#listing-manager" },
     { label: "Review Engine", href: "/services#video-reviews" },
