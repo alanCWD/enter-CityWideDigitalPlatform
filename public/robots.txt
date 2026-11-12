@@ -1,14 +1,28 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# CityWide Digital — https://dashboard.citywidedigital.ca/
+#
+# Public marketing pages are open to search and AI crawlers. Private
+# application areas (dashboard, client portal, admin, sign-in and OAuth
+# callbacks, click-tracking redirects) are excluded for every crawler.
+#
+# Covered by these rules: Googlebot, Bingbot, PerplexityBot, OAI-SearchBot,
+# ChatGPT-User, GPTBot, ClaudeBot, Claude-SearchBot, Google-Extended,
+# Applebot-Extended, CCBot, Twitterbot and facebookexternalhit.
 
 User-agent: *
 Allow: /
+Disallow: /dashboard
+Disallow: /portal
+Disallow: /admin
+Disallow: /builder
+Disallow: /gbp$
+Disallow: /gbp/
+Disallow: /qbo/
+Disallow: /auth/
+Disallow: /channels
+Disallow: /restaurant
+Disallow: /analytics
+Disallow: /leads
+Disallow: /r?
+Disallow: /r$
+
+Sitemap: https://dashboard.citywidedigital.ca/sitemap.xml

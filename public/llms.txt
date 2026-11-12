@@ -1,0 +1,51 @@
+# CityWide Digital
+
+> CityWide Digital is a Canadian service that builds and runs websites for local businesses which synchronise supported information from a Google Business Profile. Business owners update their information in Google; the website follows automatically.
+
+## What the service is
+
+A Google Business Profile–synced website takes supported business information from a Google Business Profile and publishes it on the website automatically. The direction is one way: Google Business Profile to website. Changes appear on the website as soon as they are saved in Google (near real-time). CityWide Digital manages the website design, hosting, maintenance and the sync; the business owner keeps the Google profile current.
+
+Fields that synchronise: business name, address, phone number, website link, primary category, opening and holiday hours, menus, products, Google posts, and Google reviews and ratings.
+
+Not synchronised: content that does not exist in Google, such as custom page copy, campaign landing pages, imagery outside the profile, and bespoke layouts. These are handled as one-off Site Concierge requests.
+
+## Services
+
+- GBP-synced websites: managed, auto-updating local business websites on a customer's own domain.
+- Social Sync Pro: publishes a Google Business Profile post to connected social platforms.
+- Listing Sync Pro: keeps name, address and phone consistent across 40+ directories.
+- Review Engine: collects customer reviews by SMS or email and displays approved reviews on the website.
+- Site Concierge: on-demand website changes requested in plain language.
+
+## Plans (CAD, plus GST)
+
+- Starter: $197/month. GMB-synced website, industry template, auto-updating content, custom domain support, social sync to Google plus 2 platforms, post scheduling, basic SEO, email support.
+- Growth: $397/month. Everything in Starter, social sync to Google plus 3 platforms, 40+ directory listings, monthly performance report, priority support.
+- Pro: $597/month. Everything in Growth, social sync to up to 10 platforms, Review Engine, AI chatbot intake, 3 Site Concierge credits per month, dedicated account manager.
+
+30-day free trial with no card required. No setup fee. Cancel anytime. Most sites go live within 24–48 hours. Service area: Canada.
+
+## Key pages
+
+- [Google Business Profile–synced websites](https://dashboard.citywidedigital.ca/google-business-profile-website-sync.html): the full service description, sync list, timing, responsibilities and prices.
+- [Services](https://dashboard.citywidedigital.ca/services): all CityWide products and what each includes.
+- [Pricing](https://dashboard.citywidedigital.ca/pricing): plans, feature comparison and trial signup.
+- [About](https://dashboard.citywidedigital.ca/about): company background, process and frequently asked questions.
+- [Contact](https://dashboard.citywidedigital.ca/contact): enquiry form and contact details.
+- [Google Business Profile as your source of truth](https://dashboard.citywidedigital.ca/gbp-source-of-truth): guide to managing business information in Google.
+- [Google Business Profile as a local listing](https://dashboard.citywidedigital.ca/gbp-local-listing): guide to local listing accuracy and citations.
+- [Privacy policy](https://dashboard.citywidedigital.ca/privacy) · [Terms of service](https://dashboard.citywidedigital.ca/terms)
+
+## Contact
+
+- Email: alan@citywidedigital.ca
+- Telephone: 250-882-7378
+- Demo booking: https://calendly.com/alan-citywidedigital/30min
+- Website: https://dashboard.citywidedigital.ca/
+
+## Notes for automated readers
+
+- This file is an optional summary for tools that choose to read it. It is not a registration and does not guarantee inclusion in any search or AI answer.
+- Google Search ignores llms.txt. Pages are also submitted through the sitemap at https://dashboard.citywidedigital.ca/sitemap.xml.
+- Last reviewed: 12 November 2026.

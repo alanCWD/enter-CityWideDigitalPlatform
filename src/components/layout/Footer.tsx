@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 
 const footerLinks = {
   Products: [
+    { label: "GBP-Synced Websites", href: "/google-business-profile-website-sync.html", plain: true },
     { label: "Website Builder", href: "/services#website-builder" },
     { label: "Social Sync Pro", href: "/services#social-sync" },
     { label: "Listing Sync Pro", href: "/services#listing-manager" },
@@ -87,7 +88,11 @@ export default function Footer({ variant = "default" }: FooterProps) {
               <ul className="flex flex-col gap-2.5">
                 {links.map((link) => (
                   <li key={link.label}>
-                    {"external" in link && link.external ? (
+                    {"plain" in link && link.plain ? (
+                      <a href={link.href} className={linkClass}>
+                        {link.label}
+                      </a>
+                    ) : "external" in link && link.external ? (
                       <a
                         href={link.href}
                         target="_blank"

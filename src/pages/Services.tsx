@@ -130,6 +130,16 @@ export default function Services() {
                   <p className="mt-3 text-base font-light text-[var(--gp-ink)]">{service.tagline}</p>
                   <p className="gp-body mt-4 text-[15px]">{service.description}</p>
 
+                  {service.id === "website-builder" && (
+                    <a
+                      href="/google-business-profile-website-sync.html"
+                      className="mt-5 inline-flex items-center gap-2 border-b border-white/20 pb-1 font-mono text-[0.625rem] uppercase tracking-[0.2em] text-[var(--gp-ice)] transition-colors hover:border-white/50 hover:text-[var(--gp-ink)]"
+                    >
+                      What syncs, and how fast
+                      <ArrowUpRight className="h-3.5 w-3.5" />
+                    </a>
+                  )}
+
                   <div className="mt-8 flex flex-wrap gap-3">
                     <Link to="/pricing#start-trial" className="gp-btn">
                       Start free trial <ArrowUpRight className="h-3.5 w-3.5" />

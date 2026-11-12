@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Google Business Profile–Synced Websites | CityWide Digital</title>
+  <meta name="description" content="CityWide Digital builds and hosts websites that synchronise name, address, phone, hours, menus, products, posts and reviews from a Google Business Profile. You update Google; the website follows. Plans from $197/mo CAD." />
+  <link rel="canonical" href="https://dashboard.citywidedigital.ca/google-business-profile-website-sync.html" />
+  <meta name="robots" content="index, follow, max-image-preview:large" />
+  <meta name="author" content="CityWide Digital" />
+
+  <meta property="og:site_name" content="CityWide Digital" />
+  <meta property="og:type" content="article" />
+  <meta property="og:title" content="Google Business Profile–Synced Websites | CityWide Digital" />
+  <meta property="og:description" content="Manage your business information in Google. Your website updates automatically. See exactly what syncs, how quickly, and what it costs." />
+  <meta property="og:url" content="https://dashboard.citywidedigital.ca/google-business-profile-website-sync.html" />
+  <meta property="og:image" content="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100027458/citywide-og-v4_010a8a83.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Google Business Profile–Synced Websites | CityWide Digital" />
+  <meta name="twitter:description" content="You update Google. The website follows. See exactly what syncs and what it costs." />
+  <meta name="twitter:image" content="https://grazia-prod.oss-ap-southeast-1.aliyuncs.com/resources/uid_100027458/citywide-og-v4_010a8a83.png" />
+
+  <link rel="icon" href="/favicon.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --void: #05070a;
+      --ink: #f2f5fa;
+      --ink-72: rgba(242, 245, 250, 0.72);
+      --ink-55: rgba(242, 245, 250, 0.55);
+      --ink-38: rgba(242, 245, 250, 0.38);
+      --line: rgba(255, 255, 255, 0.12);
+      --line-soft: rgba(255, 255, 255, 0.07);
+      --blue: #6ea8ff;
+      --ice: #cfe2ff;
+      --glass: linear-gradient(158deg, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0.045) 48%, rgba(255,255,255,0.02) 100%);
+      --glass-border: rgba(255, 255, 255, 0.17);
+      --shadow: 0 28px 70px -32px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.16);
+      --radius: 20px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background-color: var(--void);
+      color: var(--ink);
+      font-family: "Inter", system-ui, -apple-system, sans-serif;
+      font-weight: 300;
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+      position: relative;
+      isolation: isolate;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      z-index: -1;
+      pointer-events: none;
+      background:
+        radial-gradient(820px 560px at 8% -8%, rgba(78,141,255,0.34), transparent 62%),
+        radial-gradient(680px 520px at 94% 2%, rgba(118,222,255,0.16), transparent 60%),
+        radial-gradient(760px 620px at 12% 46%, rgba(86,132,255,0.16), transparent 66%),
+        radial-gradient(900px 700px at 50% 112%, rgba(104,110,255,0.22), transparent 64%);
+    }
+
+    a { color: var(--ice); text-decoration: none; }
+    a:hover { color: #ffffff; }
+
+    .shell { width: 100%; max-width: 1240px; margin: 0 auto; padding: 0 1.5rem; }
+    @media (min-width: 768px) { .shell { padding: 0 2.5rem; } }
+
+    .skip {
+      position: absolute; left: -9999px; top: 0; z-index: 100;
+      background: #ffffff; color: #06080c; padding: 0.75rem 1.25rem; border-radius: 8px;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.7rem; letter-spacing: 0.16em; text-transform: uppercase;
+    }
+    .skip:focus { left: 1rem; top: 1rem; }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    .site-header {
+      position: sticky; top: 0; z-index: 50;
+      background: rgba(5, 7, 10, 0.82);
+      border-bottom: 1px solid var(--line-soft);
+      backdrop-filter: blur(18px) saturate(150%);
+      -webkit-backdrop-filter: blur(18px) saturate(150%);
+    }
+    .header-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 1.5rem; min-height: 72px; flex-wrap: wrap; padding-block: 0.75rem;
+    }
+    .brand { display: inline-flex; align-items: center; }
+    .brand img { height: 38px; width: auto; filter: brightness(1.6) saturate(1.1); }
+    .nav { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+    .nav a {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.625rem; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--ink-55);
+    }
+    .nav a:hover { color: var(--ink); }
+    .nav a[aria-current="page"] { color: var(--ink); }
+    .nav .nav-cta {
+      padding: 0.65rem 1.15rem; border: 1px solid rgba(255,255,255,0.85); border-radius: 10px;
+      background: rgba(255,255,255,0.94); color: #06080c;
+    }
+    .nav .nav-cta:hover { background: #ffffff; color: #06080c; }
+    @media (max-width: 860px) {
+      .nav { gap: 1rem; }
+      .nav a:not(.nav-cta) { display: none; }
+    }
+
+    /* ── Typography ─────────────────────────────────────────── */
+    .kicker {
+      margin: 0; font-family: "IBM Plex Mono", monospace; font-size: 0.625rem; line-height: 1.2;
+      letter-spacing: 0.24em; text-transform: uppercase; color: var(--ink-38);
+    }
+    h1, h2, h3 { text-wrap: balance; }
+    h1 {
+      margin: 1.25rem 0 0; font-weight: 200; font-size: clamp(2rem, 5vw, 3.5rem);
+      line-height: 1.06; letter-spacing: -0.035em; overflow-wrap: break-word;
+    }
+    h2 {
+      margin: 0; font-weight: 200; font-size: clamp(1.6rem, 3.4vw, 2.5rem);
+      line-height: 1.08; letter-spacing: -0.03em;
+    }
+    h3 { margin: 0 0 0.35rem; font-weight: 400; font-size: 1.02rem; letter-spacing: -0.01em; }
+    .lede { margin: 1.5rem 0 0; font-size: 1.05rem; color: var(--ink-72); max-width: 42rem; }
+    p { margin: 0 0 1rem; color: var(--ink-72); }
+    p:last-child { margin-bottom: 0; }
+    strong { color: var(--ink); font-weight: 500; }
+    code {
+      font-family: "IBM Plex Mono", monospace; font-size: 0.82em; color: var(--ice);
+      background: rgba(255,255,255,0.06); padding: 0.1em 0.35em; border-radius: 5px;
+    }
+
+    /* ── Hero ───────────────────────────────────────────────── */
+    .hero { padding: 4.5rem 0 3rem; }
+    @media (min-width: 768px) { .hero { padding: 6.5rem 0 4rem; } }
+    .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: 2.25rem; }
+    .btn, .btn-ghost {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0.95rem 1.6rem; border-radius: 12px; font-family: "IBM Plex Mono", monospace;
+      font-size: 0.625rem; letter-spacing: 0.2em; text-transform: uppercase; transition: all 180ms ease;
+    }
+    .btn { border: 1px solid rgba(255,255,255,0.85); background: rgba(255,255,255,0.94); color: #06080c; }
+    .btn:hover { background: #ffffff; color: #06080c; transform: translateY(-1px); }
+    .btn-ghost { border: 1px solid rgba(255,255,255,0.22); background: rgba(255,255,255,0.07); color: rgba(242,245,250,0.86); }
+    .btn-ghost:hover { background: rgba(255,255,255,0.09); border-color: rgba(255,255,255,0.28); color: var(--ink); transform: translateY(-1px); }
+    .hero-note { margin-top: 1.75rem; font-family: "IBM Plex Mono", monospace; font-size: 0.58rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-38); }
+
+    /* ── Sections & panels ──────────────────────────────────── */
+    .section { padding: 3.5rem 0; border-top: 1px solid var(--line-soft); }
+    @media (min-width: 768px) { .section { padding: 5rem 0; } }
+    .panel {
+      position: relative; background: var(--glass); border: 1px solid var(--glass-border);
+      border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.75rem;
+      -webkit-backdrop-filter: blur(22px) saturate(150%); backdrop-filter: blur(22px) saturate(150%);
+    }
+    @media (min-width: 768px) { .panel { padding: 2.5rem; } }
+    .section-head { max-width: 44rem; margin-bottom: 2rem; }
+    .section-head .kicker { margin-bottom: 0.9rem; }
+    .grid { display: grid; gap: 1rem; }
+    .grid-2 { grid-template-columns: 1fr; }
+    .grid-3 { grid-template-columns: 1fr; }
+    @media (min-width: 720px) {
+      .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+      .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1.25rem; }
+    }
+
+    /* ── Fact table ─────────────────────────────────────────── */
+    .facts { width: 100%; border-collapse: collapse; font-size: 0.94rem; }
+    .facts tr { border-bottom: 1px solid var(--line-soft); }
+    .facts tr:last-child { border-bottom: 0; }
+    .facts th, .facts td { padding: 0.85rem 0; text-align: left; vertical-align: top; }
+    .facts th {
+      width: 34%; padding-right: 1.25rem; font-family: "IBM Plex Mono", monospace;
+      font-weight: 400; font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase;
+      color: var(--ink-38); line-height: 1.9;
+    }
+    .facts td { color: var(--ink-72); }
+    @media (max-width: 560px) {
+      .facts th { width: 40%; font-size: 0.55rem; }
+      .facts td { font-size: 0.9rem; }
+    }
+
+    /* ── Lists ──────────────────────────────────────────────── */
+    .ticks { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+    .ticks li { position: relative; padding-left: 1.4rem; color: var(--ink-72); font-size: 0.94rem; }
+    .ticks li::before {
+      content: ""; position: absolute; left: 0; top: 0.62em; width: 0.4rem; height: 0.4rem;
+      border-radius: 50%; background: var(--blue);
+    }
+    .steps { list-style: none; margin: 0; padding: 0; counter-reset: step; display: grid; gap: 1.25rem; }
+    .steps li { counter-increment: step; position: relative; padding-left: 3rem; }
+    .steps li::before {
+      content: "0" counter(step); position: absolute; left: 0; top: 0.1rem;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.65rem; letter-spacing: 0.14em; color: var(--blue);
+      border: 1px solid var(--line); border-radius: 50%; width: 2rem; height: 2rem;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .steps p { margin: 0; font-size: 0.94rem; }
+
+    /* ── Plan cards ─────────────────────────────────────────── */
+    .plan { display: flex; flex-direction: column; }
+    .plan.featured { border-color: rgba(110, 168, 255, 0.45); }
+    .plan .price { font-weight: 200; font-size: 2.1rem; letter-spacing: -0.03em; color: var(--ink); margin: 0.75rem 0 0.15rem; }
+    .plan .price span { font-family: "IBM Plex Mono", monospace; font-size: 0.6rem; letter-spacing: 0.16em; color: var(--ink-38); text-transform: uppercase; }
+    .plan .tagline { font-size: 0.9rem; color: var(--ink-55); margin: 0 0 1rem; }
+    .plan .ticks { margin-top: 0.5rem; }
+    .plan .ticks li { font-size: 0.88rem; }
+    .plan .plan-cta {
+      margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line-soft);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.6rem; letter-spacing: 0.16em;
+      text-transform: uppercase; color: var(--ice);
+    }
+
+    /* ── Example walkthrough ────────────────────────────────── */
+    .example { display: grid; gap: 1rem; }
+    @media (min-width: 720px) { .example { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+    .example-step { border: 1px solid var(--line); border-radius: 14px; padding: 1.1rem; background: rgba(255,255,255,0.03); }
+    .example-step .kicker { margin-bottom: 0.5rem; color: var(--ink-55); }
+    .example-step p { font-size: 0.88rem; margin: 0; }
+
+    /* ── FAQ ────────────────────────────────────────────────── */
+    .faq { display: grid; gap: 0; }
+    .faq details { border-bottom: 1px solid var(--line-soft); padding: 1.15rem 0; }
+    .faq details:first-of-type { padding-top: 0; }
+    .faq details:last-of-type { border-bottom: 0; padding-bottom: 0; }
+    .faq summary {
+      cursor: pointer; list-style: none; font-size: 1rem; font-weight: 400; color: var(--ink);
+      display: flex; justify-content: space-between; gap: 1rem; align-items: baseline;
+    }
+    .faq summary::-webkit-details-marker { display: none; }
+    .faq summary::after {
+      content: "+"; font-family: "IBM Plex Mono", monospace; font-size: 0.9rem; color: var(--blue); line-height: 1;
+    }
+    .faq details[open] summary::after { content: "–"; }
+    .faq details p { margin: 0.85rem 0 0; font-size: 0.94rem; max-width: 46rem; }
+
+    /* ── CTA & footer ───────────────────────────────────────── */
+    .cta-panel { overflow: hidden; }
+    .cta-panel .kicker { margin-bottom: 1rem; }
+    .footer { border-top: 1px solid var(--line-soft); padding: 3rem 0 2.5rem; margin-top: 1rem; }
+    .footer-grid { display: grid; gap: 2rem; }
+    @media (min-width: 820px) { .footer-grid { grid-template-columns: 1.4fr 1fr 1fr; } }
+    .footer img { height: 30px; width: auto; filter: brightness(1.6) saturate(1.1); margin-bottom: 1rem; }
+    .footer p { font-size: 0.85rem; color: var(--ink-55); margin: 0 0 0.4rem; max-width: 22rem; }
+    .footer h2 { font-family: "IBM Plex Mono", monospace; font-size: 0.6rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink); margin: 0 0 0.9rem; font-weight: 400; }
+    .footer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+    .footer li a { font-size: 0.85rem; color: var(--ink-55); }
+    .footer li a:hover { color: var(--ink); }
+    .footer-bottom { display: flex; flex-wrap: wrap; gap: 0.75rem 1.5rem; justify-content: space-between; border-top: 1px solid var(--line-soft); margin-top: 2.5rem; padding-top: 1.5rem; }
+    .footer-bottom p { font-family: "IBM Plex Mono", monospace; font-size: 0.55rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-38); margin: 0; }
+  </style>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="/" aria-label="CityWide Digital — home">
+        <img src="/cwd-logo.png" alt="CityWide Digital" width="3447" height="1200" />
+      </a>
+      <nav class="nav" aria-label="Primary">
+        <a href="/services">Services</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/about">About</a>
+        <a href="/contact">Contact</a>
+        <a href="/pricing#start-trial">Start free trial</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <div class="shell">
+        <p class="kicker">Service · Managed local presence · Canada</p>
+        <h1>Google Business Profile–Synced Websites</h1>
+        <p class="lede">
+          Manage your business information in Google. Your website updates automatically.
+          CityWide Digital builds and runs websites that synchronise supported information from a
+          Google Business Profile, so there is no second editor to keep current.
+        </p>
+        <div class="hero-actions">
+          <a class="btn" href="/pricing#start-trial">Start the 30-day trial</a>
+          <a class="btn-ghost" href="https://calendly.com/alan-citywidedigital/30min">See it live in a demo</a>
+        </div>
+        <p class="hero-note">30-day free trial · No card required · No setup fee · Cancel anytime</p>
+      </div>
+    </section>
+
+    <section class="section" id="what-it-is">
+      <div class="shell">
+        <div class="section-head">
+          <p class="kicker">01 / Definition</p>
+          <h2>What a GBP-synced website is</h2>
+        </div>
+        <div class="panel">
+          <p>
+            A Google Business Profile–synced website is a website that takes supported business
+            information from a Google Business Profile and publishes it on the website automatically.
+            The direction is one way: <strong>Google Business Profile → website</strong>.
+          </p>
+          <p>
+            CityWide Digital builds these websites for local businesses and manages the technical side —
+            hosting, the industry template, maintenance and the sync itself. A business owner keeps their
+            Google Business Profile up to date and does not maintain a separate website editor for the
+            information that is synced.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="at-a-glance">
+      <div class="shell">
+        <div class="section-head">
+          <p class="kicker">02 / At a glance</p>
+          <h2>The service in facts</h2>
+        </div>
+        <div class="panel">
+          <table class="facts">
+            <tbody>
+              <tr>
+                <th scope="row">Service</th>
+                <td>Google Business Profile–synced managed website for local businesses</td>
+              </tr>
+              <tr>
+                <th scope="row">Provider</th>
+                <td>CityWide Digital, Canada</td>
+              </tr>
+              <tr>
+                <th scope="row">Sync direction</th>
+                <td>Google Business Profile → website (one way)</td>
+              </tr>
+              <tr>
+                <th scope="row">What syncs</th>
+                <td>Business name, address and phone number, website link, primary category, opening and holiday hours, menus, products, Google posts and Google reviews</td>
+              </tr>
+              <tr>
+                <th scope="row">Update timing</th>
+                <td>Changes appear on the website as soon as they are saved in Google — near real-time</td>
+              </tr>
+              <tr>
+                <th scope="row">Where changes are made</th>
+                <td>In the business's Google Business Profile, not in a separate website editor</td>
+              </tr>
+              <tr>
+                <th scope="row">What CityWide manages</th>
+                <td>Website design and industry template, hosting, technical maintenance, the sync, and support</td>
+              </tr>
+              <tr>
+                <th scope="row">What is not synced</th>
+                <td>Content that does not exist in Google — custom page copy, campaigns, imagery outside the profile and bespoke layouts. These are handled through Site Concierge requests</td>
+              </tr>
+              <tr>
+                <th scope="row">Format</th>
+                <td>Responsive website on a custom domain; not an installable mobile app</td>
+              </tr>
+              <tr>
+                <th scope="row">Plans</th>
+                <td>Starter $197/mo, Growth $397/mo, Pro $597/mo — CAD, plus GST</td>
+              </tr>
+              <tr>
+                <th scope="row">Trial and terms</th>
+                <td>30-day free trial with no card; no setup fee; cancel anytime; most sites live within 24–48 hours</td>
+              </tr>
+              <tr>
+                <th scope="row">Area served</th>
+                <td>Businesses across Canada</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="how-it-works">
+      <div class="shell">
+        <div class="section-head">
+          <p class="kicker">03 / Workflow</p>
+          <h2>How the sync works</h2>
+        </div>
+        <div class="grid grid-2">
+          <div class="panel">
+            <ol class="steps">
+              <li>
+                <h3>Connect the profile</h3>
+                <p>The business authorises CityWide with their Google account during onboarding. There is no separate content system to learn.</p>
+              </li>
+              <li>
+                <h3>Choose an industry template</h3>
+                <p>The site is built on a template for the business type — restaurant, contractor, retail and others — configured around the fields the business actually uses.</p>
+              </li>
+              <li>
+                <h3>Change information in Google</h3>
+                <p>From then on, updates are made in the Google Business Profile: hours, menus, products, posts and replies.</p>
+              </li>
+              <li>
+                <h3>The website follows</h3>
+                <p>Saved changes are picked up and reflected on the website near real-time. The profile remains the single record of the business information.</p>
+              </li>
+            </ol>
+          </div>
+          <div class="panel">
+            <p class="kicker">What to expect</p>
+            <ul class="ticks" style="margin-top:1rem">
+              <li>One record to maintain: the Google Business Profile.</li>
+              <li>No website editor, plugin updates or developer on call for synced information.</li>
+              <li>The website stays consistent with what customers see in Google Search and Maps.</li>
+              <li>Google reviews and posts published on the profile appear on the site.</li>
+              <li>Technical hosting and maintenance sit with CityWide Digital, not the business owner.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="what-syncs">
+      <div class="shell">
+        <div class="section-head">
+          <p class="kicker">04 / Fields</p>
+          <h2>What synchronises, field by field</h2>
+        </div>
+        <div class="grid grid-3">
+          <article class="panel">
+            <h3>Identity and contact</h3>
+            <ul class="ticks">
+              <li>Business name</li>
+              <li>Address</li>
+              <li>Phone number</li>
+              <li>Website link</li>
+              <li>Primary category</li>
+            </ul>
+          </article>
+          <article class="panel">
+            <h3>Operations</h3>
+            <ul class="ticks">
+              <li>Opening hours</li>
+              <li>Holiday and special hours</li>
+              <li>Menus</li>
+              <li>Products</li>
+            </ul>
+          </article>
+          <article class="panel">
+            <h3>Content and proof</h3>
+            <ul class="ticks">
+              <li>Google posts</li>
+              <li>Google reviews and ratings</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="responsibilities">
+      <div class="shell">
+        <div class="section-head">
+          <p class="kicker">05 / Responsibilities</p>
+          <h2>Who maintains what</h2>
+        </div>
+        <div class="grid grid-2">
+          <div class="panel">
+            <h3>The business owner</h3>
+            <ul class="ticks">
+              <li>Keeps the Google Business Profile accurate and complete</li>
+              <li>Updates hours, menus, products and posts in Google</li>
+              <li>Responds to customer reviews</li>
+              <li>Approves the template and any one-off content requests</li>
+              <li>Keeps ownership of their business data</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>CityWide Digital</h3>
+            <ul class="ticks">
+              <li>Builds and publishes the website on an industry template</li>
+              <li>Hosts the site and handles technical maintenance</li>
+              <li>Runs and monitors the Google Business Profile sync</li>
+              <li>Maintains the page structure, performance and SEO setup</li>
+              <li>Handles one-off changes outside the sync through Site Concierge</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="not-covered">
+      <div class="shell">
+        <div class="section-head">
+          <p class="kicker">06 / Exceptions</p>
+          <h2>What the sync does not cover</h2>
+        </div>
+        <div class="panel">
+          <p>
+            The sync reflects what exists in the Google Business Profile. Anything that does not exist
+            there is not published by the sync, and needs to be handled separately:
+          </p>
+          <ul class="ticks" style="margin-top:1rem">
+            <li>Custom page copy, service descriptions and long-form content written for the website</li>
+            <li>Campaign or seasonal landing pages</li>
+            <li>Photography and imagery that is not in the Google profile</li>
+            <li>Bespoke layouts, new sections and structural changes</li>
+          </ul>
+          <p style="margin-top:1.25rem">
+            These are handled as one-off requests through <strong>Site Concierge</strong>, CityWide's
+            on-demand change service. Pro plans include three Concierge credits per month.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="website-not-app">
+      <div class="shell">
+        <div class="section-head">
+          <p class="kicker">07 / Format</p>
+          <h2>A website, not an app to install</h2>
+        </div>
+        <div class="panel">
+          <p>
+            The deliverable is a responsive website served on the customer's domain. There is no
+            installable mobile app and nothing for customers to download. Custom domain support is
+            included on every plan, and the site is built to be readable on phones, tablets and desktops.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="pricing">
+      <div class="shell">
+        <div class="section-head">
+          <p class="kicker">08 / Plans</p>
+          <h2>Plans and what they include</h2>
+          <p class="lede" style="font-size:0.98rem">Prices in CAD, plus GST. No setup fee. Cancel anytime.</p>
+        </div>
+        <div class="grid grid-3">
+          <article class="panel plan">
+            <p class="kicker">Starter</p>
+            <p class="price">$197 <span>/ mo</span></p>
+            <p class="tagline">Get found online, fast</p>
+            <ul class="ticks">
+              <li>GMB-synced website</li>
+              <li>Industry-specific template</li>
+              <li>Auto-updating content</li>
+              <li>Custom domain support</li>
+              <li>Social sync — Google plus 2 platforms</li>
+              <li>Post scheduling and basic SEO</li>
+              <li>Email support</li>
+            </ul>
+            <p class="plan-cta"><a href="/pricing?plan=starter#start-trial">Start free trial →</a></p>
+          </article>
+          <article class="panel plan featured">
+            <p class="kicker">Growth</p>
+            <p class="price">$397 <span>/ mo</span></p>
+            <p class="tagline">Everything needed to compete</p>
+            <ul class="ticks">
+              <li>Everything in Starter</li>
+              <li>Social sync — Google plus 3 platforms</li>
+              <li>40+ directory listings</li>
+              <li>Monthly performance report</li>
+              <li>Priority support</li>
+            </ul>
+            <p class="plan-cta"><a href="/pricing?plan=growth#start-trial">Start free trial →</a></p>
+          </article>
+          <article class="panel plan">
+            <p class="kicker">Pro</p>
+            <p class="price">$597 <span>/ mo</span></p>
+            <p class="tagline">Maximum presence, zero effort</p>
+            <ul class="ticks">
+              <li>Everything in Growth</li>
+              <li>Social sync — up to 10 platforms</li>
+              <li>Review Engine</li>
+              <li>AI chatbot intake</li>
+              <li>3 Site Concierge credits per month</li>
+              <li>Dedicated account manager</li>
+            </ul>
+            <p class="plan-cta"><a href="/pricing?plan=pro#start-trial">Start free trial →</a></p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="example">
+      <div class="shell">
+        <div class="section-head">
+          <p class="kicker">09 / Illustrative example</p>
+          <h2>One change, from Google to the website</h2>
+          <p class="lede" style="font-size:0.98rem">
+            The walkthrough below is an illustration of the workflow, not a customer case study.
+          </p>
+        </div>
+        <div class="panel example">
+          <div class="example-step">
+            <p class="kicker">Step 1</p>
+            <p>A café changes its Saturday closing time from 4:00 pm to 6:00 pm in its Google Business Profile.</p>
+          </div>
+          <div class="example-step">
+            <p class="kicker">Step 2</p>
+            <p>CityWide picks up the saved change and updates the hours shown on the website.</p>
+          </div>
+          <div class="example-step">
+            <p class="kicker">Step 3</p>
+            <p>Customers see the same hours in Google and on the website. No separate website edit was made.</p>
+          </div>
+        </div>
+        <div class="panel" style="margin-top:1rem">
+          <p>
+            To see this happen with a real profile, book a short demo and we will make a change in Google
+            while you watch the website follow.
+          </p>
+          <p style="margin-top:1rem">
+            <a class="btn-ghost" href="https://calendly.com/alan-citywidedigital/30min">Book a 15-minute demo</a>
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="faq">
+      <div class="shell">
+        <div class="section-head">
+          <p class="kicker">10 / Questions</p>
+          <h2>Common questions</h2>
+        </div>
+        <div class="panel faq">
+          <details open>
+            <summary>Do I still need to update my website separately?</summary>
+            <p>No for anything that is synced from Google. Hours, menus, products, posts, reviews and contact details follow the Google Business Profile. Content that does not exist in Google — custom page copy, campaigns or bespoke layouts — is requested through Site Concierge.</p>
+          </details>
+          <details>
+            <summary>Is the sync one-way or two-way?</summary>
+            <p>One way: Google Business Profile → website. The website does not write information back into Google.</p>
+          </details>
+          <details>
+            <summary>How quickly do changes appear on the website?</summary>
+            <p>Changes appear as soon as they are saved in Google — near real-time. There is no scheduled publishing step to wait for.</p>
+          </details>
+          <details>
+            <summary>What happens if a field does not exist in my Google profile?</summary>
+            <p>It simply is not published by the sync. If the field is missing from Google, the fix is to complete it in the Google Business Profile, or to request that content through Site Concierge if it is not something Google holds.</p>
+          </details>
+          <details>
+            <summary>Do I need technical skills or a developer?</summary>
+            <p>No. CityWide connects the profile, configures the industry template and publishes the site. The business owner approves the design and then manages information in Google.</p>
+          </details>
+          <details>
+            <summary>Can I use my own domain?</summary>
+            <p>Custom domain support is included on every plan, including Starter.</p>
+          </details>
+          <details>
+            <summary>What does it cost?</summary>
+            <p>Starter is $197 per month, Growth $397 and Pro $597, in CAD plus GST. The 30-day trial requires no card and there is no setup fee. You can cancel anytime.</p>
+          </details>
+          <details>
+            <summary>Who owns my business data?</summary>
+            <p>The business retains ownership of its business data, content and materials. CityWide uses that data to provide the service, as described in the Terms of Service.</p>
+          </details>
+          <details>
+            <summary>Is this an app I install?</summary>
+            <p>No. It is a responsive website on a custom domain, not an installable mobile app. The CityWide dashboard is where account and reporting tools live.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="start">
+      <div class="shell">
+        <div class="panel cta-panel">
+          <p class="kicker">Next</p>
+          <h2>Run your online presence from one place</h2>
+          <p class="lede">
+            Start the 30-day trial with no card, or have us walk through the sync with your own profile.
+          </p>
+          <div class="hero-actions">
+            <a class="btn" href="/pricing#start-trial">Start free trial</a>
+            <a class="btn-ghost" href="https://calendly.com/alan-citywidedigital/30min">Book a demo</a>
+          </div>
+          <p class="hero-note">30-day free trial · No card required · Cancel anytime</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="shell">
+      <div class="footer-grid">
+        <div>
+          <img src="/cwd-logo.png" alt="CityWide Digital" width="3447" height="1200" />
+          <p>Managed digital presence for local businesses. Connect your Google Business Profile to everything — automatically.</p>
+          <p><a href="mailto:alan@citywidedigital.ca">alan@citywidedigital.ca</a></p>
+          <p><a href="tel:+12508827378">250-882-7378</a></p>
+        </div>
+        <div>
+          <h2>Pages</h2>
+          <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/services">Services</a></li>
+            <li><a href="/pricing">Pricing</a></li>
+            <li><a href="/about">About</a></li>
+            <li><a href="/contact">Contact</a></li>
+          </ul>
+        </div>
+        <div>
+          <h2>Guides</h2>
+          <ul>
+            <li><a href="/google-business-profile-website-sync.html" aria-current="page">GBP-synced websites</a></li>
+            <li><a href="/gbp-source-of-truth">Google Business Profile as source of truth</a></li>
+            <li><a href="/gbp-local-listing">Google Business Profile as a local listing</a></li>
+            <li><a href="/privacy">Privacy policy</a></li>
+            <li><a href="/terms">Terms of service</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <p>© <span id="year">2026</span> CityWide Digital. All rights reserved.</p>
+        <p>Last reviewed 12 November 2026</p>
+      </div>
+    </div>
+  </footer>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://dashboard.citywidedigital.ca/#organization",
+        "name": "CityWide Digital",
+        "url": "https://dashboard.citywidedigital.ca/",
+        "logo": "https://dashboard.citywidedigital.ca/cwd-logo.png",
+        "email": "alan@citywidedigital.ca",
+        "telephone": "+1-250-882-7378",
+        "areaServed": {
+          "@type": "Country",
+          "name": "Canada"
+        },
+        "description": "CityWide Digital provides managed digital presence for local businesses, including websites that synchronise supported information from a Google Business Profile."
+      },
+      {
+        "@type": "WebPage",
+        "@id": "https://dashboard.citywidedigital.ca/google-business-profile-website-sync.html#webpage",
+        "url": "https://dashboard.citywidedigital.ca/google-business-profile-website-sync.html",
+        "name": "Google Business Profile–Synced Websites | CityWide Digital",
+        "description": "CityWide Digital builds and hosts websites that synchronise name, address, phone, hours, menus, products, posts and reviews from a Google Business Profile.",
+        "inLanguage": "en-CA",
+        "isPartOf": {
+          "@id": "https://dashboard.citywidedigital.ca/#organization"
+        },
+        "about": {
+          "@id": "https://dashboard.citywidedigital.ca/google-business-profile-website-sync.html#service"
+        }
+      },
+      {
+        "@type": "Service",
+        "@id": "https://dashboard.citywidedigital.ca/google-business-profile-website-sync.html#service",
+        "name": "Google Business Profile–synced website",
+        "serviceType": "Managed website synchronised with Google Business Profile",
+        "description": "A managed website that publishes supported business information from a Google Business Profile — business name, address, phone number, website link, primary category, opening and holiday hours, menus, products, Google posts and Google reviews. Changes appear on the website as soon as they are saved in Google.",
+        "provider": {
+          "@id": "https://dashboard.citywidedigital.ca/#organization"
+        },
+        "areaServed": {
+          "@type": "Country",
+          "name": "Canada"
+        },
+        "offers": [
+          {
+            "@type": "Offer",
+            "name": "Starter",
+            "price": "197",
+            "priceCurrency": "CAD",
+            "description": "GMB-synced website, industry template, auto-updating content, custom domain support, social sync to Google plus two platforms, post scheduling, basic SEO and email support.",
+            "url": "https://dashboard.citywidedigital.ca/pricing?plan=starter#start-trial"
+          },
+          {
+            "@type": "Offer",
+            "name": "Growth",
+            "price": "397",
+            "priceCurrency": "CAD",
+            "description": "Everything in Starter plus social sync to Google plus three platforms, 40+ directory listings, a monthly performance report and priority support.",
+            "url": "https://dashboard.citywidedigital.ca/pricing?plan=growth#start-trial"
+          },
+          {
+            "@type": "Offer",
+            "name": "Pro",
+            "price": "597",
+            "priceCurrency": "CAD",
+            "description": "Everything in Growth plus social sync to up to ten platforms, Review Engine, AI chatbot intake, three Site Concierge credits per month and a dedicated account manager.",
+            "url": "https://dashboard.citywidedigital.ca/pricing?plan=pro#start-trial"
+          }
+        ]
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Home",
+            "item": "https://dashboard.citywidedigital.ca/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Google Business Profile–Synced Websites",
+            "item": "https://dashboard.citywidedigital.ca/google-business-profile-website-sync.html"
+          }
+        ]
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Do I still need to update my website separately?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No for anything that is synced from Google. Hours, menus, products, posts, reviews and contact details follow the Google Business Profile. Content that does not exist in Google, such as custom page copy, campaigns or bespoke layouts, is requested through Site Concierge."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is the sync one-way or two-way?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "One way: Google Business Profile to website. The website does not write information back into Google."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "How quickly do changes appear on the website?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Changes appear as soon as they are saved in Google, near real-time. There is no scheduled publishing step to wait for."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What happens if a field does not exist in my Google profile?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "It is not published by the sync. Completing the field in the Google Business Profile is the fix, or the content can be requested through Site Concierge if Google does not hold it."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I need technical skills or a developer?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. CityWide connects the profile, configures the industry template and publishes the site. The business owner approves the design and then manages information in Google."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I use my own domain?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Custom domain support is included on every plan, including Starter."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "What does it cost?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Starter is $197 per month, Growth $397 and Pro $597, in CAD plus GST. The 30-day trial requires no card and there is no setup fee. You can cancel anytime."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Who owns my business data?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "The business retains ownership of its business data, content and materials. CityWide uses that data to provide the service, as described in the Terms of Service."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is this an app I install?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. It is a responsive website on a custom domain, not an installable mobile app. The CityWide dashboard is where account and reporting tools live."
+            }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+  <script>document.getElementById('year').textContent = String(new Date().getFullYear());</script>
+</body>
+</html>

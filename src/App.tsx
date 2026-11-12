@@ -6,6 +6,7 @@ import { createBrowserRouter, Outlet, RouterProvider} from "react-router-dom";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { AgencyProvider } from "@/contexts/AgencyContext";
 import { ScrollToTop } from "@/components/layout/ScrollToTop";
+import { RouteMeta } from "@/components/seo/RouteMeta";
 import { routers } from "./router";
 
 const queryClient = new QueryClient();
@@ -13,6 +14,7 @@ const queryClient = new QueryClient();
 const RouteShell = () => (
   <>
     <ScrollToTop />
+    <RouteMeta />
     <Outlet />
   </>
 );
