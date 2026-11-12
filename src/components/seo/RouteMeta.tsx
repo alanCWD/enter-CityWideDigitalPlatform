@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
 
-const ORIGIN = "https://www.citywidedigital.ca";
+const ORIGIN = "https://citywidedigital.ca";
 
 type PageMeta = {
   title: string;

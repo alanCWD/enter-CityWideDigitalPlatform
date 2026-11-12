@@ -28,24 +28,24 @@ Not synchronised: content that does not exist in Google, such as custom page cop
 
 ## Key pages
 
-- [Google Business Profile–synced websites](https://www.citywidedigital.ca/google-business-profile-website-sync.html): the full service description, sync list, timing, responsibilities and prices.
-- [Services](https://www.citywidedigital.ca/services): all CityWide products and what each includes.
-- [Pricing](https://www.citywidedigital.ca/pricing): plans, feature comparison and trial signup.
-- [About](https://www.citywidedigital.ca/about): company background, process and frequently asked questions.
-- [Contact](https://www.citywidedigital.ca/contact): enquiry form and contact details.
-- [Google Business Profile as your source of truth](https://www.citywidedigital.ca/gbp-source-of-truth): guide to managing business information in Google.
-- [Google Business Profile as a local listing](https://www.citywidedigital.ca/gbp-local-listing): guide to local listing accuracy and citations.
-- [Privacy policy](https://www.citywidedigital.ca/privacy) · [Terms of service](https://www.citywidedigital.ca/terms)
+- [Google Business Profile–synced websites](https://citywidedigital.ca/google-business-profile-website-sync.html): the full service description, sync list, timing, responsibilities and prices.
+- [Services](https://citywidedigital.ca/services): all CityWide products and what each includes.
+- [Pricing](https://citywidedigital.ca/pricing): plans, feature comparison and trial signup.
+- [About](https://citywidedigital.ca/about): company background, process and frequently asked questions.
+- [Contact](https://citywidedigital.ca/contact): enquiry form and contact details.
+- [Google Business Profile as your source of truth](https://citywidedigital.ca/gbp-source-of-truth): guide to managing business information in Google.
+- [Google Business Profile as a local listing](https://citywidedigital.ca/gbp-local-listing): guide to local listing accuracy and citations.
+- [Privacy policy](https://citywidedigital.ca/privacy) · [Terms of service](https://citywidedigital.ca/terms)
 
 ## Contact
 
 - Email: alan@citywidedigital.ca
 - Telephone: 250-882-7378
 - Demo booking: https://calendly.com/alan-citywidedigital/30min
-- Website: https://www.citywidedigital.ca/
+- Website: https://citywidedigital.ca/
 
 ## Notes for automated readers
 
 - This file is an optional summary for tools that choose to read it. It is not a registration and does not guarantee inclusion in any search or AI answer.
-- Google Search ignores llms.txt. Pages are also submitted through the sitemap at https://www.citywidedigital.ca/sitemap.xml.
+- Google Search ignores llms.txt. Pages are also submitted through the sitemap at https://citywidedigital.ca/sitemap.xml.
 - Last reviewed: 12 November 2026.
