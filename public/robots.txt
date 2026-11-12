@@ -1,4 +1,4 @@
-# CityWide Digital — https://citywidedigital.ca/
+# CityWide Digital — https://www.citywidedigital.ca/
 #
 # Public marketing pages are open to search and AI crawlers. Private
 # application areas (dashboard, client portal, admin, sign-in and OAuth
@@ -25,4 +25,4 @@ Disallow: /leads
 Disallow: /r?
 Disallow: /r$
 
-Sitemap: https://citywidedigital.ca/sitemap.xml
+Sitemap: https://www.citywidedigital.ca/sitemap.xml
