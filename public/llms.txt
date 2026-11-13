@@ -28,7 +28,7 @@ Not synchronised: content that does not exist in Google, such as custom page cop
 
 ## Key pages
 
-- [Google Business Profile–synced websites](https://www.citywidedigital.ca/google-business-profile-website-sync.html): the full service description, sync list, timing, responsibilities and prices.
+- [Google Business Profile–synced websites](https://www.citywidedigital.ca/google-business-profile-website-sync): the full service description, sync list, timing, responsibilities and prices.
 - [Services](https://www.citywidedigital.ca/services): all CityWide products and what each includes.
 - [Pricing](https://www.citywidedigital.ca/pricing): plans, feature comparison and trial signup.
 - [About](https://www.citywidedigital.ca/about): company background, process and frequently asked questions.
