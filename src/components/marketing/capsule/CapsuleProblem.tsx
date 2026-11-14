@@ -22,7 +22,7 @@ export function CapsuleProblem() {
           <p className="cap-kicker">03 / The problem</p>
           <div>
             <h2 id="capsule-problem-title" className="cap-display text-[clamp(1.8rem,3.4vw,2.9rem)]">
-              Most small businesses are invisible online — and don't even know it.
+              Some small businesses are invisible online — and may not even know it.
             </h2>
 
             <div className="mt-12 grid gap-0 border-t border-white/10 md:grid-cols-2">
