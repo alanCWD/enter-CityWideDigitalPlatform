@@ -2,17 +2,17 @@ const steps = [
   {
     title: "Connect your Google Business Profile",
     description:
-      "In minutes, we securely link your GMB account. All your business info, posts, menus and products flow into CityWide Digital automatically.",
+      "We securely link your GMB account. All your business info, posts, menus and products flow into your CityWide Digital website automatically.",
   },
   {
-    title: "Choose your niche template",
+    title: "Choose a template or a copy of your present site",
     description:
       "Pick from restaurant, contractor, retail or other industry templates. Each is pre-configured with the exact GMB fields your customers care about.",
   },
   {
-    title: "Launch and let it run",
+    title: "We launch and let it run",
     description:
-      "Your website goes live, your social channels stay active and your directory listings stay accurate — all without touching a single thing.",
+      "Your website goes live, your social channels stay active with your posts and updates, and your directory listings stay accurate — all without touching a single thing.",
   },
 ];
 
@@ -27,8 +27,7 @@ export function CapsuleSteps() {
               Live in three steps.
             </h2>
             <p className="cap-lede mt-5 max-w-xl">
-              No tech skills needed. No designers. No agencies. Just your Google account and fifteen
-              minutes.
+              No designers. Just your Google account and a few minutes each day.
             </p>
 
             <ol className="mt-12 grid border-t border-white/10 md:grid-cols-3">
