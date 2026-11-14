@@ -39,7 +39,7 @@ export function CapsuleFeatures() {
           <p className="cap-kicker">04 / Everything included</p>
           <div>
             <h2 id="capsule-features-title" className="cap-display text-[clamp(1.8rem,3.4vw,2.9rem)]">
-              One platform. Every channel that matters.
+              One platform. Every tool that matters.
             </h2>
             <p className="cap-lede mt-5 max-w-xl">
               Stop juggling separate tools. CityWide Digital runs your entire online presence from a
