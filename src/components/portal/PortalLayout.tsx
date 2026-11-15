@@ -2,6 +2,7 @@ import { ReactNode, useEffect } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { Loader2, Store, ArrowRight, LogOut } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { usePortalConnections, type PortalConnection } from "@/hooks/usePortalConnections";
 import { PortalTopBar } from "@/components/portal/PortalTopBar";
 import { RequirePortalAuth } from "@/components/portal/RequirePortalAuth";
@@ -20,16 +21,24 @@ interface PortalLayoutProps {
 function PortalLayoutInner({ children, wide }: PortalLayoutProps) {
   const { clientId } = useParams();
   const { user, loading: authLoading, signOut } = useAuth();
+  const { isAdmin, loading: roleLoading } = useUserRole(user?.id);
   const { connections, loading: connsLoading } = usePortalConnections(user?.id);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!clientId && !connsLoading && connections.length > 0) {
+    if (clientId || connsLoading || roleLoading) return;
+    // A staff member opening /portal without choosing a client belongs in the
+    // workspace, not in whichever portal happens to be first in the list.
+    if (isAdmin) {
+      navigate("/dashboard", { replace: true });
+      return;
+    }
+    if (connections.length > 0) {
       navigate(`/portal/${connections[0].id}`, { replace: true });
     }
-  }, [clientId, connections, connsLoading, navigate]);
+  }, [clientId, connections, connsLoading, isAdmin, roleLoading, navigate]);
 
-  if (authLoading || connsLoading) {
+  if (authLoading || connsLoading || roleLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Loader2 className="w-6 h-6 text-primary animate-spin" />

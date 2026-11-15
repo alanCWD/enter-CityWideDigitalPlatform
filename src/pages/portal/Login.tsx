@@ -28,17 +28,21 @@ export default function Login() {
   useEffect(() => {
     if (authLoading || roleLoading || !session) return;
     const from = (location.state as { from?: string } | null)?.from;
-    // Honor explicit redirect target first
-    if (from && (from.startsWith("/portal/") || from.startsWith("/admin/") || from.startsWith("/dashboard"))) {
+    const adminRoute = !!from && (from.startsWith("/admin/") || from.startsWith("/dashboard"));
+
+    // Staff accounts always land in the workspace. Only an explicit staff route
+    // is honoured; a saved portal link must not pull an admin back into a
+    // client's portal after signing in.
+    if (isAdmin || isAgency) {
+      navigate(adminRoute ? from! : "/dashboard", { replace: true });
+      return;
+    }
+
+    if (from && from.startsWith("/portal/")) {
       navigate(from, { replace: true });
       return;
     }
-    // Role-based default landing
-    if (isAdmin || isAgency) {
-      navigate("/dashboard", { replace: true });
-    } else {
-      navigate("/portal", { replace: true });
-    }
+    navigate("/portal", { replace: true });
   }, [session, authLoading, roleLoading, isAdmin, isAgency, navigate, location.state]);
 
   const handleSubmit = async (e: FormEvent) => {
