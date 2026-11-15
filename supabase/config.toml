@@ -22,3 +22,11 @@ verify_jwt = false
 # check is off; staff POST actions verify the user session in the function.
 [functions.recorder-sync]
 verify_jwt = false
+
+# Password endpoints. Declared explicitly so the platform manages them as
+# versioned functions rather than default stubs.
+[functions.cw-secure-reset]
+verify_jwt = true
+
+[functions.reset-alan-password]
+verify_jwt = true
