@@ -183,8 +183,15 @@ async function resolveAuth(token: string): Promise<AuthCtx | { error: string }> 
   const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
   if (userErr || !userData?.user) return { error: "Invalid token" };
   const userId = userData.user.id;
-  const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "";
-  const isSuperAdmin = !!ADMIN_EMAIL && userData.user.email === ADMIN_EMAIL;
+  // The owning account is always super admin; ADMIN_EMAIL can extend this with a
+  // comma-separated list of additional addresses.
+  const OWNER_EMAIL = "alan@citywidedigital.ca";
+  const adminEmails = (Deno.env.get("ADMIN_EMAIL") ?? "")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  const email = (userData.user.email ?? "").toLowerCase();
+  const isSuperAdmin = email === OWNER_EMAIL || adminEmails.includes(email);
   let agencyId = "citywide";
   try {
     const { rows } = await exec({ sql: `SELECT agency_id FROM agency_members WHERE user_id = ? LIMIT 1`, args: [userId] });
