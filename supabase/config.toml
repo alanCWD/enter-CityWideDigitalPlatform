@@ -16,3 +16,9 @@ verify_jwt = false
 # long-lived workspace keys (not user sessions), so the JWT check must be off.
 [functions.seo-api]
 verify_jwt = false
+
+# Content Studio integration: public read-only pull route plus staff actions.
+# The pull route authenticates with its own rotatable token, so the gateway JWT
+# check is off; staff POST actions verify the user session in the function.
+[functions.recorder-sync]
+verify_jwt = false

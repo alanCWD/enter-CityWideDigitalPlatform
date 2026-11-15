@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle, Pause, Play, ChevronDown, Undo2 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { ClientContentStudio } from "@/components/recorder/ClientContentStudio";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
 import { crm, fmtMoney, CrmClient, CrmInvoice } from "@/lib/crm";
@@ -45,7 +46,7 @@ export function ClientDetail() {
   const { detail, loading, error, reload } = useCrmClient(id);
   const isAdmin = useIsAdmin();
   const { toast } = useToast();
-  const [tab, setTab] = useState<"overview" | "health" | "online-health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp" | "integrations">("overview");
+  const [tab, setTab] = useState<"overview" | "health" | "online-health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp" | "integrations" | "content">("overview");
   const [integration, setIntegration] = useState<"qb-review" | "ledgerbridge">("qb-review");
   const [deleting, setDeleting] = useState(false);
   const [editingHeader, setEditingHeader] = useState(false);
@@ -290,6 +291,7 @@ export function ClientDetail() {
             { key: "subscriptions", label: "Subscriptions" },
             { key: "invoices", label: "Invoices" },
             { key: "payments", label: "Payments" },
+            { key: "content" as const, label: "Content Studio" },
             { key: "integrations" as const, label: "Integrations" },
           ];
           return (
@@ -326,6 +328,9 @@ export function ClientDetail() {
         )}
         {tab === "gbp" && c.gbp_connection_id && (
           <GbpPanel connectionId={c.gbp_connection_id} />
+        )}
+        {tab === "content" && (
+          <ClientContentStudio clientId={detail.client.id} />
         )}
         {tab === "integrations" && (
           <div className="space-y-4">

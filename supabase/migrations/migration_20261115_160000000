@@ -1,0 +1,545 @@
+-- Content Studio: CityWide Digital -> Customer Content Studio recorder.
+--
+-- CWD owns company assets, branding, locations and campaign setup. The recorder
+-- owns recordings, submissions and publishing. These tables hold only the setup
+-- data CWD pushes and pulls; no recorder submissions are stored here.
+--
+-- All tables are staff-only through public.is_agency(). Push jobs, request logs
+-- and the internal scheduler secret are service-role only.
+
+-- ── Companies ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.recorder_companies (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  stable_id         text NOT NULL UNIQUE,
+  crm_client_id     text UNIQUE,
+  agency_id         text NOT NULL DEFAULT 'citywide',
+  name              text NOT NULL,
+  trade             text NOT NULL DEFAULT 'general'
+                      CHECK (trade IN ('restaurant', 'masonry', 'hvac', 'retail', 'general')),
+  website           text,
+  phone             text,
+  city              text,
+  logo_url          text,
+  brand_color       text NOT NULL DEFAULT '#0078D7'
+                      CHECK (brand_color ~ '^#[0-9A-Fa-f]{6}$'),
+  is_network        boolean NOT NULL DEFAULT false,
+  watermark_url     text,
+  watermark_text    text,
+  watermark_handle  text,
+  credit_line       text,
+  default_hashtags  text,
+  enabled           boolean NOT NULL DEFAULT true,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT recorder_companies_linked_id CHECK (crm_client_id IS NULL OR stable_id = crm_client_id),
+  CONSTRAINT recorder_companies_stable_id CHECK (length(btrim(stable_id)) BETWEEN 1 AND 120)
+);
+
+COMMENT ON TABLE public.recorder_companies IS
+  'Content Studio company profiles sent to the Customer Content Studio recorder. One row per CWD company or standalone network.';
+
+-- ── Locations ───────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.recorder_locations (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id        uuid NOT NULL REFERENCES public.recorder_companies(id) ON DELETE CASCADE,
+  agency_id         text NOT NULL DEFAULT 'citywide',
+  name              text NOT NULL,
+  address           text,
+  neighbourhood     text,
+  website           text,
+  phone             text,
+  logo_url          text,
+  brand_color       text CHECK (brand_color IS NULL OR brand_color ~ '^#[0-9A-Fa-f]{6}$'),
+  headline          text,
+  enable_video      boolean NOT NULL DEFAULT true,
+  enable_photos     boolean NOT NULL DEFAULT true,
+  enable_wall       boolean NOT NULL DEFAULT true,
+  active            boolean NOT NULL DEFAULT true,
+  -- Sync bookkeeping written by the push service only. Deliberately excluded
+  -- from the change trigger so a sync result never queues another push.
+  location_slug     text,
+  customer_url      text,
+  qr_url            text,
+  embed_path        text,
+  campaign_code     text,
+  campaigns_sent    integer,
+  last_synced_at    timestamptz,
+  last_sync_status  text CHECK (last_sync_status IS NULL OR last_sync_status IN ('pending', 'ok', 'failed', 'skipped')),
+  last_sync_error   text,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT recorder_locations_name CHECK (length(btrim(name)) BETWEEN 1 AND 160)
+);
+
+CREATE INDEX IF NOT EXISTS recorder_locations_company_idx
+  ON public.recorder_locations (company_id, active);
+
+-- ── Campaigns and scenes ────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.recorder_campaigns (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  location_id       uuid NOT NULL REFERENCES public.recorder_locations(id) ON DELETE CASCADE,
+  label             text NOT NULL,
+  headline          text,
+  format            text NOT NULL DEFAULT 'review' CHECK (format IN ('review', 'promo')),
+  due_at            timestamptz,
+  dish_name         text,
+  concept           text,
+  enable_video      boolean NOT NULL DEFAULT true,
+  enable_photos     boolean NOT NULL DEFAULT false,
+  active            boolean NOT NULL DEFAULT true,
+  recorder_code     text,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT recorder_campaigns_label CHECK (length(btrim(label)) BETWEEN 1 AND 160)
+);
+
+CREATE INDEX IF NOT EXISTS recorder_campaigns_location_idx
+  ON public.recorder_campaigns (location_id, active);
+
+CREATE TABLE IF NOT EXISTS public.recorder_scenes (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  campaign_id       uuid NOT NULL REFERENCES public.recorder_campaigns(id) ON DELETE CASCADE,
+  position          smallint NOT NULL CHECK (position BETWEEN 1 AND 3),
+  key               text NOT NULL,
+  label             text NOT NULL,
+  prompt            text NOT NULL,
+  hint              text,
+  capture           text NOT NULL DEFAULT 'video' CHECK (capture IN ('video', 'photos')),
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (campaign_id, position)
+);
+
+-- ── Push queue and log ──────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.recorder_push_jobs (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id        uuid REFERENCES public.recorder_companies(id) ON DELETE CASCADE,
+  crm_client_id     text,
+  location_id       uuid REFERENCES public.recorder_locations(id) ON DELETE CASCADE,
+  reason            text NOT NULL DEFAULT 'change',
+  status            text NOT NULL DEFAULT 'pending'
+                      CHECK (status IN ('pending', 'processing', 'done', 'failed')),
+  attempts          integer NOT NULL DEFAULT 0,
+  next_attempt_at   timestamptz NOT NULL DEFAULT now(),
+  last_error        text,
+  dedupe_key        text NOT NULL,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  updated_at        timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT recorder_push_jobs_target CHECK (company_id IS NOT NULL OR crm_client_id IS NOT NULL)
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS recorder_push_jobs_pending_uniq
+  ON public.recorder_push_jobs (dedupe_key) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS recorder_push_jobs_due_idx
+  ON public.recorder_push_jobs (status, next_attempt_at);
+
+CREATE TABLE IF NOT EXISTS public.recorder_push_log (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id        uuid,
+  location_id       uuid,
+  crm_client_id     text,
+  stable_id         text,
+  location_slug     text,
+  ok                boolean NOT NULL DEFAULT false,
+  status_code       integer,
+  attempts          integer NOT NULL DEFAULT 1,
+  duration_ms       integer,
+  error             text,
+  response          jsonb,
+  created_at        timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS recorder_push_log_created_idx
+  ON public.recorder_push_log (created_at DESC);
+CREATE INDEX IF NOT EXISTS recorder_push_log_company_idx
+  ON public.recorder_push_log (company_id, created_at DESC);
+
+-- ── Pull tokens and request log ─────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS public.recorder_pull_tokens (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  label             text NOT NULL DEFAULT 'Recorder pull',
+  token_prefix      text NOT NULL,
+  token_hash        text NOT NULL UNIQUE,
+  created_by        uuid,
+  created_at        timestamptz NOT NULL DEFAULT now(),
+  last_used_at      timestamptz,
+  revoked_at        timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS public.recorder_pull_log (
+  id                uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  token_id          uuid REFERENCES public.recorder_pull_tokens(id) ON DELETE SET NULL,
+  route             text NOT NULL,
+  method            text NOT NULL,
+  status            integer NOT NULL,
+  duration_ms       integer,
+  company_count     integer,
+  created_at        timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS recorder_pull_log_token_time_idx
+  ON public.recorder_pull_log (token_id, created_at DESC);
+
+-- Internal scheduler secret read only by the backend. No policies by design.
+CREATE TABLE IF NOT EXISTS public.recorder_internal (
+  id                integer PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+  scheduler_secret  text NOT NULL,
+  created_at        timestamptz NOT NULL DEFAULT now()
+);
+
+INSERT INTO public.recorder_internal (id, scheduler_secret)
+VALUES (1, encode(gen_random_bytes(32), 'hex'))
+ON CONFLICT (id) DO NOTHING;
+
+-- ── updated_at ──────────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.recorder_touch_updated_at()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS recorder_companies_touch ON public.recorder_companies;
+CREATE TRIGGER recorder_companies_touch
+  BEFORE UPDATE ON public.recorder_companies
+  FOR EACH ROW EXECUTE FUNCTION public.recorder_touch_updated_at();
+
+DROP TRIGGER IF EXISTS recorder_locations_touch ON public.recorder_locations;
+CREATE TRIGGER recorder_locations_touch
+  BEFORE UPDATE ON public.recorder_locations
+  FOR EACH ROW EXECUTE FUNCTION public.recorder_touch_updated_at();
+
+DROP TRIGGER IF EXISTS recorder_campaigns_touch ON public.recorder_campaigns;
+CREATE TRIGGER recorder_campaigns_touch
+  BEFORE UPDATE ON public.recorder_campaigns
+  FOR EACH ROW EXECUTE FUNCTION public.recorder_touch_updated_at();
+
+-- Stable ids must never change: a changed id would create a second recorder company.
+CREATE OR REPLACE FUNCTION public.recorder_company_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.stable_id IS DISTINCT FROM OLD.stable_id THEN
+    RAISE EXCEPTION 'recorder company stable_id cannot change';
+  END IF;
+  IF NEW.crm_client_id IS DISTINCT FROM OLD.crm_client_id THEN
+    RAISE EXCEPTION 'recorder company crm_client_id cannot change';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS recorder_companies_guard ON public.recorder_companies;
+CREATE TRIGGER recorder_companies_guard
+  BEFORE UPDATE ON public.recorder_companies
+  FOR EACH ROW EXECUTE FUNCTION public.recorder_company_guard();
+
+-- ── Queue helpers ───────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.recorder_enqueue_location(p_location_id uuid, p_reason text DEFAULT 'change')
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_company_id uuid;
+  v_crm_client_id text;
+  v_location_active boolean;
+  v_company_enabled boolean;
+BEGIN
+  SELECT l.company_id, l.active, c.crm_client_id, c.enabled
+    INTO v_company_id, v_location_active, v_crm_client_id, v_company_enabled
+  FROM recorder_locations l
+  JOIN recorder_companies c ON c.id = l.company_id
+  WHERE l.id = p_location_id;
+
+  IF v_company_id IS NULL OR NOT v_location_active OR NOT v_company_enabled THEN
+    RETURN;
+  END IF;
+
+  INSERT INTO recorder_push_jobs (company_id, crm_client_id, location_id, reason, dedupe_key)
+  VALUES (v_company_id, v_crm_client_id, p_location_id, p_reason, 'location:' || p_location_id::text)
+  ON CONFLICT (dedupe_key) WHERE status = 'pending'
+  DO UPDATE SET
+    reason = excluded.reason,
+    next_attempt_at = LEAST(recorder_push_jobs.next_attempt_at, now()),
+    updated_at = now();
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.recorder_enqueue_company(p_company_id uuid, p_reason text DEFAULT 'change')
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_enabled boolean;
+  v_crm_client_id text;
+  v_count integer := 0;
+  v_location_id uuid;
+BEGIN
+  SELECT enabled, crm_client_id INTO v_enabled, v_crm_client_id
+  FROM recorder_companies WHERE id = p_company_id;
+
+  IF v_enabled IS DISTINCT FROM true THEN
+    RETURN;
+  END IF;
+
+  FOR v_location_id IN
+    SELECT id FROM recorder_locations WHERE company_id = p_company_id AND active
+  LOOP
+    PERFORM recorder_enqueue_location(v_location_id, p_reason);
+    v_count := v_count + 1;
+  END LOOP;
+
+  -- A linked company with no locations yet still queues a company-level job so
+  -- the backend can create its default location from the CRM record.
+  IF v_count = 0 AND v_crm_client_id IS NOT NULL THEN
+    INSERT INTO recorder_push_jobs (company_id, crm_client_id, location_id, reason, dedupe_key)
+    VALUES (p_company_id, v_crm_client_id, NULL, p_reason, 'company:' || p_company_id::text)
+    ON CONFLICT (dedupe_key) WHERE status = 'pending'
+    DO UPDATE SET
+      reason = excluded.reason,
+      next_attempt_at = LEAST(recorder_push_jobs.next_attempt_at, now()),
+      updated_at = now();
+  END IF;
+END;
+$$;
+
+-- Called from the CRM gateway after a client is created, edited or archived.
+CREATE OR REPLACE FUNCTION public.recorder_enqueue_client(p_crm_client_id text, p_reason text DEFAULT 'crm')
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_company_id uuid;
+BEGIN
+  IF p_crm_client_id IS NULL OR btrim(p_crm_client_id) = '' THEN
+    RETURN;
+  END IF;
+
+  SELECT id INTO v_company_id FROM recorder_companies WHERE crm_client_id = p_crm_client_id;
+
+  IF v_company_id IS NOT NULL THEN
+    PERFORM recorder_enqueue_company(v_company_id, p_reason);
+    RETURN;
+  END IF;
+
+  INSERT INTO recorder_push_jobs (company_id, crm_client_id, location_id, reason, dedupe_key)
+  VALUES (NULL, p_crm_client_id, NULL, p_reason, 'client:' || p_crm_client_id)
+  ON CONFLICT (dedupe_key) WHERE status = 'pending'
+  DO UPDATE SET
+    reason = excluded.reason,
+    next_attempt_at = LEAST(recorder_push_jobs.next_attempt_at, now()),
+    updated_at = now();
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.recorder_enqueue_location(uuid, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.recorder_enqueue_company(uuid, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.recorder_enqueue_client(text, text) TO service_role;
+
+-- ── Change triggers ─────────────────────────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.recorder_companies_changed()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  -- Inserts are covered by the location trigger that follows profile creation.
+  IF TG_OP = 'UPDATE' THEN
+    PERFORM recorder_enqueue_company(NEW.id, 'company');
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS recorder_companies_changed ON public.recorder_companies;
+CREATE TRIGGER recorder_companies_changed
+  AFTER UPDATE OF name, trade, website, phone, city, logo_url, brand_color, is_network,
+    watermark_url, watermark_text, watermark_handle, credit_line, default_hashtags, enabled
+  ON public.recorder_companies
+  FOR EACH ROW EXECUTE FUNCTION public.recorder_companies_changed();
+
+CREATE OR REPLACE FUNCTION public.recorder_locations_changed()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  PERFORM recorder_enqueue_location(NEW.id, 'location');
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS recorder_locations_changed ON public.recorder_locations;
+CREATE TRIGGER recorder_locations_changed
+  AFTER INSERT OR UPDATE OF name, address, neighbourhood, website, phone, logo_url, brand_color,
+    headline, enable_video, enable_photos, enable_wall, active
+  ON public.recorder_locations
+  FOR EACH ROW EXECUTE FUNCTION public.recorder_locations_changed();
+
+CREATE OR REPLACE FUNCTION public.recorder_campaigns_changed()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_location_id uuid;
+BEGIN
+  v_location_id := COALESCE(NEW.location_id, OLD.location_id);
+  PERFORM recorder_enqueue_location(v_location_id, 'campaign');
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+DROP TRIGGER IF EXISTS recorder_campaigns_changed ON public.recorder_campaigns;
+CREATE TRIGGER recorder_campaigns_changed
+  AFTER INSERT OR UPDATE OF label, headline, format, due_at, dish_name, concept,
+    enable_video, enable_photos, active, location_id
+  ON public.recorder_campaigns
+  FOR EACH ROW EXECUTE FUNCTION public.recorder_campaigns_changed();
+
+CREATE OR REPLACE FUNCTION public.recorder_scenes_changed()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_location_id uuid;
+BEGIN
+  SELECT location_id INTO v_location_id
+  FROM recorder_campaigns
+  WHERE id = COALESCE(NEW.campaign_id, OLD.campaign_id);
+  IF v_location_id IS NOT NULL THEN
+    PERFORM recorder_enqueue_location(v_location_id, 'scenes');
+  END IF;
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+DROP TRIGGER IF EXISTS recorder_scenes_changed ON public.recorder_scenes;
+CREATE TRIGGER recorder_scenes_changed
+  AFTER INSERT OR UPDATE OR DELETE ON public.recorder_scenes
+  FOR EACH ROW EXECUTE FUNCTION public.recorder_scenes_changed();
+
+-- Brand logo / tagline changes flow into the recorder profile too.
+CREATE OR REPLACE FUNCTION public.recorder_brand_assets_changed()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF NEW.crm_client_id IS NOT NULL THEN
+    PERFORM recorder_enqueue_client(NEW.crm_client_id, 'branding');
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS recorder_brand_assets_changed ON public.client_brand_assets;
+CREATE TRIGGER recorder_brand_assets_changed
+  AFTER INSERT OR UPDATE OF logo_square_url, logo_rect_url, logo_square_dark_url,
+    logo_rect_dark_url, tagline
+  ON public.client_brand_assets
+  FOR EACH ROW EXECUTE FUNCTION public.recorder_brand_assets_changed();
+
+-- ── RLS ─────────────────────────────────────────────────────────────────────
+ALTER TABLE public.recorder_companies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recorder_locations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recorder_campaigns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recorder_scenes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recorder_push_jobs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recorder_push_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recorder_pull_tokens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recorder_pull_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.recorder_internal ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "agency manages recorder_companies" ON public.recorder_companies;
+CREATE POLICY "agency manages recorder_companies" ON public.recorder_companies
+  FOR ALL TO authenticated USING (public.is_agency()) WITH CHECK (public.is_agency());
+
+DROP POLICY IF EXISTS "agency manages recorder_locations" ON public.recorder_locations;
+CREATE POLICY "agency manages recorder_locations" ON public.recorder_locations
+  FOR ALL TO authenticated USING (public.is_agency()) WITH CHECK (public.is_agency());
+
+DROP POLICY IF EXISTS "agency manages recorder_campaigns" ON public.recorder_campaigns;
+CREATE POLICY "agency manages recorder_campaigns" ON public.recorder_campaigns
+  FOR ALL TO authenticated USING (public.is_agency()) WITH CHECK (public.is_agency());
+
+DROP POLICY IF EXISTS "agency manages recorder_scenes" ON public.recorder_scenes;
+CREATE POLICY "agency manages recorder_scenes" ON public.recorder_scenes
+  FOR ALL TO authenticated USING (public.is_agency()) WITH CHECK (public.is_agency());
+
+DROP POLICY IF EXISTS "agency reads recorder_push_jobs" ON public.recorder_push_jobs;
+CREATE POLICY "agency reads recorder_push_jobs" ON public.recorder_push_jobs
+  FOR SELECT TO authenticated USING (public.is_agency());
+
+DROP POLICY IF EXISTS "agency reads recorder_push_log" ON public.recorder_push_log;
+CREATE POLICY "agency reads recorder_push_log" ON public.recorder_push_log
+  FOR SELECT TO authenticated USING (public.is_agency());
+
+DROP POLICY IF EXISTS "agency reads recorder_pull_tokens" ON public.recorder_pull_tokens;
+CREATE POLICY "agency reads recorder_pull_tokens" ON public.recorder_pull_tokens
+  FOR SELECT TO authenticated USING (public.is_agency());
+
+DROP POLICY IF EXISTS "agency reads recorder_pull_log" ON public.recorder_pull_log;
+CREATE POLICY "agency reads recorder_pull_log" ON public.recorder_pull_log
+  FOR SELECT TO authenticated USING (public.is_agency());
+
+-- Token hashes are never exposed to browser sessions, even staff ones.
+REVOKE SELECT ON public.recorder_pull_tokens FROM anon, authenticated;
+GRANT SELECT (id, label, token_prefix, created_by, created_at, last_used_at, revoked_at)
+  ON public.recorder_pull_tokens TO authenticated;
+
+-- ── Schedules ───────────────────────────────────────────────────────────────
+-- Nightly reconciliation of every active company (08:00 UTC = midnight Pacific).
+SELECT cron.schedule(
+  'recorder-reconcile-nightly',
+  '0 8 * * *',
+  $cron$
+  SELECT net.http_post(
+    url := 'https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/functions/v1/recorder-sync',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'apikey', 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNwYi10NG4xdzJqOWp3aGhjN2g2IiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzcxNDAzMzksImV4cCI6MjA5MjcxNjMzOX0.KE2fNZckvo-20zds7KR1wv7a0kNUVA-vgO7HJ6gQbMo',
+      'Authorization', 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNwYi10NG4xdzJqOWp3aGhjN2g2IiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzcxNDAzMzksImV4cCI6MjA5MjcxNjMzOX0.KE2fNZckvo-20zds7KR1wv7a0kNUVA-vgO7HJ6gQbMo',
+      'x-recorder-scheduler', (SELECT scheduler_secret FROM public.recorder_internal WHERE id = 1)
+    ),
+    body := '{"action":"reconcile"}'::jsonb
+  );
+  $cron$
+);
+
+-- Push queue worker. Retries temporary recorder failures with backoff and
+-- pushes changes queued by the triggers above.
+SELECT cron.schedule(
+  'recorder-queue-every-minute',
+  '* * * * *',
+  $cron$
+  SELECT net.http_post(
+    url := 'https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/functions/v1/recorder-sync',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'apikey', 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNwYi10NG4xdzJqOWp3aGhjN2g2IiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzcxNDAzMzksImV4cCI6MjA5MjcxNjMzOX0.KE2fNZckvo-20zds7KR1wv7a0kNUVA-vgO7HJ6gQbMo',
+      'Authorization', 'Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJyb2xlIjoiYW5vbiIsInJlZiI6InNwYi10NG4xdzJqOWp3aGhjN2g2IiwiaXNzIjoic3VwYWJhc2UiLCJpYXQiOjE3NzcxNDAzMzksImV4cCI6MjA5MjcxNjMzOX0.KE2fNZckvo-20zds7KR1wv7a0kNUVA-vgO7HJ6gQbMo',
+      'x-recorder-scheduler', (SELECT scheduler_secret FROM public.recorder_internal WHERE id = 1)
+    ),
+    body := '{"action":"process_queue"}'::jsonb
+  );
+  $cron$
+);

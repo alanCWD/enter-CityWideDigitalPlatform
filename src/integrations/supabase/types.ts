@@ -3799,6 +3799,470 @@ export type Database = {
         }
         Relationships: []
       }
+      recorder_campaigns: {
+        Row: {
+          active: boolean
+          concept: string | null
+          created_at: string
+          dish_name: string | null
+          due_at: string | null
+          enable_photos: boolean
+          enable_video: boolean
+          format: string
+          headline: string | null
+          id: string
+          label: string
+          location_id: string
+          recorder_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          concept?: string | null
+          created_at?: string
+          dish_name?: string | null
+          due_at?: string | null
+          enable_photos?: boolean
+          enable_video?: boolean
+          format?: string
+          headline?: string | null
+          id?: string
+          label: string
+          location_id: string
+          recorder_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          concept?: string | null
+          created_at?: string
+          dish_name?: string | null
+          due_at?: string | null
+          enable_photos?: boolean
+          enable_video?: boolean
+          format?: string
+          headline?: string | null
+          id?: string
+          label?: string
+          location_id?: string
+          recorder_code?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recorder_campaigns_location_id_fkey"
+            columns: ["location_id"]
+            referencedRelation: "recorder_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recorder_companies: {
+        Row: {
+          agency_id: string
+          brand_color: string
+          city: string | null
+          created_at: string
+          credit_line: string | null
+          crm_client_id: string | null
+          default_hashtags: string | null
+          enabled: boolean
+          id: string
+          is_network: boolean
+          logo_url: string | null
+          name: string
+          phone: string | null
+          stable_id: string
+          trade: string
+          updated_at: string
+          watermark_handle: string | null
+          watermark_text: string | null
+          watermark_url: string | null
+          website: string | null
+        }
+        Insert: {
+          agency_id?: string
+          brand_color?: string
+          city?: string | null
+          created_at?: string
+          credit_line?: string | null
+          crm_client_id?: string | null
+          default_hashtags?: string | null
+          enabled?: boolean
+          id?: string
+          is_network?: boolean
+          logo_url?: string | null
+          name: string
+          phone?: string | null
+          stable_id: string
+          trade?: string
+          updated_at?: string
+          watermark_handle?: string | null
+          watermark_text?: string | null
+          watermark_url?: string | null
+          website?: string | null
+        }
+        Update: {
+          agency_id?: string
+          brand_color?: string
+          city?: string | null
+          created_at?: string
+          credit_line?: string | null
+          crm_client_id?: string | null
+          default_hashtags?: string | null
+          enabled?: boolean
+          id?: string
+          is_network?: boolean
+          logo_url?: string | null
+          name?: string
+          phone?: string | null
+          stable_id?: string
+          trade?: string
+          updated_at?: string
+          watermark_handle?: string | null
+          watermark_text?: string | null
+          watermark_url?: string | null
+          website?: string | null
+        }
+        Relationships: []
+      }
+      recorder_internal: {
+        Row: {
+          created_at: string
+          id: number
+          scheduler_secret: string
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          scheduler_secret: string
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          scheduler_secret?: string
+        }
+        Relationships: []
+      }
+      recorder_locations: {
+        Row: {
+          active: boolean
+          address: string | null
+          agency_id: string
+          brand_color: string | null
+          campaign_code: string | null
+          campaigns_sent: number | null
+          company_id: string
+          created_at: string
+          customer_url: string | null
+          embed_path: string | null
+          enable_photos: boolean
+          enable_video: boolean
+          enable_wall: boolean
+          headline: string | null
+          id: string
+          last_sync_error: string | null
+          last_sync_status: string | null
+          last_synced_at: string | null
+          location_slug: string | null
+          logo_url: string | null
+          name: string
+          neighbourhood: string | null
+          phone: string | null
+          qr_url: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          active?: boolean
+          address?: string | null
+          agency_id?: string
+          brand_color?: string | null
+          campaign_code?: string | null
+          campaigns_sent?: number | null
+          company_id: string
+          created_at?: string
+          customer_url?: string | null
+          embed_path?: string | null
+          enable_photos?: boolean
+          enable_video?: boolean
+          enable_wall?: boolean
+          headline?: string | null
+          id?: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          location_slug?: string | null
+          logo_url?: string | null
+          name: string
+          neighbourhood?: string | null
+          phone?: string | null
+          qr_url?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          active?: boolean
+          address?: string | null
+          agency_id?: string
+          brand_color?: string | null
+          campaign_code?: string | null
+          campaigns_sent?: number | null
+          company_id?: string
+          created_at?: string
+          customer_url?: string | null
+          embed_path?: string | null
+          enable_photos?: boolean
+          enable_video?: boolean
+          enable_wall?: boolean
+          headline?: string | null
+          id?: string
+          last_sync_error?: string | null
+          last_sync_status?: string | null
+          last_synced_at?: string | null
+          location_slug?: string | null
+          logo_url?: string | null
+          name?: string
+          neighbourhood?: string | null
+          phone?: string | null
+          qr_url?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recorder_locations_company_id_fkey"
+            columns: ["company_id"]
+            referencedRelation: "recorder_companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recorder_pull_log: {
+        Row: {
+          company_count: number | null
+          created_at: string
+          duration_ms: number | null
+          id: string
+          method: string
+          route: string
+          status: number
+          token_id: string | null
+        }
+        Insert: {
+          company_count?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          method: string
+          route: string
+          status: number
+          token_id?: string | null
+        }
+        Update: {
+          company_count?: number | null
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          method?: string
+          route?: string
+          status?: number
+          token_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recorder_pull_log_token_id_fkey"
+            columns: ["token_id"]
+            referencedRelation: "recorder_pull_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recorder_pull_tokens: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          label: string
+          last_used_at: string | null
+          revoked_at: string | null
+          token_hash: string
+          token_prefix: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          token_hash: string
+          token_prefix: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          token_hash?: string
+          token_prefix?: string
+        }
+        Relationships: []
+      }
+      recorder_push_jobs: {
+        Row: {
+          attempts: number
+          company_id: string | null
+          created_at: string
+          crm_client_id: string | null
+          dedupe_key: string
+          id: string
+          last_error: string | null
+          location_id: string | null
+          next_attempt_at: string
+          reason: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          company_id?: string | null
+          created_at?: string
+          crm_client_id?: string | null
+          dedupe_key: string
+          id?: string
+          last_error?: string | null
+          location_id?: string | null
+          next_attempt_at?: string
+          reason?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          company_id?: string | null
+          created_at?: string
+          crm_client_id?: string | null
+          dedupe_key?: string
+          id?: string
+          last_error?: string | null
+          location_id?: string | null
+          next_attempt_at?: string
+          reason?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recorder_push_jobs_company_id_fkey"
+            columns: ["company_id"]
+            referencedRelation: "recorder_companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recorder_push_jobs_location_id_fkey"
+            columns: ["location_id"]
+            referencedRelation: "recorder_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recorder_push_log: {
+        Row: {
+          attempts: number
+          company_id: string | null
+          created_at: string
+          crm_client_id: string | null
+          duration_ms: number | null
+          error: string | null
+          id: string
+          location_id: string | null
+          location_slug: string | null
+          ok: boolean
+          response: Json | null
+          stable_id: string | null
+          status_code: number | null
+        }
+        Insert: {
+          attempts?: number
+          company_id?: string | null
+          created_at?: string
+          crm_client_id?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          location_id?: string | null
+          location_slug?: string | null
+          ok?: boolean
+          response?: Json | null
+          stable_id?: string | null
+          status_code?: number | null
+        }
+        Update: {
+          attempts?: number
+          company_id?: string | null
+          created_at?: string
+          crm_client_id?: string | null
+          duration_ms?: number | null
+          error?: string | null
+          id?: string
+          location_id?: string | null
+          location_slug?: string | null
+          ok?: boolean
+          response?: Json | null
+          stable_id?: string | null
+          status_code?: number | null
+        }
+        Relationships: []
+      }
+      recorder_scenes: {
+        Row: {
+          campaign_id: string
+          capture: string
+          created_at: string
+          hint: string | null
+          id: string
+          key: string
+          label: string
+          position: number
+          prompt: string
+          updated_at: string
+        }
+        Insert: {
+          campaign_id: string
+          capture?: string
+          created_at?: string
+          hint?: string | null
+          id?: string
+          key: string
+          label: string
+          position: number
+          prompt: string
+          updated_at?: string
+        }
+        Update: {
+          campaign_id?: string
+          capture?: string
+          created_at?: string
+          hint?: string | null
+          id?: string
+          key?: string
+          label?: string
+          position?: number
+          prompt?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recorder_scenes_campaign_id_fkey"
+            columns: ["campaign_id"]
+            referencedRelation: "recorder_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       review_requests: {
         Row: {
           click_token: string | null
@@ -4071,6 +4535,18 @@ export type Database = {
       }
       link_admin_to_portal: {
         Args: { p_connection_id: string }
+        Returns: undefined
+      }
+      recorder_enqueue_client: {
+        Args: { p_crm_client_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      recorder_enqueue_company: {
+        Args: { p_company_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      recorder_enqueue_location: {
+        Args: { p_location_id: string; p_reason?: string }
         Returns: undefined
       }
     }

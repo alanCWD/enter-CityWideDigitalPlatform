@@ -33,6 +33,9 @@ import { ClientDetail } from "./pages/dashboard/crm/ClientDetail";
 import { Catalog } from "./pages/dashboard/crm/Catalog";
 import { InvoicesList } from "./pages/dashboard/crm/InvoicesList";
 import { ApiAccess } from "./pages/dashboard/crm/ApiAccess";
+import { ContentStudio } from "./pages/dashboard/crm/ContentStudio";
+import { ContentStudioCompanyPage } from "./pages/dashboard/crm/ContentStudioCompanyPage";
+import { ContentStudioSettings } from "./pages/dashboard/crm/ContentStudioSettings";
 import SocialProfiles from "./pages/dashboard/social/profiles";
 import ContentCalendar from "./pages/dashboard/social/calendar";
 import SocialInbox from "./pages/dashboard/social/inbox";
@@ -277,6 +280,21 @@ export const routers = [
     path: "/dashboard/crm/api",
     name: "crm-api",
     element: <Auth><ApiAccess /></Auth>,
+  },
+  {
+    path: "/dashboard/crm/content",
+    name: "crm-content",
+    element: <Auth><ContentStudio /></Auth>,
+  },
+  {
+    path: "/dashboard/crm/content/settings",
+    name: "crm-content-settings",
+    element: <Auth><ContentStudioSettings /></Auth>,
+  },
+  {
+    path: "/dashboard/crm/content/:companyId",
+    name: "crm-content-company",
+    element: <Auth><ContentStudioCompanyPage /></Auth>,
   },
   {
     path: "/dashboard/social/profiles",

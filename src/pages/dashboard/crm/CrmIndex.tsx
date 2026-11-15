@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
-import { Users, DollarSign, AlertCircle, Receipt, Plus, Package, Activity, AlertTriangle, Database, Share2, Calendar, MessageSquare, Megaphone } from "lucide-react";
+import { Users, DollarSign, AlertCircle, Receipt, Plus, Package, Activity, AlertTriangle, Database, Share2, Calendar, MessageSquare, Megaphone, Clapperboard } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmMetrics, useCrmClients, useCrmInvoices } from "@/hooks/useCrm";
@@ -79,6 +79,7 @@ export function CrmIndex() {
         {/* Social Modules */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <ModuleTile icon={Users} label="Clients" href="/dashboard/crm/clients" accent="#0078D7" />
+          <ModuleTile icon={Clapperboard} label="Content Studio" href="/dashboard/crm/content" accent="#0EA5E9" />
           <ModuleTile icon={Share2} label="Social Profiles" href="/dashboard/social/profiles" accent="#8B5CF6" />
           <ModuleTile icon={Calendar} label="Content Calendar" href="/dashboard/social/calendar" accent="#F59E0B" />
           <ModuleTile icon={Megaphone} label="Smart Campaigns" href="/dashboard/social/campaigns" accent="#EC4899" />

@@ -278,6 +278,23 @@ async function sendSubscriptionInvoice(
 
 const adminStorage = createClient(SUPABASE_URL, SERVICE_KEY).storage;
 
+// Content Studio: queue a recorder push when a CRM client changes. Best effort —
+// a recorder problem must never fail the CRM write. The queue processor (and the
+// nightly reconciliation) owns retries.
+const recorderDb = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+async function enqueueRecorder(crmClientId: string | null | undefined, reason: string): Promise<void> {
+  if (!crmClientId) return;
+  try {
+    const { error } = await recorderDb.rpc("recorder_enqueue_client", {
+      p_crm_client_id: crmClientId,
+      p_reason: reason,
+    });
+    if (error) console.warn("recorder enqueue failed:", error.message);
+  } catch (e) {
+    console.warn("recorder enqueue failed:", (e as Error).message);
+  }
+}
+
 function bucketFor(score: number): { bucket: "critical" | "needs_work" | "healthy" | "excellent"; label: string } {
   if (score >= 90) return { bucket: "excellent", label: "Excellent" };
   if (score >= 75) return { bucket: "healthy", label: "Healthy" };
@@ -441,6 +458,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       // Super-admin can stamp a specific agency; otherwise use authenticated agency
       const agencyId = (ctx.isSuperAdmin && payload.agency_id) ? (payload.agency_id as string) : ctx.agencyId;
       await exec({ sql: `INSERT INTO clients (id, name, status, source, owner_id, billing_email, phone, address_line1, city, region, postal_code, country, gbp_connection_id, website, industry, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.name as string, (payload.status as string) ?? "lead", (payload.source as string) ?? null, (payload.owner_id as string) ?? null, (payload.billing_email as string) ?? null, (payload.phone as string) ?? null, (payload.address_line1 as string) ?? null, (payload.city as string) ?? null, (payload.region as string) ?? null, (payload.postal_code as string) ?? null, (payload.country as string) ?? null, (payload.gbp_connection_id as string) ?? null, (payload.website as string) ?? null, (payload.industry as string) ?? null, (payload.notes as string) ?? null, agencyId] });
+      if (((payload.status as string) ?? "lead") === "active") await enqueueRecorder(id, "crm-create");
       return { id };
     }
     case "clients.update": {
@@ -452,6 +470,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       for (const k of updatable) if (k in payload) { fields.push(`${k} = ?`); args.push((payload[k] as SqlValue) ?? null); }
       fields.push("updated_at = ?"); args.push(now()); args.push(id);
       await exec({ sql: `UPDATE clients SET ${fields.join(", ")} WHERE id = ?`, args });
+      await enqueueRecorder(id, "crm-update");
       if (stripe && "billing_email" in payload && payload.billing_email) {
         try {
           const { rows: cr } = await exec({ sql: `SELECT stripe_customer_id FROM clients WHERE id = ? LIMIT 1`, args: [id] });
@@ -463,6 +482,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     case "clients.archive": {
       const id = payload.id as string; await assertClientAccess(ctx, id);
       await exec({ sql: `UPDATE clients SET status = 'archived', updated_at = ? WHERE id = ?`, args: [now(), id] });
+      await enqueueRecorder(id, "crm-archive");
       return { ok: true };
     }
     case "clients.delete": {
@@ -478,6 +498,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         try {
           await exec({ sql: `INSERT INTO clients (id, name, status, source, billing_email, phone, address_line1, city, region, postal_code, country, website, industry, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, (r.name as string) ?? "Untitled", (r.status as string) ?? "lead", (r.source as string) ?? "import", (r.billing_email as string) ?? null, (r.phone as string) ?? null, (r.address_line1 as string) ?? null, (r.city as string) ?? null, (r.region as string) ?? null, (r.postal_code as string) ?? null, (r.country as string) ?? null, (r.website as string) ?? null, (r.industry as string) ?? null, (r.notes as string) ?? null, ctx.agencyId] });
           created++;
+          if (((r.status as string) ?? "lead") === "active") await enqueueRecorder(id, "crm-import");
         } catch { skipped++; }
       }
       return { created, skipped };

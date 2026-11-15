@@ -16,6 +16,7 @@ import {
   Star,
   Sparkles,
   KeyRound,
+  Clapperboard,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -51,6 +52,7 @@ export interface Agency {
 const crmNav: AgencyNavItem[] = [
   { name: "CRM & Billing",     path: "/dashboard/crm",          icon: Receipt,        end: true },
   { name: "Clients",           path: "/dashboard/crm/clients",  icon: Users           },
+  { name: "Content Studio",    path: "/dashboard/crm/content",  icon: Clapperboard    },
   { name: "Products & Plans",  path: "/dashboard/crm/catalog",  icon: Package         },
   { name: "Invoices",          path: "/dashboard/crm/invoices", icon: FileText        },
   { name: "API Access",        path: "/dashboard/crm/api",      icon: KeyRound        },
