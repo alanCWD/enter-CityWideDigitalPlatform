@@ -14,6 +14,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { buildRecorderCompany, validateRecorderCompany } from "./lib/payload.ts";
 import { loadAllBundles } from "./lib/store.ts";
+import { hashPullToken, readPullBearer } from "./lib/pull-auth.ts";
 
 const PULL_SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const PULL_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -44,21 +45,10 @@ const pullJson = (body: unknown, status = 200, extra: Record<string, string> = {
 const pullFail = (status: number, message: string, extra: Record<string, string> = {}) =>
   pullJson({ error: message }, status, extra);
 
-async function pullSha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function bearerToken(req: Request): string | null {
-  const auth = (req.headers.get("Authorization") ?? "").trim();
-  const match = auth.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1].trim() : null;
-}
-
 async function authenticate(req: Request): Promise<{ id: string } | null> {
-  const token = bearerToken(req);
+  const token = readPullBearer(req.headers.get("Authorization"));
   if (!token) return null;
-  const hash = await pullSha256Hex(token);
+  const hash = await hashPullToken(token);
   const { data, error } = await pullDb
     .from("recorder_pull_tokens")
     .select("id, revoked_at")
@@ -144,7 +134,7 @@ export async function handlePull(req: Request): Promise<Response> {
       });
     }
 
-    const bundles = await loadAllBundles(db);
+    const bundles = await loadAllBundles(pullDb);
     const companies = [];
     for (const bundle of bundles) {
       if (!bundle) continue;

@@ -4,9 +4,7 @@ import {
   ArrowLeft,
   ArrowUpRight,
   Building2,
-  CalendarClock,
   CheckCircle2,
-  ChevronRight,
   CircleSlash,
   Loader2,
   MapPin,
@@ -14,11 +12,7 @@ import {
   Plus,
   QrCode,
   RefreshCw,
-  Settings2,
-  Sparkles,
   Upload,
-  Video,
-  Wand2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -96,7 +90,8 @@ export function CompanyEditor({ companyId }: { companyId: string }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pushing, setPushing] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
+  const watermarkFileRef = useRef<HTMLInputElement>(null);
 
   const [locationOpen, setLocationOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<RecorderLocation | null>(null);
@@ -164,15 +159,15 @@ export function CompanyEditor({ companyId }: { companyId: string }) {
     }
   };
 
-  const uploadAsset = async (file: File) => {
+  const uploadAsset = async (file: File, kind: "logo" | "watermark") => {
     if (!detail) return;
     setUploading(true);
     try {
       const url = await uploadRecorderAsset(
-        { company_id: detail.company.id, kind: detail.company.is_network ? "watermark" : "logo", filename: file.name },
+        { company_id: detail.company.id, kind, filename: file.name },
         file,
       );
-      if (detail.company.is_network) set("watermark_url", url);
+      if (kind === "watermark") set("watermark_url", url);
       else set("logo_url", url);
     } catch (e) {
       toast({ title: "Upload failed", description: (e as Error).message, variant: "destructive" });
@@ -398,17 +393,17 @@ export function CompanyEditor({ companyId }: { companyId: string }) {
                   <div className="flex gap-2">
                     <Input id="company-logo" value={form.logo_url} onChange={(e) => set("logo_url", e.target.value)} placeholder="https://… public image" />
                     <input
-                      ref={fileRef}
+                      ref={logoFileRef}
                       type="file"
                       accept="image/png,image/jpeg,image/webp,image/svg+xml"
                       className="hidden"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
-                        if (file) uploadAsset(file);
+                        if (file) uploadAsset(file, "logo");
                         e.target.value = "";
                       }}
                     />
-                    <Button type="button" variant="outline" size="sm" className="h-10 shrink-0" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                    <Button type="button" variant="outline" size="sm" className="h-10 shrink-0" disabled={uploading} onClick={() => logoFileRef.current?.click()}>
                       {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                       Upload
                     </Button>
@@ -420,7 +415,18 @@ export function CompanyEditor({ companyId }: { companyId: string }) {
                     <Label htmlFor="company-watermark">Watermark image</Label>
                     <div className="flex gap-2">
                       <Input id="company-watermark" value={form.watermark_url} onChange={(e) => set("watermark_url", e.target.value)} placeholder="https://… public image" />
-                      <Button type="button" variant="outline" size="sm" className="h-10 shrink-0" disabled={uploading} onClick={() => fileRef.current?.click()}>
+                      <input
+                        ref={watermarkFileRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) uploadAsset(file, "watermark");
+                          e.target.value = "";
+                        }}
+                      />
+                      <Button type="button" variant="outline" size="sm" className="h-10 shrink-0" disabled={uploading} onClick={() => watermarkFileRef.current?.click()}>
                         {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                         Upload
                       </Button>

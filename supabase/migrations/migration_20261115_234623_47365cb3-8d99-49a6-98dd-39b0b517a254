@@ -1,0 +1,1 @@
+update public.recorder_pull_tokens set revoked_at = now() where label = 'Verification (temporary 2)' and revoked_at is null;

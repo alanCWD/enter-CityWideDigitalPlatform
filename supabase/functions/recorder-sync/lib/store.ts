@@ -514,8 +514,26 @@ async function runJob(db: DB, job: Record<string, unknown>): Promise<JobResult> 
 }
 
 /** Process due queued pushes. Bounded so one run fits the function timeout. */
-export async function processDueJobs(db: DB, limit = 15): Promise<{ processed: number; pushed: number; failed: number }> {
+export async function processDueJobs(db: DB, limit = 5): Promise<{ processed: number; pushed: number; failed: number }> {
   const now = nowIso();
+
+  // Recover jobs left "processing" by an interrupted run. Their dedupe key may
+  // already have a newer pending job, so a failed requeue is harmless.
+  const staleCutoff = new Date(Date.now() - 5 * 60_000).toISOString();
+  try {
+    const requeued = await db
+      .from("recorder_push_jobs")
+      .update({ status: "pending", next_attempt_at: now, updated_at: now, last_error: "Recovered after an interrupted run." })
+      .eq("status", "processing")
+      .lt("updated_at", staleCutoff)
+      .select("id");
+    if (requeued.error) {
+      // A newer pending row already exists for one of the targets; leaving the
+      // stale row out of the queue is safe because the newer row carries it.
+      console.warn("recorder queue recovery skipped:", requeued.error.message);
+    }
+  } catch { /* recovery is best effort */ }
+
   const { data: due, error } = await db
     .from("recorder_push_jobs")
     .select("*")

@@ -1243,8 +1243,26 @@ async function runJob(db: DB, job: Record<string, unknown>): Promise<JobResult> 
 }
 
 /** Process due queued pushes. Bounded so one run fits the function timeout. */
-async function processDueJobs(db: DB, limit = 15): Promise<{ processed: number; pushed: number; failed: number }> {
+async function processDueJobs(db: DB, limit = 5): Promise<{ processed: number; pushed: number; failed: number }> {
   const now = nowIso();
+
+  // Recover jobs left "processing" by an interrupted run. Their dedupe key may
+  // already have a newer pending job, so a failed requeue is harmless.
+  const staleCutoff = new Date(Date.now() - 5 * 60_000).toISOString();
+  try {
+    const requeued = await db
+      .from("recorder_push_jobs")
+      .update({ status: "pending", next_attempt_at: now, updated_at: now, last_error: "Recovered after an interrupted run." })
+      .eq("status", "processing")
+      .lt("updated_at", staleCutoff)
+      .select("id");
+    if (requeued.error) {
+      // A newer pending row already exists for one of the targets; leaving the
+      // stale row out of the queue is safe because the newer row carries it.
+      console.warn("recorder queue recovery skipped:", requeued.error.message);
+    }
+  } catch { /* recovery is best effort */ }
+
   const { data: due, error } = await db
     .from("recorder_push_jobs")
     .select("*")
@@ -1320,6 +1338,28 @@ async function reconcileAll(db: DB): Promise<{ companies: number; queued: number
 }
 
 
+// ── lib/pull-auth.ts ────────────────────────────────────────────
+/**
+ * Pull-token parsing and hashing shared with the pull route. Kept free of
+ * database and Deno access so it can be unit tested directly.
+ */
+
+/** Read `Authorization: Bearer <token>`; anything else is not a pull token. */
+function readPullBearer(header: string | null | undefined): string | null {
+  if (!header) return null;
+  const match = String(header).trim().match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+  const token = match[1].trim();
+  return token.length > 0 ? token : null;
+}
+
+/** Only the SHA-256 hash of a pull token is stored. */
+async function hashPullToken(token: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+
 // ── pull.ts ─────────────────────────────────────────────────────
 /**
  * Read-only pull route for the Customer Content Studio recorder.
@@ -1333,6 +1373,7 @@ async function reconcileAll(db: DB): Promise<{ companies: number; queued: number
  * company object per active company-location pair, in one compact response.
  * No pagination until the recorder team agrees to it.
  */
+
 
 
 
@@ -1366,21 +1407,10 @@ const pullJson = (body: unknown, status = 200, extra: Record<string, string> = {
 const pullFail = (status: number, message: string, extra: Record<string, string> = {}) =>
   pullJson({ error: message }, status, extra);
 
-async function pullSha256Hex(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
-}
-
-function bearerToken(req: Request): string | null {
-  const auth = (req.headers.get("Authorization") ?? "").trim();
-  const match = auth.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1].trim() : null;
-}
-
 async function authenticate(req: Request): Promise<{ id: string } | null> {
-  const token = bearerToken(req);
+  const token = readPullBearer(req.headers.get("Authorization"));
   if (!token) return null;
-  const hash = await pullSha256Hex(token);
+  const hash = await hashPullToken(token);
   const { data, error } = await pullDb
     .from("recorder_pull_tokens")
     .select("id, revoked_at")
@@ -1466,7 +1496,7 @@ async function handlePull(req: Request): Promise<Response> {
       });
     }
 
-    const bundles = await loadAllBundles(db);
+    const bundles = await loadAllBundles(pullDb);
     const companies = [];
     for (const bundle of bundles) {
       if (!bundle) continue;
@@ -1940,9 +1970,16 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
 
       if (!companyId) bad("company_id is required for a new location.");
       if (!fields.name) bad("name is required for a new location.");
+      const { data: parent, error: parentError } = await db
+        .from("recorder_companies")
+        .select("id, agency_id")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (parentError) throw new HttpError(parentError.message, 500);
+      if (!parent) throw new HttpError("Company not found.", 404);
       const { data, error } = await db
         .from("recorder_locations")
-        .insert({ company_id: companyId, ...fields })
+        .insert({ company_id: companyId, agency_id: parent.agency_id ?? "citywide", ...fields })
         .select("*")
         .maybeSingle();
       if (error) throw new HttpError(error.message, 400);
@@ -2037,6 +2074,15 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
       const config = await configState();
       if (!config.configured) throw new HttpError("The recorder intake address and key are not configured yet.", 409);
 
+      const { data: company, error: companyError } = await db
+        .from("recorder_companies")
+        .select("id, enabled")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (companyError) throw new HttpError(companyError.message, 500);
+      if (!company) throw new HttpError("Company not found.", 404);
+      if (!company.enabled) throw new HttpError("This company is paused. Enable it before pushing.", 409);
+
       const { data: locations, error } = await db
         .from("recorder_locations")
         .select("id")
@@ -2051,6 +2097,7 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
       for (const target of targets) {
         const bundle = await loadBundle(db, companyId, target);
         if (!bundle) continue;
+        if (!bundle.location.active) continue;
         const result = await pushBundle(db, bundle);
         if (result.ok) {
           await db.from("recorder_push_jobs").delete().eq("location_id", target).eq("status", "pending");
@@ -2065,6 +2112,10 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
           links: result.body?.links ?? null,
           campaigns: result.body?.campaigns ?? 0,
         });
+      }
+
+      if (results.length === 0) {
+        throw new HttpError("Nothing was sent. The linked CRM client must be active and the location active.", 409);
       }
 
       return {
@@ -2083,7 +2134,7 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
     }
 
     case "process_queue": {
-      const result = await processDueJobs(db, 15);
+      const result = await processDueJobs(db, 5);
       return { ok: true, ...result };
     }
 

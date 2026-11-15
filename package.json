@@ -10,7 +10,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "pInstall": "pnpm install",
-    "test:recorder": "node --experimental-strip-types --test tests/recorder/contract.test.ts"
+    "test:recorder": "node --experimental-strip-types --test tests/recorder/*.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.1",

@@ -126,10 +126,43 @@ img.src = "<logo or watermark URL>";
 ## Tests
 
 ```bash
-node --experimental-strip-types --test tests/recorder/contract.test.ts
+node --experimental-strip-types --test tests/recorder/*.test.ts
 ```
 
 The suite covers first push, repeat push without duplicates, partial update
 preserving omitted fields, the Victoria Food Scene promo mapping, two locations
 under one network, missing/invalid intake key, a company with no campaign, a
-missing company id/name, retries on temporary failures and the 400 KB limit.
+missing company id/name, retries on temporary failures, the 400 KB limit, and
+pull-token parsing/hashing (missing and malformed Authorization headers).
+
+## Verification results — 15 November 2026
+
+Automated contract suite: **14 of 14 passing** (`pnpm run test:recorder`).
+
+Live checks against the recorder at the intake address supplied by the operator:
+
+| Check | Result |
+| --- | --- |
+| Push a restaurant (Pho Breeze, under the Victoria Food Scene network) | `200`, one campaign accepted, slug `pho-breeze-aa6253` |
+| Push a second restaurant under the same network id | `200`, same recorder company id, second location created |
+| Repeat push with a changed headline | `200`, same recorder company id and location id, same slug, new headline in CWD and pull |
+| Push a VFS promo (`format: promo`, dish, three scenes, scene 3 photos) | `200`; pull shows `enable_video: true`, `enable_photos: false`, captures `video / video / photos` |
+| Push a single business with no campaign (The Foam Zone) | `200`, `campaigns: 0`, brand-asset logo sent |
+| Wrong intake key | `401 "That connection key is not valid."` from the recorder, no retry |
+| Missing intake key/address | clear validation failure before any request |
+| Missing pull token | `401 {"error":"Missing or invalid pull token."}` |
+| Wrong pull token | `401` |
+| Revoked pull token | `401` |
+| Pull with a valid token | `200` with the same stable ids, two VFS locations and the single business |
+| Backend → recorder intake | reachable; live pushes returned `200` |
+| Public logo CORS | logo returned `200`, `content-type: image/png`, `access-control-allow-origin: *` |
+| Customer page returned by push | `200` |
+
+Not verified from this environment:
+
+- The recorder's own **Admin → CityWide → Test connection** and **Sync now**. The pull endpoint is public and answers correctly with a token, but the recorder-side screens must be exercised by the operator with a token created in the dashboard.
+- Visual rendering of the customer page (name, logo, colour, three scenes) in a browser, and the recorder's watermark drawing. The returned page is a client-rendered app; its HTML loaded with `200` but the visual content was not inspected.
+- A distinct QR image: the recorder deployment used for testing returned the customer page URL in `links.qr` (the same value as `links.url`) and a `qr-…` campaign code. CWD stores and surfaces whatever the recorder returns, so the UI opens that address.
+- The live test hit the recorder deployment whose intake address was supplied (it resolves to a live-preview recorder host, not the production `review-engine` domain). Links stored from these pushes point at that deployment until the production address is configured and the records are re-pushed.
+
+Test records created with real CWD clients: the standalone Victoria Food Scene network with Pho Breeze and Storied Wines & Spirits as locations, and a single-business profile for The Foam Zone. The operator can edit or archive them in Content Studio; archiving stops CWD pushes but does not delete anything in the recorder.

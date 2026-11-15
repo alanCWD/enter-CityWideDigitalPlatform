@@ -19,6 +19,7 @@ const order = [
   "lib/push.ts",
   "lib/crm.ts",
   "lib/store.ts",
+  "lib/pull-auth.ts",
   "pull.ts",
   "main.ts",
 ];

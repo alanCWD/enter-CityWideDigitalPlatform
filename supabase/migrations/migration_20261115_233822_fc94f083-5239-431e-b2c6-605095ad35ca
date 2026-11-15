@@ -1,0 +1,2 @@
+update public.recorder_pull_tokens set revoked_at = now() where label = 'Integration verification (temporary)' and revoked_at is null;
+update public.api_keys set revoked_at = now() where id = 'recorder-verification-temp' and revoked_at is null;

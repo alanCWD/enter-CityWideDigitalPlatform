@@ -440,9 +440,16 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
 
       if (!companyId) bad("company_id is required for a new location.");
       if (!fields.name) bad("name is required for a new location.");
+      const { data: parent, error: parentError } = await db
+        .from("recorder_companies")
+        .select("id, agency_id")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (parentError) throw new HttpError(parentError.message, 500);
+      if (!parent) throw new HttpError("Company not found.", 404);
       const { data, error } = await db
         .from("recorder_locations")
-        .insert({ company_id: companyId, ...fields })
+        .insert({ company_id: companyId, agency_id: parent.agency_id ?? "citywide", ...fields })
         .select("*")
         .maybeSingle();
       if (error) throw new HttpError(error.message, 400);
@@ -537,6 +544,15 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
       const config = await configState();
       if (!config.configured) throw new HttpError("The recorder intake address and key are not configured yet.", 409);
 
+      const { data: company, error: companyError } = await db
+        .from("recorder_companies")
+        .select("id, enabled")
+        .eq("id", companyId)
+        .maybeSingle();
+      if (companyError) throw new HttpError(companyError.message, 500);
+      if (!company) throw new HttpError("Company not found.", 404);
+      if (!company.enabled) throw new HttpError("This company is paused. Enable it before pushing.", 409);
+
       const { data: locations, error } = await db
         .from("recorder_locations")
         .select("id")
@@ -551,6 +567,7 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
       for (const target of targets) {
         const bundle = await loadBundle(db, companyId, target);
         if (!bundle) continue;
+        if (!bundle.location.active) continue;
         const result = await pushBundle(db, bundle);
         if (result.ok) {
           await db.from("recorder_push_jobs").delete().eq("location_id", target).eq("status", "pending");
@@ -565,6 +582,10 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
           links: result.body?.links ?? null,
           campaigns: result.body?.campaigns ?? 0,
         });
+      }
+
+      if (results.length === 0) {
+        throw new HttpError("Nothing was sent. The linked CRM client must be active and the location active.", 409);
       }
 
       return {
@@ -583,7 +604,7 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
     }
 
     case "process_queue": {
-      const result = await processDueJobs(db, 15);
+      const result = await processDueJobs(db, 5);
       return { ok: true, ...result };
     }
 
