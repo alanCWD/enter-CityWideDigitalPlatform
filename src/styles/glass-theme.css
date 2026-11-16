@@ -289,6 +289,49 @@
   box-shadow: 0 34px 80px -34px rgba(0, 0, 0, 0.95), inset 0 1px 0 rgba(255, 255, 255, 0.22);
 }
 
+/* ── App-coloured panels ────────────────────────────────────────────────── */
+/**
+ * A panel that stands for one live app carries that app's colour. Set
+ * `--gp-app-rgb` (space-separated RGB channels) and `--gp-app-ink` (a light
+ * tint for icon strokes) on the panel itself; every app uses the same rules.
+ */
+.gp-panel--app {
+  background-image:
+    linear-gradient(
+      100deg,
+      rgb(var(--gp-app-rgb) / 0) 0%,
+      rgb(var(--gp-app-rgb) / 0.045) 44%,
+      rgb(var(--gp-app-rgb) / 0.115) 82%,
+      rgb(var(--gp-app-rgb) / 0.16) 100%
+    ),
+    var(--gp-glass);
+  border-color: rgb(var(--gp-app-rgb) / 0.24);
+  box-shadow:
+    0 28px 70px -32px rgba(0, 0, 0, 0.9),
+    0 0 76px -36px rgb(var(--gp-app-rgb) / 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+}
+
+.gp-panel--app.gp-panel--hover:hover {
+  border-color: rgb(var(--gp-app-rgb) / 0.4);
+  box-shadow:
+    0 34px 80px -34px rgba(0, 0, 0, 0.95),
+    0 0 86px -34px rgb(var(--gp-app-rgb) / 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.gp-panel--app .gp-icon-tile {
+  border-color: rgb(var(--gp-app-rgb) / 0.4);
+  background: rgb(var(--gp-app-rgb) / 0.1);
+  box-shadow:
+    0 0 0 1px rgb(var(--gp-app-rgb) / 0.15),
+    0 10px 28px -16px rgb(var(--gp-app-rgb) / 0.75);
+}
+
+.gp-panel--app .gp-check {
+  color: rgb(var(--gp-app-rgb) / 0.95);
+}
+
 .gp-inset {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
@@ -377,6 +420,31 @@
   border-color: rgba(255, 255, 255, 0.28);
   color: var(--gp-ink);
   transform: translateY(-1px);
+}
+
+/* Buttons inside an app-coloured panel borrow that app's colour instead of
+   turning into a loud block: warm edge, warm glow, same solid core. */
+.gp-btn--app {
+  border-color: rgb(var(--gp-app-rgb) / 0.45);
+  background: #fff7f5;
+  box-shadow: 0 14px 34px -20px rgb(var(--gp-app-rgb) / 0.75);
+}
+
+.gp-btn--app:hover {
+  background: #ffffff;
+  box-shadow: 0 18px 42px -20px rgb(var(--gp-app-rgb) / 0.95);
+}
+
+.gp-btn-ghost--app {
+  border-color: rgb(var(--gp-app-rgb) / 0.34);
+  background: rgb(var(--gp-app-rgb) / 0.08);
+  color: #f9f0ef;
+}
+
+.gp-btn-ghost--app:hover {
+  border-color: rgb(var(--gp-app-rgb) / 0.52);
+  background: rgb(var(--gp-app-rgb) / 0.14);
+  color: #ffffff;
 }
 
 .gp-btn:focus-visible,

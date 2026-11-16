@@ -1,10 +1,31 @@
-import { Globe, Share2, MapPin, Video, Settings, Check, ArrowUpRight } from "lucide-react";
+import type { CSSProperties } from "react";
+import { Globe, Share2, MapPin, Video, Settings, Check, ArrowUpRight, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { GlassHero } from "@/components/marketing/glass/GlassHero";
 import { GlassCTA } from "@/components/marketing/glass/GlassCTA";
 
-const services = [
+type Service = {
+  id: string;
+  icon: LucideIcon;
+  name: string;
+  price: string;
+  tagline: string;
+  description: string;
+  features: string[];
+  niches: string[];
+  /** Set on panels that stand for one of our own apps. Each app gets its own colour. */
+  app?: {
+    /** Space-separated RGB channels of the app colour. */
+    rgb: string;
+    /** Light tint for the icon stroke. */
+    ink: string;
+    /** Where "Explore" sends the visitor. */
+    href: string;
+  };
+};
+
+const services: Service[] = [
   {
     id: "website-builder",
     icon: Globe,
@@ -74,6 +95,11 @@ const services = [
       "Monthly review summary report",
     ],
     niches: [],
+    app: {
+      rgb: "246 94 94",
+      ink: "#ffc4bc",
+      href: "https://review-engine.citywidedigital.ca/",
+    },
   },
   {
     id: "site-concierge",
@@ -111,74 +137,106 @@ export default function Services() {
         </Link>
       </GlassHero>
 
-      {services.map((service, index) => (
-        <section key={service.id} id={service.id} className="gp-section scroll-mt-24">
-          <div className="gp-shell">
-            <article className="gp-panel gp-panel--hover overflow-hidden">
-              <div className="grid gap-10 p-7 md:p-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-14">
-                <div>
-                  <div className="flex items-center gap-4">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.07]">
-                      <service.icon className="h-5 w-5 text-[var(--gp-ice)]" strokeWidth={1.5} />
-                    </span>
-                    <span className="gp-kicker">
-                      {String(index + 1).padStart(2, "0")} / {service.price}
-                    </span>
-                  </div>
-
-                  <h2 className="gp-display mt-7 text-[clamp(1.7rem,3.2vw,2.5rem)]">{service.name}</h2>
-                  <p className="mt-3 text-base font-light text-[var(--gp-ink)]">{service.tagline}</p>
-                  <p className="gp-body mt-4 text-[15px]">{service.description}</p>
-
-                  {service.id === "website-builder" && (
-                    <a
-                      href="/google-business-profile-website-sync.html"
-                      className="mt-5 inline-flex items-center gap-2 border-b border-white/20 pb-1 font-mono text-[0.625rem] uppercase tracking-[0.2em] text-[var(--gp-ice)] transition-colors hover:border-white/50 hover:text-[var(--gp-ink)]"
-                    >
-                      What syncs, and how fast
-                      <ArrowUpRight className="h-3.5 w-3.5" />
-                    </a>
-                  )}
-
-                  <div className="mt-8 flex flex-wrap gap-3">
-                    <Link to="/pricing#start-trial" className="gp-btn">
-                      Start free trial <ArrowUpRight className="h-3.5 w-3.5" />
-                    </Link>
-                    <Link to="/contact" className="gp-btn-ghost">
-                      Talk to sales
-                    </Link>
-                  </div>
-                </div>
-
-                <div className="gp-inset p-6 md:p-7">
-                  <p className="gp-kicker">What's included</p>
-                  <ul className="mt-5 space-y-3">
-                    {service.features.map((f) => (
-                      <li key={f} className="flex items-start gap-3">
-                        <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[var(--gp-blue)]" strokeWidth={2} />
-                        <span className="text-[13.5px] font-light leading-relaxed text-[var(--gp-ink-72)]">{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-
-                  {service.niches.length > 0 && (
-                    <div className="mt-6 border-t border-white/10 pt-5">
-                      <p className="gp-kicker mb-3">Supported industries</p>
-                      <div className="flex flex-wrap gap-2">
-                        {service.niches.map((n) => (
-                          <span key={n} className="gp-chip">
-                            {n}
-                          </span>
-                        ))}
-                      </div>
+      {services.map((service, index) => {
+        const app = service.app;
+        return (
+          <section key={service.id} id={service.id} className="gp-section scroll-mt-24">
+            <div className="gp-shell">
+              <article
+                className={`gp-panel gp-panel--hover overflow-hidden${app ? " gp-panel--app" : ""}`}
+                style={
+                  app
+                    ? ({ "--gp-app-rgb": app.rgb, "--gp-app-ink": app.ink } as CSSProperties)
+                    : undefined
+                }
+              >
+                <div className="grid gap-10 p-7 md:p-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-14">
+                  <div>
+                    <div className="flex items-center gap-4">
+                      <span className="gp-icon-tile flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.07]">
+                        <service.icon
+                          className="h-5 w-5"
+                          style={{ color: app ? "var(--gp-app-ink)" : "var(--gp-ice)" }}
+                          strokeWidth={1.5}
+                        />
+                      </span>
+                      <span className="gp-kicker">
+                        {String(index + 1).padStart(2, "0")} / {service.price}
+                      </span>
                     </div>
-                  )}
+
+                    <h2 className="gp-display mt-7 text-[clamp(1.7rem,3.2vw,2.5rem)]">{service.name}</h2>
+                    <p className="mt-3 text-base font-light text-[var(--gp-ink)]">{service.tagline}</p>
+                    <p className="gp-body mt-4 text-[15px]">{service.description}</p>
+
+                    {service.id === "website-builder" && (
+                      <a
+                        href="/google-business-profile-website-sync.html"
+                        className="mt-5 inline-flex items-center gap-2 border-b border-white/20 pb-1 font-mono text-[0.625rem] uppercase tracking-[0.2em] text-[var(--gp-ice)] transition-colors hover:border-white/50 hover:text-[var(--gp-ink)]"
+                      >
+                        What syncs, and how fast
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+
+                    <div className="mt-8 flex flex-wrap gap-3">
+                      {app ? (
+                        <>
+                          <a
+                            href={app.href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="gp-btn-ghost gp-btn-ghost--app"
+                          >
+                            Explore <ArrowUpRight className="h-3.5 w-3.5" />
+                          </a>
+                          <Link to="/pricing#start-trial" className="gp-btn gp-btn--app">
+                            Start free trial
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          <Link to="/pricing#start-trial" className="gp-btn">
+                            Start free trial <ArrowUpRight className="h-3.5 w-3.5" />
+                          </Link>
+                          <Link to="/contact" className="gp-btn-ghost">
+                            Talk to sales
+                          </Link>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="gp-inset p-6 md:p-7">
+                    <p className="gp-kicker">What's included</p>
+                    <ul className="mt-5 space-y-3">
+                      {service.features.map((f) => (
+                        <li key={f} className="flex items-start gap-3">
+                          <Check className="gp-check mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[var(--gp-blue)]" strokeWidth={2} />
+                          <span className="text-[13.5px] font-light leading-relaxed text-[var(--gp-ink-72)]">{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {service.niches.length > 0 && (
+                      <div className="mt-6 border-t border-white/10 pt-5">
+                        <p className="gp-kicker mb-3">Supported industries</p>
+                        <div className="flex flex-wrap gap-2">
+                          {service.niches.map((n) => (
+                            <span key={n} className="gp-chip">
+                              {n}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </article>
-          </div>
-        </section>
-      ))}
+              </article>
+            </div>
+          </section>
+        );
+      })}
 
       <GlassCTA kicker="Next / Bundle" />
     </Layout>
