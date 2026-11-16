@@ -3,7 +3,7 @@ import { ExternalLink, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
-import { fmtWhen, recorder, type CompanyDetail } from "@/lib/recorder";
+import { fmtWhen, openRecorderStudio, recorder, type CompanyDetail } from "@/lib/recorder";
 import { CustomerLink, ErrorNote, StatusPill } from "./RecorderBits";
 
 export function ClientContentStudio({ clientId }: { clientId: string }) {
@@ -12,6 +12,7 @@ export function ClientContentStudio({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pushing, setPushing] = useState(false);
+  const [openingStudio, setOpeningStudio] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -44,6 +45,18 @@ export function ClientContentStudio({ clientId }: { clientId: string }) {
     }
   };
 
+  const openStudio = async () => {
+    if (!detail) return;
+    setOpeningStudio(true);
+    try {
+      await openRecorderStudio(detail.company.id);
+    } catch (e) {
+      toast({ title: "Could not open Content Studio", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setOpeningStudio(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center gap-2 p-6 text-xs text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading Content Studio</div>;
   }
@@ -73,6 +86,12 @@ export function ClientContentStudio({ clientId }: { clientId: string }) {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {detail.company.crm_client_id && !detail.company.is_network && (
+              <Button size="sm" variant="outline" onClick={openStudio} disabled={openingStudio}>
+                {openingStudio ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+                Open Content Studio
+              </Button>
+            )}
             <Button size="sm" variant="outline" onClick={push} disabled={pushing}>
               {pushing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
               Push now

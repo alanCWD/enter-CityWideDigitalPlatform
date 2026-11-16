@@ -735,6 +735,22 @@ async function activeClientIds(): Promise<Set<string>> {
   return new Set(rows.map((r) => String(r.id ?? "")).filter(Boolean));
 }
 
+/** The user's CRM workspace, used to scope Content Studio access. */
+async function agencyForUser(userId: string): Promise<string | null> {
+  if (!userId) return null;
+  try {
+    const rows = await exec(`SELECT agency_id FROM agency_members WHERE user_id = ? LIMIT 1`, [userId]);
+    const agency = rows[0]?.agency_id;
+    // A signed-in staff user with no explicit membership belongs to the
+    // original CityWide workspace, matching the CRM gateway's default.
+    return agency == null || String(agency).trim() === "" ? "citywide" : String(agency);
+  } catch {
+    // Fail closed: do not fall back to a workspace when membership cannot be
+    // verified. The caller decides whether a super-admin bypass applies.
+    return null;
+  }
+}
+
 
 // ── lib/store.ts ────────────────────────────────────────────────
 /**
@@ -1360,6 +1376,126 @@ async function hashPullToken(token: string): Promise<string> {
 }
 
 
+// ── lib/sso.ts ──────────────────────────────────────────────────
+/**
+ * Customer Content Studio SSO.
+ *
+ * The CWD backend signs a short-lived HS256 JWT that the studio exchanges for a
+ * scoped session. The signing secret never reaches the browser; the browser only
+ * receives the resulting one-time URL.
+ */
+
+const SSO_ISSUER = "citywide-dashboard";
+const SSO_AUDIENCE = "content-studio";
+const SSO_TTL_SECONDS = 60;
+
+interface StudioSsoPayload {
+  iss: string;
+  aud: string;
+  sub: string;
+  email: string;
+  name: string;
+  company_id: string;
+  role: "owner";
+  iat: number;
+  exp: number;
+  jti: string;
+}
+
+interface StudioSsoInput {
+  userId: string;
+  email: string;
+  name: string;
+  companyId: string;
+  /** Test seam; defaults to the current time. */
+  nowSeconds?: number;
+  /** Test seam; defaults to a random UUID. */
+  jti?: string;
+}
+
+function text(value: unknown): string {
+  return String(value ?? "").trim();
+}
+
+function base64url(value: string | Uint8Array): string {
+  const bytes = typeof value === "string" ? new TextEncoder().encode(value) : value;
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/=+$/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+}
+
+/** A public https base URL for the studio, without a trailing slash. */
+function readStudioUrl(raw: string | null | undefined): string | null {
+  const value = text(raw);
+  if (!value) return null;
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:") return null;
+  if (url.username || url.password) return null;
+  return `${url.origin}${url.pathname}`.replace(/\/+$/, "");
+}
+
+function buildStudioPayload(input: StudioSsoInput): StudioSsoPayload {
+  const userId = text(input.userId);
+  const companyId = text(input.companyId);
+  if (!userId) throw new Error("A signed-in user is required.");
+  if (!companyId) throw new Error("A company id is required.");
+
+  const email = text(input.email);
+  const name = text(input.name) || email.split("@")[0] || "CWD user";
+  const iat = Math.floor(input.nowSeconds ?? Date.now() / 1000);
+  return {
+    iss: SSO_ISSUER,
+    aud: SSO_AUDIENCE,
+    sub: userId,
+    email,
+    name,
+    company_id: companyId,
+    role: "owner",
+    iat,
+    exp: iat + SSO_TTL_SECONDS,
+    jti: input.jti ?? crypto.randomUUID(),
+  };
+}
+
+/** Sign the exact header and payload the studio expects. */
+async function signStudioJwt(secret: string, payload: StudioSsoPayload): Promise<string> {
+  const keyValue = text(secret);
+  if (!keyValue) throw new Error("SSO secret is not configured.");
+
+  const header = base64url(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const body = base64url(JSON.stringify(payload));
+  const signingInput = `${header}.${body}`;
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(keyValue),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(signingInput));
+  return `${signingInput}.${base64url(new Uint8Array(signature))}`;
+}
+
+/** Fresh token + one-time URL. A new jti is created on every call. */
+async function createStudioSso(
+  secret: string,
+  studioUrl: string,
+  input: StudioSsoInput,
+): Promise<{ token: string; url: string; payload: StudioSsoPayload }> {
+  const base = readStudioUrl(studioUrl);
+  if (!base) throw new Error("The Content Studio URL is not configured as a public HTTPS address.");
+  const payload = buildStudioPayload(input);
+  const token = await signStudioJwt(secret, payload);
+  return { token, url: `${base}/sso#token=${token}`, payload };
+}
+
+
 // ── pull.ts ─────────────────────────────────────────────────────
 /**
  * Read-only pull route for the Customer Content Studio recorder.
@@ -1547,6 +1683,7 @@ async function handlePull(req: Request): Promise<Response> {
 
 
 
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const ADMIN_EMAIL = Deno.env.get("ADMIN_EMAIL") ?? "";
@@ -1650,6 +1787,9 @@ function constantTimeEqual(a: string, b: string): boolean {
 
 interface StaffContext {
   userId: string;
+  email: string;
+  name: string;
+  agencyId: string;
   isSuperAdmin: boolean;
 }
 
@@ -1672,7 +1812,16 @@ async function requireStaff(req: Request): Promise<StaffContext> {
   if (roleError) throw new HttpError("Could not verify staff access.", 500);
   if (!roleRow && !isSuperAdmin) throw new HttpError("Forbidden: staff access required.", 403);
 
-  return { userId: data.user.id, isSuperAdmin };
+  const metadata = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+  const email = data.user.email ?? "";
+  const rawName = String(metadata.full_name ?? metadata.name ?? metadata.display_name ?? "").trim();
+  const name = (rawName || email.split("@")[0] || "CWD user").slice(0, 160);
+  const agencyId = await agencyForUser(data.user.id);
+  if (!agencyId && !isSuperAdmin) {
+    throw new HttpError("Could not verify your workspace access. Try again.", 503);
+  }
+
+  return { userId: data.user.id, email, name, agencyId: agencyId ?? "citywide", isSuperAdmin };
 }
 
 async function isScheduler(req: Request): Promise<boolean> {
@@ -1690,17 +1839,42 @@ async function configState() {
   try {
     intakeUrlValid = new URL(intakeUrl).protocol === "https:";
   } catch { /* reported below without exposing the value */ }
+  const studioUrlRaw = (Deno.env.get("RECORDER_STUDIO_URL") ?? "").trim();
+  const studioUrl = readStudioUrl(studioUrlRaw);
+  const ssoSecret = (Deno.env.get("RECORDER_SSO_SECRET") ?? "").trim();
   return {
     intake_url_configured: Boolean(intakeUrl),
     intake_url_valid: intakeUrlValid,
     intake_key_configured: Boolean(intakeKey),
     configured: Boolean(intakeUrlValid && intakeKey),
+    studio_url_configured: Boolean(studioUrlRaw),
+    studio_url_valid: Boolean(studioUrl),
+    sso_configured: Boolean(studioUrl && ssoSecret),
     pull_endpoint: `${SUPABASE_URL}/functions/v1/recorder-sync/companies`,
   };
 }
 
 async function nextStableId(): Promise<string> {
   return `net_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+
+/**
+ * A CWD user may open the studio only for a company in their own workspace.
+ * The CRM client's agency is checked too, so a copied profile URL cannot cross
+ * agency boundaries. Super-admins can open any company.
+ */
+async function assertCompanyManageable(staff: StaffContext, company: { agency_id: string; crm_client_id: string | null }): Promise<void> {
+  if (staff.isSuperAdmin) return;
+  if (String(company.agency_id ?? "") !== staff.agencyId) {
+    throw new HttpError("Forbidden: this company belongs to another workspace.", 403);
+  }
+  if (company.crm_client_id) {
+    const client = await getCrmClient(company.crm_client_id);
+    if (!client) throw new HttpError("The linked CRM client no longer exists.", 404);
+    if (client.agency_id && client.agency_id !== staff.agencyId) {
+      throw new HttpError("Forbidden: this company belongs to another workspace.", 403);
+    }
+  }
 }
 
 async function loadCompanyDetail(companyId: string) {
@@ -1865,6 +2039,42 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
       }
       if (!id) bad("company_id or crm_client_id is required.");
       return await loadCompanyDetail(id!);
+    }
+
+    case "studio.sso": {
+      if (!staff) throw new HttpError("Forbidden.", 403);
+      const companyId = textValue(payload.company_id, "company_id", 80, true)!;
+      const company = await getCompanyById(db, companyId);
+      if (!company) throw new HttpError("Company not found.", 404);
+      await assertCompanyManageable(staff, company);
+
+      // The studio 404s for a company the recorder has never received. Fail
+      // early with an action the operator can take.
+      const { count, error: logError } = await db
+        .from("recorder_push_log")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", company.id)
+        .eq("ok", true);
+      if (logError) throw new HttpError(logError.message, 500);
+      if (!count) {
+        throw new HttpError("Push this company to the recorder before opening its studio.", 409);
+      }
+
+      const studioUrl = (Deno.env.get("RECORDER_STUDIO_URL") ?? "").trim();
+      const ssoSecret = (Deno.env.get("RECORDER_SSO_SECRET") ?? "").trim();
+      if (!readStudioUrl(studioUrl) || !ssoSecret) {
+        throw new HttpError("Content Studio SSO is not configured. Add the studio URL and SSO secret as server secrets.", 503);
+      }
+
+      const { url } = await createStudioSso(ssoSecret, studioUrl, {
+        userId: staff.userId,
+        email: staff.email,
+        name: staff.name,
+        companyId: company.stable_id,
+      });
+      // A fresh jti and token are produced on every call; the URL is opened by
+      // the browser and the studio rejects any token it has already consumed.
+      return { url, expires_in: 60 };
     }
 
     case "company.save": {

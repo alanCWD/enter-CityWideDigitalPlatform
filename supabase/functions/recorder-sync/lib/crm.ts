@@ -131,3 +131,19 @@ export async function activeClientIds(): Promise<Set<string>> {
   const rows = await exec(`SELECT id FROM clients WHERE status = 'active' LIMIT 5000`);
   return new Set(rows.map((r) => String(r.id ?? "")).filter(Boolean));
 }
+
+/** The user's CRM workspace, used to scope Content Studio access. */
+export async function agencyForUser(userId: string): Promise<string | null> {
+  if (!userId) return null;
+  try {
+    const rows = await exec(`SELECT agency_id FROM agency_members WHERE user_id = ? LIMIT 1`, [userId]);
+    const agency = rows[0]?.agency_id;
+    // A signed-in staff user with no explicit membership belongs to the
+    // original CityWide workspace, matching the CRM gateway's default.
+    return agency == null || String(agency).trim() === "" ? "citywide" : String(agency);
+  } catch {
+    // Fail closed: do not fall back to a workspace when membership cannot be
+    // verified. The caller decides whether a super-admin bypass applies.
+    return null;
+  }
+}

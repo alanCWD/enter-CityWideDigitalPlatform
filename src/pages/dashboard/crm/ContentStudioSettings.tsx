@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   CheckCircle2,
   CloudUpload,
+  ExternalLink,
   KeyRound,
   Loader2,
   RefreshCw,
@@ -131,7 +132,7 @@ export function ContentStudioSettings() {
           <InlineLoader label="Loading connection" />
         ) : (
           <>
-            <div className="grid gap-4 lg:grid-cols-2">
+            <div className="grid gap-4 lg:grid-cols-3">
               <div className={cn("rounded-xl border p-5", status?.configured ? "border-[#22C55E]/30 bg-[#22C55E]/5" : "border-[#F59E0B]/30 bg-[#F59E0B]/5")}>
                 <div className="flex items-center gap-2">
                   {status?.configured ? <CheckCircle2 className="h-4 w-4 text-[#22C55E]" /> : <TriangleAlert className="h-4 w-4 text-[#F59E0B]" />}
@@ -176,6 +177,33 @@ export function ContentStudioSettings() {
                 <p className="mt-2 text-[10px] text-muted-foreground">
                   Send <code className="rounded bg-muted/50 px-1">Authorization: Bearer &lt;pull token&gt;</code>. Missing or wrong tokens return 401.
                 </p>
+              </div>
+
+              <div className={cn("rounded-xl border p-5", status?.sso_configured ? "border-[#22C55E]/30 bg-[#22C55E]/5" : "border-[#F59E0B]/30 bg-[#F59E0B]/5")}>
+                <div className="flex items-center gap-2">
+                  <ExternalLink className="h-4 w-4 text-primary" />
+                  <h3 className="text-sm font-bold text-foreground">Studio SSO</h3>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Lets CWD staff open a pushed company in the studio's admin without a second password. Tokens expire in 60 seconds and are fresh on every click.
+                </p>
+                <dl className="mt-4 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted-foreground">Studio URL</dt>
+                    <dd className="font-semibold text-foreground">
+                      {!status?.studio_url_configured ? "Missing" : status.studio_url_valid ? "Configured" : "Not a valid HTTPS address"}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <dt className="text-muted-foreground">SSO secret</dt>
+                    <dd className="font-semibold text-foreground">{status?.sso_configured ? "Configured" : "Missing"}</dd>
+                  </div>
+                </dl>
+                {!status?.sso_configured && (
+                  <p className="mt-3 rounded-lg border border-[#F59E0B]/30 bg-[#F59E0B]/10 px-3 py-2 text-[11px] text-[#B45309] dark:text-[#FBBF24]">
+                    Add <code className="rounded bg-muted/50 px-1">RECORDER_STUDIO_URL</code> and <code className="rounded bg-muted/50 px-1">RECORDER_SSO_SECRET</code> as server secrets. The signing secret never reaches the browser.
+                  </p>
+                )}
               </div>
             </div>
 

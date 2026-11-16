@@ -10,12 +10,13 @@
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { getCrmClient } from "./lib/crm.ts";
+import { agencyForUser, getCrmClient } from "./lib/crm.ts";
 import { isPublicHttpsUrl, suggestTrade } from "./lib/payload.ts";
-import { processDueJobs, pushBundle, reconcileAll, ensureCompanyForClient, loadBundle } from "./lib/store.ts";
+import { processDueJobs, pushBundle, reconcileAll, ensureCompanyForClient, getCompanyById, loadBundle } from "./lib/store.ts";
 import type { Trade } from "./lib/types.ts";
 import { TRADES } from "./lib/types.ts";
 import { handlePull, pullCorsHeaders } from "./pull.ts";
+import { createStudioSso, readStudioUrl } from "./lib/sso.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -120,6 +121,9 @@ function constantTimeEqual(a: string, b: string): boolean {
 
 interface StaffContext {
   userId: string;
+  email: string;
+  name: string;
+  agencyId: string;
   isSuperAdmin: boolean;
 }
 
@@ -142,7 +146,16 @@ async function requireStaff(req: Request): Promise<StaffContext> {
   if (roleError) throw new HttpError("Could not verify staff access.", 500);
   if (!roleRow && !isSuperAdmin) throw new HttpError("Forbidden: staff access required.", 403);
 
-  return { userId: data.user.id, isSuperAdmin };
+  const metadata = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+  const email = data.user.email ?? "";
+  const rawName = String(metadata.full_name ?? metadata.name ?? metadata.display_name ?? "").trim();
+  const name = (rawName || email.split("@")[0] || "CWD user").slice(0, 160);
+  const agencyId = await agencyForUser(data.user.id);
+  if (!agencyId && !isSuperAdmin) {
+    throw new HttpError("Could not verify your workspace access. Try again.", 503);
+  }
+
+  return { userId: data.user.id, email, name, agencyId: agencyId ?? "citywide", isSuperAdmin };
 }
 
 async function isScheduler(req: Request): Promise<boolean> {
@@ -160,17 +173,42 @@ async function configState() {
   try {
     intakeUrlValid = new URL(intakeUrl).protocol === "https:";
   } catch { /* reported below without exposing the value */ }
+  const studioUrlRaw = (Deno.env.get("RECORDER_STUDIO_URL") ?? "").trim();
+  const studioUrl = readStudioUrl(studioUrlRaw);
+  const ssoSecret = (Deno.env.get("RECORDER_SSO_SECRET") ?? "").trim();
   return {
     intake_url_configured: Boolean(intakeUrl),
     intake_url_valid: intakeUrlValid,
     intake_key_configured: Boolean(intakeKey),
     configured: Boolean(intakeUrlValid && intakeKey),
+    studio_url_configured: Boolean(studioUrlRaw),
+    studio_url_valid: Boolean(studioUrl),
+    sso_configured: Boolean(studioUrl && ssoSecret),
     pull_endpoint: `${SUPABASE_URL}/functions/v1/recorder-sync/companies`,
   };
 }
 
 async function nextStableId(): Promise<string> {
   return `net_${crypto.randomUUID().replace(/-/g, "").slice(0, 12)}`;
+}
+
+/**
+ * A CWD user may open the studio only for a company in their own workspace.
+ * The CRM client's agency is checked too, so a copied profile URL cannot cross
+ * agency boundaries. Super-admins can open any company.
+ */
+async function assertCompanyManageable(staff: StaffContext, company: { agency_id: string; crm_client_id: string | null }): Promise<void> {
+  if (staff.isSuperAdmin) return;
+  if (String(company.agency_id ?? "") !== staff.agencyId) {
+    throw new HttpError("Forbidden: this company belongs to another workspace.", 403);
+  }
+  if (company.crm_client_id) {
+    const client = await getCrmClient(company.crm_client_id);
+    if (!client) throw new HttpError("The linked CRM client no longer exists.", 404);
+    if (client.agency_id && client.agency_id !== staff.agencyId) {
+      throw new HttpError("Forbidden: this company belongs to another workspace.", 403);
+    }
+  }
 }
 
 async function loadCompanyDetail(companyId: string) {
@@ -335,6 +373,42 @@ async function handleAction(action: string, payload: Record<string, unknown>, st
       }
       if (!id) bad("company_id or crm_client_id is required.");
       return await loadCompanyDetail(id!);
+    }
+
+    case "studio.sso": {
+      if (!staff) throw new HttpError("Forbidden.", 403);
+      const companyId = textValue(payload.company_id, "company_id", 80, true)!;
+      const company = await getCompanyById(db, companyId);
+      if (!company) throw new HttpError("Company not found.", 404);
+      await assertCompanyManageable(staff, company);
+
+      // The studio 404s for a company the recorder has never received. Fail
+      // early with an action the operator can take.
+      const { count, error: logError } = await db
+        .from("recorder_push_log")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", company.id)
+        .eq("ok", true);
+      if (logError) throw new HttpError(logError.message, 500);
+      if (!count) {
+        throw new HttpError("Push this company to the recorder before opening its studio.", 409);
+      }
+
+      const studioUrl = (Deno.env.get("RECORDER_STUDIO_URL") ?? "").trim();
+      const ssoSecret = (Deno.env.get("RECORDER_SSO_SECRET") ?? "").trim();
+      if (!readStudioUrl(studioUrl) || !ssoSecret) {
+        throw new HttpError("Content Studio SSO is not configured. Add the studio URL and SSO secret as server secrets.", 503);
+      }
+
+      const { url } = await createStudioSso(ssoSecret, studioUrl, {
+        userId: staff.userId,
+        email: staff.email,
+        name: staff.name,
+        companyId: company.stable_id,
+      });
+      // A fresh jti and token are produced on every call; the URL is opened by
+      // the browser and the studio rejects any token it has already consumed.
+      return { url, expires_in: 60 };
     }
 
     case "company.save": {

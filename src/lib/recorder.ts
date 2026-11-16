@@ -132,6 +132,9 @@ export interface ConnectionStatus {
   intake_url_configured: boolean;
   intake_url_valid?: boolean;
   intake_key_configured: boolean;
+  studio_url_configured?: boolean;
+  studio_url_valid?: boolean;
+  sso_configured?: boolean;
   configured: boolean;
   pull_endpoint: string;
   companies_total: number;
@@ -265,3 +268,25 @@ export const VFS_PROMO_SCENES: Array<Pick<RecorderScene, "key" | "label" | "prom
     capture: "photos",
   },
 ];
+
+/**
+ * Open the recorder studio with a one-time SSO link.
+ *
+ * The backend signs the 60-second token; this function only receives the URL.
+ * A blank tab is opened synchronously so pop-up blockers keep the click's user
+ * activation, then navigated once the backend answers. Every call gets a fresh
+ * jti and token from the server.
+ */
+export async function openRecorderStudio(companyId: string): Promise<void> {
+  const tab = window.open("about:blank", "_blank");
+  if (!tab) throw new Error("The studio tab was blocked. Allow pop-ups for the dashboard and try again.");
+
+  try {
+    const result = await recorder<{ url: string; expires_in: number }>("studio.sso", { company_id: companyId });
+    tab.opener = null;
+    tab.location.href = result.url;
+  } catch (error) {
+    tab.close();
+    throw error;
+  }
+}

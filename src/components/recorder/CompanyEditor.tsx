@@ -6,6 +6,7 @@ import {
   Building2,
   CheckCircle2,
   CircleSlash,
+  ExternalLink,
   Loader2,
   MapPin,
   Pencil,
@@ -23,6 +24,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import {
   fmtWhen,
+  openRecorderStudio,
   recorder,
   syncTone,
   TRADE_LABELS,
@@ -90,6 +92,7 @@ export function CompanyEditor({ companyId }: { companyId: string }) {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pushing, setPushing] = useState(false);
+  const [openingStudio, setOpeningStudio] = useState(false);
   const logoFileRef = useRef<HTMLInputElement>(null);
   const watermarkFileRef = useRef<HTMLInputElement>(null);
 
@@ -198,6 +201,18 @@ export function CompanyEditor({ companyId }: { companyId: string }) {
     }
   };
 
+  const openStudio = async () => {
+    if (!detail) return;
+    setOpeningStudio(true);
+    try {
+      await openRecorderStudio(detail.company.id);
+    } catch (e) {
+      toast({ title: "Could not open Content Studio", description: (e as Error).message, variant: "destructive" });
+    } finally {
+      setOpeningStudio(false);
+    }
+  };
+
   const archiveLocation = async (location: RecorderLocation) => {
     if (!confirm(`Archive “${location.name}”? It will stop syncing; the recorder keeps its data.`)) return;
     try {
@@ -270,6 +285,18 @@ export function CompanyEditor({ companyId }: { companyId: string }) {
               <a href={primaryLocation.qr_url} target="_blank" rel="noreferrer" download>
                 <QrCode className="h-4 w-4" /> QR
               </a>
+            </Button>
+          )}
+          {company.crm_client_id && !company.is_network && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={openStudio}
+              disabled={openingStudio || status?.sso_configured === false}
+              title={status?.sso_configured === false ? "Add the studio URL and SSO secret as server secrets first." : "Open the studio in a new tab without another password."}
+            >
+              {openingStudio ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+              Open Content Studio
             </Button>
           )}
           <Button size="sm" onClick={pushNow} disabled={pushing || !status?.configured}>

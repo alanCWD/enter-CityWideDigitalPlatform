@@ -30,6 +30,8 @@ logs or screenshots.
 | --- | --- |
 | `RECORDER_INTAKE_URL` | The intake address shown in the recorder's Admin → CityWide page. Must be a full `https://` address. |
 | `RECORDER_INTAKE_KEY` | The inbound connection key created there. Sent only in the `x-cwd-key` header. |
+| `RECORDER_STUDIO_URL` | Public HTTPS base URL of the studio, for example the recorder domain. Used only to build the SSO link. |
+| `RECORDER_SSO_SECRET` | Shared HS256 signing secret for studio SSO. Server-side only; never sent to the browser. |
 
 The intake key is **not** the pull token. They are separate credentials with
 separate purposes.
@@ -37,6 +39,29 @@ separate purposes.
 The scheduler secret used by the nightly job lives in the database
 (`recorder_internal`), is readable only by the service role, and is not a
 customer-facing credential.
+
+## Open Content Studio (SSO)
+
+The **Open Content Studio** action on a CWD company opens the recorder's admin in
+a new tab without a second password. It is available for CWD-managed client
+companies; influencer/network owners continue to use the studio's `/signin`.
+
+1. The backend verifies the signed-in user is CWD staff and belongs to the same
+   workspace as the company. For a client-linked company it also checks the CRM
+   client's agency. Super-admins can open any company.
+2. It requires at least one successful push for that company, because the studio
+   returns 404 for a company it has never received.
+3. It signs a 60-second HS256 JWT with `RECORDER_SSO_SECRET`:
+   `iss: citywide-dashboard`, `aud: content-studio`, the user id/email/name,
+   `company_id` (the stable recorder company id), `role: owner`, `iat`, `exp`
+   and a fresh random `jti`.
+4. The browser opens `${RECORDER_STUDIO_URL}/sso#token=<jwt>` in a new tab. The
+   secret never reaches the browser, and every click produces a new jti and
+   token. The studio consumes each token once; reusing one returns 409.
+
+The studio then lands the user in `/admin` scoped to that company. If the action
+is disabled, confirm both SSO secrets are configured on the Connection page and
+that the company has been pushed.
 
 ## Pull token
 
@@ -137,7 +162,7 @@ pull-token parsing/hashing (missing and malformed Authorization headers).
 
 ## Verification results — 15 November 2026
 
-Automated contract suite: **14 of 14 passing** (`pnpm run test:recorder`).
+Automated suite: **21 of 21 passing** (`pnpm run test:recorder`), including the SSO header, payload, signature, expiry and fresh-jti checks.
 
 Live checks against the recorder at the intake address supplied by the operator:
 
@@ -157,10 +182,13 @@ Live checks against the recorder at the intake address supplied by the operator:
 | Backend → recorder intake | reachable; live pushes returned `200` |
 | Public logo CORS | logo returned `200`, `content-type: image/png`, `access-control-allow-origin: *` |
 | Customer page returned by push | `200` |
+| SSO secrets configured | studio URL valid and SSO secret present (reported without exposing values) |
+| SSO action without a user session | `401`; scheduler credential cannot run it (`403`) |
 
 Not verified from this environment:
 
 - The recorder's own **Admin → CityWide → Test connection** and **Sync now**. The pull endpoint is public and answers correctly with a token, but the recorder-side screens must be exercised by the operator with a token created in the dashboard.
+- The SSO click-through and the studio's `/admin` scoping could not be exercised without a signed-in dashboard session. The token shape, signature and 60-second expiry are covered by automated tests; the operator should click the action once against the real studio.
 - Visual rendering of the customer page (name, logo, colour, three scenes) in a browser, and the recorder's watermark drawing. The returned page is a client-rendered app; its HTML loaded with `200` but the visual content was not inspected.
 - A distinct QR image: the recorder deployment used for testing returned the customer page URL in `links.qr` (the same value as `links.url`) and a `qr-…` campaign code. CWD stores and surfaces whatever the recorder returns, so the UI opens that address.
 - The live test hit the recorder deployment whose intake address was supplied (it resolves to a live-preview recorder host, not the production `review-engine` domain). Links stored from these pushes point at that deployment until the production address is configured and the records are re-pushed.
