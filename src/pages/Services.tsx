@@ -216,25 +216,27 @@ export default function Services() {
             </div>
             <span className="gp-kicker gp-service-index__count">{String(services.length).padStart(2, "0")} / Explore below</span>
           </div>
-          <nav aria-label="Products and services" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {services.map((service, index) => (
-              <Link
-                key={service.id}
-                to={`/services#${service.id}`}
-                className={`gp-panel gp-panel--hover gp-service-card${service.app ? " gp-panel--app" : ""}`}
-                style={service.app ? ({ "--gp-app-rgb": service.app.rgb, "--gp-app-ink": service.app.ink } as CSSProperties) : undefined}
-              >
-                <div className="gp-service-card__top">
-                  <span className="gp-service-card__icon"><service.icon aria-hidden="true" strokeWidth={1.5} /></span>
-                  <span className="gp-service-card__number">{String(index + 1).padStart(2, "0")}</span>
-                  <ArrowDownRight className="gp-service-card__arrow" aria-hidden="true" />
-                </div>
-                <div>
-                  <h3 className="gp-service-card__title">{service.name}</h3>
-                  <p className="gp-service-card__subtitle">{service.tagline}</p>
-                </div>
-              </Link>
-            ))}
+          <nav aria-label="Products and services" className="overflow-x-auto py-1">
+            <div className="grid min-w-[600px] grid-cols-4 gap-3">
+              {services.map((service, index) => (
+                <Link
+                  key={service.id}
+                  to={`/services#${service.id}`}
+                  className={`gp-panel gp-panel--hover gp-service-card${service.app ? " gp-panel--app" : ""}`}
+                  style={service.app ? ({ "--gp-app-rgb": service.app.rgb, "--gp-app-ink": service.app.ink } as CSSProperties) : undefined}
+                >
+                  <div className="gp-service-card__top">
+                    <span className="gp-service-card__icon"><service.icon aria-hidden="true" strokeWidth={1.5} /></span>
+                    <span className="gp-service-card__number">{String(index + 1).padStart(2, "0")}</span>
+                    <ArrowDownRight className="gp-service-card__arrow" aria-hidden="true" />
+                  </div>
+                  <div>
+                    <h3 className="gp-service-card__title">{service.name}</h3>
+                    <p className="gp-service-card__subtitle">{service.tagline}</p>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </nav>
         </div>
       </section>
