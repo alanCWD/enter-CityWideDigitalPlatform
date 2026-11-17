@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Globe, Share2, MapPin, Video, Settings, Megaphone, Activity, Check, ArrowUpRight, type LucideIcon } from "lucide-react";
+import { Globe, Share2, MapPin, Video, Settings, Megaphone, Activity, GraduationCap, Check, ArrowUpRight, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { GlassHero } from "@/components/marketing/glass/GlassHero";
@@ -163,6 +163,29 @@ const services: Service[] = [
       ink: "#b5f3cf",
       href: "https://online-health.citywidedigital.ca/",
       action: { label: "Order a campaign", href: "https://creator-campaigns.citywidedigital.ca/order" },
+    },
+  },
+  {
+    id: "google-coach",
+    icon: GraduationCap,
+    name: "Google Coach",
+    price: "Google Business Profile coaching",
+    tagline: "Keep your Google Business Profile current, with a coach",
+    description: "Build a regular rhythm for your Google Business Profile with guidance for posts, review replies, and the next steps to keep your business information current.",
+    features: [
+      "Profile audit and before-and-after snapshots",
+      "Guided drafts for updates, offers, and events",
+      "Review reply guidance and public-safety checks",
+      "A weekly posting rhythm and suggested next steps",
+      "Local language and industry-specific writing guidance",
+      "Monitored Google standards and sourced recommendations",
+    ],
+    niches: [],
+    app: {
+      rgb: "170 125 235",
+      ink: "#e1cbff",
+      href: "https://google-coach.citywidedigital.ca/",
+      action: { label: "Open the coach", href: "https://google-coach.citywidedigital.ca/today" },
     },
   },
 ];
