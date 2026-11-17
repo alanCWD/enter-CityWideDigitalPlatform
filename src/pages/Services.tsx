@@ -270,6 +270,15 @@ export default function Services() {
                             </Link>
                           )}
                         </>
+                      ) : service.id === "website-builder" ? (
+                        <>
+                          <a href="/google-business-profile-website-sync.html" className="gp-btn-ghost">
+                            Learn More
+                          </a>
+                          <Link to="/pricing#start-trial" className="gp-btn">
+                            Start Free Trial <ArrowUpRight className="h-3.5 w-3.5" />
+                          </Link>
+                        </>
                       ) : (
                         <>
                           <Link to="/pricing#start-trial" className="gp-btn">
