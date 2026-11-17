@@ -1,16 +1,28 @@
 import { Link } from "react-router-dom";
-import { MapPin, Mail, Phone, Facebook, Instagram, Linkedin, Twitter } from "lucide-react";
+import { MapPin, Mail, Phone, Facebook, Instagram, Linkedin, Twitter, Globe, Share2, Video, Settings, Megaphone, Activity, GraduationCap, type LucideIcon } from "lucide-react";
 import { LogoOnDark } from "@/components/branding/Logo";
 import { cn } from "@/lib/utils";
 
-const footerLinks = {
+type FooterLink = {
+  label: string;
+  href: string;
+  plain?: boolean;
+  external?: boolean;
+  icon?: LucideIcon;
+  iconClass?: string;
+};
+
+const footerLinks: Record<string, FooterLink[]> = {
   Products: [
-    { label: "GBP-Synced Websites", href: "/google-business-profile-website-sync.html", plain: true },
-    { label: "GBP Website Builder", href: "/services#website-builder" },
-    { label: "Social Sync Pro", href: "/services#social-sync" },
-    { label: "Listing Sync Pro", href: "/services#listing-manager" },
-    { label: "Review Engine", href: "/services#video-reviews" },
-    { label: "Site Concierge", href: "/services#site-concierge" },
+    { label: "GBP-Synced Websites", href: "/google-business-profile-website-sync.html", plain: true, icon: Globe },
+    { label: "GBP Website Builder", href: "/services#website-builder", icon: Globe },
+    { label: "Social Sync Pro", href: "/services#social-sync", icon: Share2 },
+    { label: "Listing Sync Pro", href: "/services#listing-manager", icon: MapPin },
+    { label: "Review Engine", href: "/services#video-reviews", icon: Video, iconClass: "text-[var(--footer-product-review)]" },
+    { label: "Site Concierge", href: "/services#site-concierge", icon: Settings },
+    { label: "Creator Campaigns", href: "/services#creator-campaigns", icon: Megaphone, iconClass: "text-[var(--footer-product-creator)]" },
+    { label: "Business Online Health", href: "/services#online-health", icon: Activity, iconClass: "text-[var(--footer-product-health)]" },
+    { label: "Google Coach", href: "/services#google-coach", icon: GraduationCap, iconClass: "text-[var(--footer-product-coach)]" },
   ],
   Company: [
     { label: "About Us", href: "/about" },
@@ -86,28 +98,35 @@ export default function Footer({ variant = "default" }: FooterProps) {
             <div key={group}>
               <h4 className={headingClass}>{group}</h4>
               <ul className="flex flex-col gap-2.5">
-                {links.map((link) => (
-                  <li key={link.label}>
-                    {"plain" in link && link.plain ? (
-                      <a href={link.href} className={linkClass}>
-                        {link.label}
-                      </a>
-                    ) : "external" in link && link.external ? (
-                      <a
-                        href={link.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={linkClass}
-                      >
-                        {link.label}
-                      </a>
-                    ) : (
-                      <Link to={link.href} className={linkClass}>
-                        {link.label}
-                      </Link>
-                    )}
-                  </li>
-                ))}
+                {links.map((link) => {
+                  const Icon = link.icon;
+                  const content = (
+                    <>
+                      {Icon && (
+                        <Icon
+                          aria-hidden="true"
+                          strokeWidth={1.5}
+                          className={cn("h-4 w-4 shrink-0", link.iconClass ?? "text-[var(--footer-product-icon)]")}
+                        />
+                      )}
+                      <span>{link.label}</span>
+                    </>
+                  );
+                  const classes = cn(linkClass, Icon && "inline-flex items-center gap-2.5");
+                  return (
+                    <li key={link.label}>
+                      {link.plain ? (
+                        <a href={link.href} className={classes}>{content}</a>
+                      ) : link.external ? (
+                        <a href={link.href} target="_blank" rel="noopener noreferrer" className={classes}>
+                          {content}
+                        </a>
+                      ) : (
+                        <Link to={link.href} className={classes}>{content}</Link>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}

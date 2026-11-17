@@ -54,6 +54,13 @@
     --warning: 38 92% 45%;
     --warning-foreground: 0 0% 100%;
 
+    /* Product icons on dark footer surfaces, matching their Services panels. */
+    --footer-product-icon: #cfe2ff;
+    --footer-product-review: #ffc4bc;
+    --footer-product-creator: #ffe6a2;
+    --footer-product-health: #b5f3cf;
+    --footer-product-coach: #e1cbff;
+
     /* ── Sidebar (light mode) ── */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 8% 30%;
