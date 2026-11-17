@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Globe, Share2, MapPin, Video, Settings, Megaphone, Check, ArrowUpRight, type LucideIcon } from "lucide-react";
+import { Globe, Share2, MapPin, Video, Settings, Megaphone, Activity, Check, ArrowUpRight, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { GlassHero } from "@/components/marketing/glass/GlassHero";
@@ -22,7 +22,7 @@ type Service = {
     ink: string;
     /** Where "Explore" sends the visitor. */
     href: string;
-    action?: { label: string; href: string };
+    action?: { label: string; href?: string };
   };
 };
 
@@ -142,6 +142,29 @@ const services: Service[] = [
       action: { label: "Order a campaign", href: "https://creator-campaigns.citywidedigital.ca/order" },
     },
   },
+  {
+    id: "online-health",
+    icon: Activity,
+    name: "Business Online Health",
+    price: "CityWide plans from $197/mo",
+    tagline: "See your business online the way customers do",
+    description: "Compare your Google Business Profile, website, directories, and reviews against your confirmed business details, then see what needs attention and how to address it.",
+    features: [
+      "A health score with clearly stated coverage",
+      "Directory comparisons against confirmed business details",
+      "Prioritized fixes with owners and next steps",
+      "Review request and response guidance",
+      "Evidence behind findings and rechecks of fixes",
+      "Read-only assessment — no listings changed automatically",
+    ],
+    niches: [],
+    app: {
+      rgb: "80 195 135",
+      ink: "#b5f3cf",
+      href: "https://online-health.citywidedigital.ca/",
+      action: { label: "Order a campaign" },
+    },
+  },
 ];
 
 export default function Services() {
@@ -214,10 +237,17 @@ export default function Services() {
                           >
                             Explore <ArrowUpRight className="h-3.5 w-3.5" />
                           </a>
-                          {app.action ? (
+                          {app.action?.href ? (
                             <a href={app.action.href} target="_blank" rel="noopener noreferrer" className="gp-btn gp-btn--app">
                               {app.action.label}
                             </a>
+                          ) : app.action ? (
+                            <span>
+                              <button type="button" disabled className="gp-btn gp-btn--app cursor-not-allowed opacity-60">
+                                {app.action.label}
+                              </button>
+                              <span className="gp-kicker mt-2 block">Destination not configured</span>
+                            </span>
                           ) : (
                             <Link to="/pricing#start-trial" className="gp-btn gp-btn--app">
                               Start free trial
