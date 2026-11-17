@@ -15,13 +15,13 @@ type FooterLink = {
 const footerLinks: Record<string, FooterLink[]> = {
   Products: [
     { label: "Google Synced Website", href: "/services#website-builder", icon: Globe },
-    { label: "Social Sync Pro", href: "/services#social-sync", icon: Share2 },
     { label: "Listing Sync Pro", href: "/services#listing-manager", icon: MapPin },
-    { label: "Review Engine", href: "/services#video-reviews", icon: Video, iconClass: "text-[var(--footer-product-review)]" },
-    { label: "Site Concierge", href: "/services#site-concierge", icon: Settings },
-    { label: "Creator Campaigns", href: "/services#creator-campaigns", icon: Megaphone, iconClass: "text-[var(--footer-product-creator)]" },
+    { label: "Social Sync Pro", href: "/services#social-sync", icon: Share2 },
     { label: "Business Online Health", href: "/services#online-health", icon: Activity, iconClass: "text-[var(--footer-product-health)]" },
     { label: "Google Coach", href: "/services#google-coach", icon: GraduationCap, iconClass: "text-[var(--footer-product-coach)]" },
+    { label: "Review Engine", href: "/services#video-reviews", icon: Video, iconClass: "text-[var(--footer-product-review)]" },
+    { label: "Creator Campaigns", href: "/services#creator-campaigns", icon: Megaphone, iconClass: "text-[var(--footer-product-creator)]" },
+    { label: "Site Concierge", href: "/services#site-concierge", icon: Settings },
   ],
   Company: [
     { label: "About Us", href: "/about" },
