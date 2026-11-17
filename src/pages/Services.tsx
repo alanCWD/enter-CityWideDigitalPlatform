@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Globe, Share2, MapPin, Video, Settings, Megaphone, Activity, GraduationCap, Check, ArrowUpRight, type LucideIcon } from "lucide-react";
+import { Globe, Share2, MapPin, Video, Settings, Megaphone, Activity, GraduationCap, Check, ArrowUpRight, ArrowDownRight, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { GlassHero } from "@/components/marketing/glass/GlassHero";
@@ -206,6 +206,38 @@ export default function Services() {
           Talk to sales
         </Link>
       </GlassHero>
+
+      <section className="gp-service-index" aria-labelledby="service-index-heading">
+        <div className="gp-shell">
+          <div className="gp-service-index__heading">
+            <div>
+              <p className="gp-kicker">Explore / Products & services</p>
+              <h2 id="service-index-heading" className="gp-display mt-3 text-2xl md:text-3xl">Find the right tool for your business</h2>
+            </div>
+            <span className="gp-kicker gp-service-index__count">{String(services.length).padStart(2, "0")} / Explore below</span>
+          </div>
+          <nav aria-label="Products and services" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {services.map((service, index) => (
+              <Link
+                key={service.id}
+                to={`/services#${service.id}`}
+                className={`gp-panel gp-panel--hover gp-service-card${service.app ? " gp-panel--app" : ""}`}
+                style={service.app ? ({ "--gp-app-rgb": service.app.rgb, "--gp-app-ink": service.app.ink } as CSSProperties) : undefined}
+              >
+                <div className="gp-service-card__top">
+                  <span className="gp-service-card__icon"><service.icon aria-hidden="true" strokeWidth={1.5} /></span>
+                  <span className="gp-service-card__number">{String(index + 1).padStart(2, "0")}</span>
+                  <ArrowDownRight className="gp-service-card__arrow" aria-hidden="true" />
+                </div>
+                <div>
+                  <h3 className="gp-service-card__title">{service.name}</h3>
+                  <p className="gp-service-card__subtitle">{service.tagline}</p>
+                </div>
+              </Link>
+            ))}
+          </nav>
+        </div>
+      </section>
 
       {services.map((service, index) => {
         const app = service.app;

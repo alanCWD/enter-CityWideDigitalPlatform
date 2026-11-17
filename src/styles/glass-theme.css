@@ -332,6 +332,69 @@
   color: rgb(var(--gp-app-rgb) / 0.95);
 }
 
+/* Compact directory of service panels */
+.gp-service-index {
+  padding: 1rem 0 4.5rem;
+}
+
+.gp-service-index__heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  margin-bottom: 1.75rem;
+}
+
+.gp-service-index__count {
+  display: none;
+  padding-bottom: 0.25rem;
+}
+
+@media (min-width: 768px) {
+  .gp-service-index { padding-bottom: 6rem; }
+  .gp-service-index__count { display: block; }
+}
+
+.gp-service-card {
+  display: flex;
+  min-height: 175px;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.75rem;
+  padding: 1.25rem;
+  color: var(--gp-ink);
+}
+
+.gp-service-card:focus-visible {
+  outline: 2px solid var(--gp-blue);
+  outline-offset: 4px;
+}
+
+.gp-service-card__top {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.gp-service-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 1px solid var(--gp-line);
+  border-radius: 0.75rem;
+  color: var(--gp-app-ink, var(--gp-ice));
+}
+
+.gp-service-card__icon svg { width: 1rem; height: 1rem; }
+.gp-service-card.gp-panel--app .gp-service-card__icon { border-color: rgb(var(--gp-app-rgb) / 0.4); background: rgb(var(--gp-app-rgb) / 0.1); }
+.gp-service-card__number { font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 0.625rem; letter-spacing: 0.16em; color: var(--gp-ink-55); }
+.gp-service-card__arrow { width: 1rem; height: 1rem; margin-left: auto; color: var(--gp-ink-55); transition: transform 200ms ease, color 200ms ease; }
+.gp-service-card:hover .gp-service-card__arrow, .gp-service-card:focus-visible .gp-service-card__arrow { transform: translate(2px, 2px); color: var(--gp-ink); }
+.gp-service-card__title { font-size: 1rem; font-weight: 400; line-height: 1.25; color: var(--gp-ink); }
+.gp-service-card__subtitle { margin-top: 0.5rem; font-size: 0.8125rem; font-weight: 300; line-height: 1.5; color: var(--gp-ink-72); }
+
 .gp-inset {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
