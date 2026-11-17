@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Globe, Share2, MapPin, Video, Settings, Check, ArrowUpRight, type LucideIcon } from "lucide-react";
+import { Globe, Share2, MapPin, Video, Settings, Megaphone, Check, ArrowUpRight, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { GlassHero } from "@/components/marketing/glass/GlassHero";
@@ -22,6 +22,7 @@ type Service = {
     ink: string;
     /** Where "Explore" sends the visitor. */
     href: string;
+    action?: { label: string; href: string };
   };
 };
 
@@ -118,6 +119,29 @@ const services: Service[] = [
     ],
     niches: [],
   },
+  {
+    id: "creator-campaigns",
+    icon: Megaphone,
+    name: "Creator Campaigns",
+    price: "from $1,800 CAD/mo + GST",
+    tagline: "Your next customer is already scrolling",
+    description: "Put your business in front of new customers with content from vetted creators. Choose a campaign, approve your creator shortlist, and follow platform-verified views in your client portal.",
+    features: [
+      "Vetted creators matched to your business",
+      "Monthly campaign packages and creator briefs",
+      "Creator shortlist approved before your campaign starts",
+      "Content across Instagram, TikTok, and YouTube, depending on package",
+      "Platform-verified views and engagement reporting",
+      "Human review before creator payment",
+    ],
+    niches: [],
+    app: {
+      rgb: "239 190 65",
+      ink: "#ffe6a2",
+      href: "https://creator-campaigns.citywidedigital.ca/",
+      action: { label: "Order a campaign", href: "https://creator-campaigns.citywidedigital.ca/order" },
+    },
+  },
 ];
 
 export default function Services() {
@@ -190,9 +214,15 @@ export default function Services() {
                           >
                             Explore <ArrowUpRight className="h-3.5 w-3.5" />
                           </a>
-                          <Link to="/pricing#start-trial" className="gp-btn gp-btn--app">
-                            Start free trial
-                          </Link>
+                          {app.action ? (
+                            <a href={app.action.href} target="_blank" rel="noopener noreferrer" className="gp-btn gp-btn--app">
+                              {app.action.label}
+                            </a>
+                          ) : (
+                            <Link to="/pricing#start-trial" className="gp-btn gp-btn--app">
+                              Start free trial
+                            </Link>
+                          )}
                         </>
                       ) : (
                         <>
