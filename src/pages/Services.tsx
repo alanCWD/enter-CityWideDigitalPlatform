@@ -9,6 +9,7 @@ type Service = {
   id: string;
   icon: LucideIcon;
   iconColor?: string;
+  accentRgb?: string;
   name: string;
   price: string;
   tagline: string;
@@ -32,6 +33,7 @@ const services: Service[] = [
     id: "website-builder",
     icon: Globe,
     iconColor: "var(--product-website-icon)",
+    accentRgb: "168 211 255",
     name: "Google Synced Website",
     price: "from $197/mo",
     tagline: "A living website that keeps itself updated",
@@ -52,6 +54,7 @@ const services: Service[] = [
     id: "listing-manager",
     icon: MapPin,
     iconColor: "var(--product-listing-icon)",
+    accentRgb: "143 225 212",
     name: "Listing Sync Pro",
     price: "$79/mo",
     tagline: "Accurate everywhere, always",
@@ -70,6 +73,7 @@ const services: Service[] = [
     id: "social-sync",
     icon: Share2,
     iconColor: "var(--product-social-icon)",
+    accentRgb: "245 182 220",
     name: "Social Sync Pro",
     price: "$47/mo",
     tagline: "Post once. Appear everywhere.",
@@ -179,6 +183,7 @@ const services: Service[] = [
     id: "site-concierge",
     icon: Settings,
     iconColor: "var(--product-concierge-icon)",
+    accentRgb: "255 204 164",
     name: "Site Concierge",
     price: "Pay-per-use",
     tagline: "Any change you need — just ask",
@@ -194,6 +199,12 @@ const services: Service[] = [
     niches: [],
   },
 ];
+
+function serviceAccentStyle(service: Service): CSSProperties | undefined {
+  const rgb = service.app?.rgb ?? service.accentRgb;
+  if (!rgb) return undefined;
+  return { "--gp-app-rgb": rgb, "--gp-app-ink": service.app?.ink ?? service.iconColor } as CSSProperties;
+}
 
 export default function Services() {
   return (
@@ -227,8 +238,8 @@ export default function Services() {
                 <Link
                   key={service.id}
                   to={`/services#${service.id}`}
-                  className={`gp-panel gp-panel--hover gp-service-card${service.app ? " gp-panel--app" : ""}`}
-                  style={service.app ? ({ "--gp-app-rgb": service.app.rgb, "--gp-app-ink": service.app.ink } as CSSProperties) : undefined}
+                  className={`gp-panel gp-panel--hover gp-service-card${service.app || service.accentRgb ? " gp-panel--app" : ""}`}
+                  style={serviceAccentStyle(service)}
                 >
                   <div className="gp-service-card__top">
                     <span className="gp-service-card__icon"><service.icon aria-hidden="true" strokeWidth={1.5} style={service.iconColor ? { color: service.iconColor } : undefined} /></span>
@@ -252,12 +263,8 @@ export default function Services() {
           <section key={service.id} id={service.id} className="gp-section scroll-mt-24">
             <div className="gp-shell">
               <article
-                className={`gp-panel gp-panel--hover overflow-hidden${app ? " gp-panel--app" : ""}`}
-                style={
-                  app
-                    ? ({ "--gp-app-rgb": app.rgb, "--gp-app-ink": app.ink } as CSSProperties)
-                    : undefined
-                }
+                className={`gp-panel gp-panel--hover overflow-hidden${app || service.accentRgb ? " gp-panel--app" : ""}`}
+                style={serviceAccentStyle(service)}
               >
                 <div className="grid gap-10 p-7 md:p-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-14">
                   <div>
@@ -311,19 +318,19 @@ export default function Services() {
                         </>
                       ) : service.id === "website-builder" ? (
                         <>
-                          <a href="/google-business-profile-website-sync.html" className="gp-btn-ghost">
+                          <a href="/google-business-profile-website-sync.html" className="gp-btn-ghost gp-btn-ghost--app">
                             Learn More
                           </a>
-                          <Link to="/pricing#start-trial" className="gp-btn">
+                          <Link to="/pricing#start-trial" className="gp-btn gp-btn--app">
                             Start Free Trial <ArrowUpRight className="h-3.5 w-3.5" />
                           </Link>
                         </>
                       ) : (
                         <>
-                          <Link to="/pricing#start-trial" className="gp-btn">
+                          <Link to="/pricing#start-trial" className={`gp-btn${service.accentRgb ? " gp-btn--app" : ""}`}>
                             Start free trial <ArrowUpRight className="h-3.5 w-3.5" />
                           </Link>
-                          <Link to="/contact" className="gp-btn-ghost">
+                          <Link to="/contact" className={`gp-btn-ghost${service.accentRgb ? " gp-btn-ghost--app" : ""}`}>
                             Talk to sales
                           </Link>
                         </>
