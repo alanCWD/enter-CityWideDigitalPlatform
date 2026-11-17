@@ -27,13 +27,16 @@ const footerLinks: Record<string, FooterLink[]> = {
     { label: "About Us", href: "/about" },
     { label: "Pricing", href: "/pricing" },
     { label: "Contact", href: "/contact" },
-    { label: "Partner Program", href: "/contact" },
-  ],
-  Support: [
     { label: "Help Center", href: "/about#faq" },
     { label: "Book a Demo", href: "https://calendly.com/alan-citywidedigital/30min", external: true },
     { label: "Privacy Policy", href: "/privacy" },
     { label: "Terms of Service", href: "/terms" },
+    { label: "Partner Program", href: "/contact" },
+  ],
+  Guides: [
+    { label: "GBP-synced websites", href: "/google-business-profile-website-sync.html", plain: true },
+    { label: "Google Business Profile as source of truth", href: "/gbp-source-of-truth" },
+    { label: "Google Business Profile as a local listing", href: "/gbp-local-listing" },
   ],
 };
 
