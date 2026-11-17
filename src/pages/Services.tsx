@@ -8,6 +8,7 @@ import { GlassCTA } from "@/components/marketing/glass/GlassCTA";
 type Service = {
   id: string;
   icon: LucideIcon;
+  iconColor?: string;
   name: string;
   price: string;
   tagline: string;
@@ -30,6 +31,7 @@ const services: Service[] = [
   {
     id: "website-builder",
     icon: Globe,
+    iconColor: "var(--product-website-icon)",
     name: "Google Synced Website",
     price: "from $197/mo",
     tagline: "A living website that keeps itself updated",
@@ -49,6 +51,7 @@ const services: Service[] = [
   {
     id: "listing-manager",
     icon: MapPin,
+    iconColor: "var(--product-listing-icon)",
     name: "Listing Sync Pro",
     price: "$79/mo",
     tagline: "Accurate everywhere, always",
@@ -66,6 +69,7 @@ const services: Service[] = [
   {
     id: "social-sync",
     icon: Share2,
+    iconColor: "var(--product-social-icon)",
     name: "Social Sync Pro",
     price: "$47/mo",
     tagline: "Post once. Appear everywhere.",
@@ -174,6 +178,7 @@ const services: Service[] = [
   {
     id: "site-concierge",
     icon: Settings,
+    iconColor: "var(--product-concierge-icon)",
     name: "Site Concierge",
     price: "Pay-per-use",
     tagline: "Any change you need — just ask",
@@ -226,7 +231,7 @@ export default function Services() {
                   style={service.app ? ({ "--gp-app-rgb": service.app.rgb, "--gp-app-ink": service.app.ink } as CSSProperties) : undefined}
                 >
                   <div className="gp-service-card__top">
-                    <span className="gp-service-card__icon"><service.icon aria-hidden="true" strokeWidth={1.5} /></span>
+                    <span className="gp-service-card__icon"><service.icon aria-hidden="true" strokeWidth={1.5} style={service.iconColor ? { color: service.iconColor } : undefined} /></span>
                     <span className="gp-service-card__number">{String(index + 1).padStart(2, "0")}</span>
                     <ArrowDownRight className="gp-service-card__arrow" aria-hidden="true" />
                   </div>
@@ -260,7 +265,7 @@ export default function Services() {
                       <span className="gp-icon-tile flex h-12 w-12 items-center justify-center rounded-2xl border border-white/15 bg-white/[0.07]">
                         <service.icon
                           className="h-5 w-5"
-                          style={{ color: app ? "var(--gp-app-ink)" : "var(--gp-ice)" }}
+                          style={{ color: service.iconColor ?? (app ? "var(--gp-app-ink)" : "var(--gp-ice)") }}
                           strokeWidth={1.5}
                         />
                       </span>

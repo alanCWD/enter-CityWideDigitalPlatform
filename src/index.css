@@ -56,6 +56,10 @@
 
     /* Product icons on dark footer surfaces, matching their Services panels. */
     --footer-product-icon: #cfe2ff;
+    --product-website-icon: #a8d3ff;
+    --product-listing-icon: #8fe1d4;
+    --product-social-icon: #f5b6dc;
+    --product-concierge-icon: #ffcca4;
     --footer-product-review: #ffc4bc;
     --footer-product-creator: #ffe6a2;
     --footer-product-health: #b5f3cf;

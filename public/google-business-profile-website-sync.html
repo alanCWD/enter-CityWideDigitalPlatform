@@ -39,6 +39,10 @@
       --line-soft: rgba(255, 255, 255, 0.07);
       --blue: #6ea8ff;
       --ice: #cfe2ff;
+      --product-website-icon: #a8d3ff;
+      --product-listing-icon: #8fe1d4;
+      --product-social-icon: #f5b6dc;
+      --product-concierge-icon: #ffcca4;
       --glass: linear-gradient(158deg, rgba(255,255,255,0.11) 0%, rgba(255,255,255,0.045) 48%, rgba(255,255,255,0.02) 100%);
       --glass-border: rgba(255, 255, 255, 0.17);
       --shadow: 0 28px 70px -32px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.16);
@@ -267,6 +271,8 @@
     .footer a:hover { color: var(--ink); }
     .footer-product { display: inline-flex; align-items: center; gap: 0.625rem; }
     .footer-product svg { width: 16px; height: 16px; flex-shrink: 0; color: var(--ice); }
+    .footer-product .website { color: var(--product-website-icon); } .footer-product .listing { color: var(--product-listing-icon); }
+    .footer-product .social-product { color: var(--product-social-icon); } .footer-product .concierge { color: var(--product-concierge-icon); }
     .footer-product .review { color: #ffc4bc; } .footer-product .creator { color: #ffe6a2; }
     .footer-product .health { color: #b5f3cf; } .footer-product .coach { color: #e1cbff; }
     .footer-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--line); padding-top: 2rem; }
@@ -729,14 +735,14 @@
         <div>
           <h2>Products</h2>
           <ul>
-            <li><a class="footer-product" href="/services#website-builder"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-globe"/></svg>Google Synced Website</a></li>
-            <li><a class="footer-product" href="/services#listing-manager"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-pin"/></svg>Listing Sync Pro</a></li>
-            <li><a class="footer-product" href="/services#social-sync"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-share"/></svg>Social Sync Pro</a></li>
+            <li><a class="footer-product" href="/services#website-builder"><svg class="website" viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-globe"/></svg>Google Synced Website</a></li>
+            <li><a class="footer-product" href="/services#listing-manager"><svg class="listing" viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-pin"/></svg>Listing Sync Pro</a></li>
+            <li><a class="footer-product" href="/services#social-sync"><svg class="social-product" viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-share"/></svg>Social Sync Pro</a></li>
             <li><a class="footer-product" href="/services#online-health"><svg class="health" viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-activity"/></svg>Business Online Health</a></li>
             <li><a class="footer-product" href="/services#google-coach"><svg class="coach" viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-cap"/></svg>Google Coach</a></li>
             <li><a class="footer-product" href="/services#video-reviews"><svg class="review" viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-video"/></svg>Review Engine</a></li>
             <li><a class="footer-product" href="/services#creator-campaigns"><svg class="creator" viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-megaphone"/></svg>Creator Campaigns</a></li>
-            <li><a class="footer-product" href="/services#site-concierge"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-settings"/></svg>Site Concierge</a></li>
+            <li><a class="footer-product" href="/services#site-concierge"><svg class="concierge" viewBox="0 0 24 24" aria-hidden="true"><use href="#footer-settings"/></svg>Site Concierge</a></li>
           </ul>
         </div>
         <div>
