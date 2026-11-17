@@ -22,7 +22,7 @@ type Service = {
     ink: string;
     /** Where "Explore" sends the visitor. */
     href: string;
-    action?: { label: string; href?: string };
+    action?: { label: string; href: string };
   };
 };
 
@@ -162,7 +162,7 @@ const services: Service[] = [
       rgb: "80 195 135",
       ink: "#b5f3cf",
       href: "https://online-health.citywidedigital.ca/",
-      action: { label: "Order a campaign" },
+      action: { label: "Order a campaign", href: "https://creator-campaigns.citywidedigital.ca/order" },
     },
   },
 ];
@@ -237,17 +237,10 @@ export default function Services() {
                           >
                             Explore <ArrowUpRight className="h-3.5 w-3.5" />
                           </a>
-                          {app.action?.href ? (
+                          {app.action ? (
                             <a href={app.action.href} target="_blank" rel="noopener noreferrer" className="gp-btn gp-btn--app">
                               {app.action.label}
                             </a>
-                          ) : app.action ? (
-                            <span>
-                              <button type="button" disabled className="gp-btn gp-btn--app cursor-not-allowed opacity-60">
-                                {app.action.label}
-                              </button>
-                              <span className="gp-kicker mt-2 block">Destination not configured</span>
-                            </span>
                           ) : (
                             <Link to="/pricing#start-trial" className="gp-btn gp-btn--app">
                               Start free trial
