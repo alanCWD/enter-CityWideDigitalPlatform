@@ -30,10 +30,10 @@ const services: Service[] = [
   {
     id: "website-builder",
     icon: Globe,
-    name: "GBP Website Builder",
+    name: "Google Synced Website",
     price: "from $197/mo",
     tagline: "A living website that keeps itself updated",
-    description: "Most business websites go stale within weeks of launch. CityWide's GBP Website Builder solves that permanently. Your site is directly connected to your Google Business Profile — every new review or post, menu change, updated hour, or added product automatically reflects on your website.",
+    description: "Most business websites go stale within weeks of launch. CityWide's Google Synced Website solves that permanently. Your site is directly connected to your Google Business Profile — every new review or post, menu change, updated hour, or added product automatically reflects on your website.",
     features: [
       "Live sync with Google Business Profile",
       "Niche-specific templates (Restaurant, Contractor, Retail, and more)",

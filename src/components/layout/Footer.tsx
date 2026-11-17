@@ -14,8 +14,7 @@ type FooterLink = {
 
 const footerLinks: Record<string, FooterLink[]> = {
   Products: [
-    { label: "GBP-Synced Websites", href: "/google-business-profile-website-sync.html", plain: true, icon: Globe },
-    { label: "GBP Website Builder", href: "/services#website-builder", icon: Globe },
+    { label: "Google Synced Website", href: "/services#website-builder", icon: Globe },
     { label: "Social Sync Pro", href: "/services#social-sync", icon: Share2 },
     { label: "Listing Sync Pro", href: "/services#listing-manager", icon: MapPin },
     { label: "Review Engine", href: "/services#video-reviews", icon: Video, iconClass: "text-[var(--footer-product-review)]" },
