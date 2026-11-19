@@ -1,4 +1,4 @@
-import { ArrowRight, MessageCircle, MessagesSquare, Send, Sparkles, Layers, Radio, Image, CheckCircle2 } from "lucide-react";
+import { ArrowRight, MessageCircle, MessagesSquare, Send, Sparkles, Layers, CheckCircle2 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import "@/styles/inbox-landing.css";
@@ -15,8 +15,8 @@ export default function InboxLanding() {
       <section className="inbox-hero inbox-wrap">
         <div className="inbox-hero-copy">
           <div className="inbox-eyebrow"><span /> CITYWIDE DIGITAL / GUIDE</div>
-          <h1>Understanding Inbox<br /><em>and LINE.</em></h1>
-          <p>Learn how Inbox brings customer conversations into your dashboard, and explore how a future LINE integration could extend it.</p>
+          <h1>Understanding<br /><em>Inbox Pro.</em></h1>
+          <p>Learn how Inbox brings customer conversations into your dashboard and explore plans for a standalone app.</p>
           <div className="inbox-actions"><Link className="inbox-button" to="/dashboard/inbox">Open dashboard Inbox <ArrowRight size={17} /></Link></div>
           <div className="inbox-note"><CheckCircle2 size={15} /> Available in your CityWide dashboard</div>
         </div>
@@ -27,7 +27,6 @@ export default function InboxLanding() {
         </div>
       </section>
       <section className="inbox-section inbox-wrap"><div className="inbox-section-intro"><div className="inbox-eyebrow">HOW INBOX WORKS</div><h2>Conversations in<br /><em>one view.</em></h2><p>Inbox provides a central place to view customer conversations, respond and access additional messaging tools.</p></div><div className="inbox-benefits">{benefits.map(({ icon: Icon, title, text }, i) => <article key={title}><div className="inbox-benefit-top"><Icon size={21} /><span>0{i + 1}</span></div><h3>{title}</h3><p>{text}</p></article>)}</div></section>
-      <section className="inbox-line-section"><div className="inbox-wrap inbox-line-grid"><div><div className="inbox-eyebrow"><span /> EXPLORING WHAT'S NEXT</div><h2>Make room for<br /><em>LINE.</em></h2><p>We’re exploring a direct LINE integration for Inbox, so businesses can connect with customers on another channel they use every day.</p><span className="inbox-status">PLANNED · NOT YET CONNECTED</span></div><div className="inbox-line-cards"><article><MessageCircle /><div><h3>Conversations, together</h3><p>Bring LINE Official Account messages alongside other customer conversations.</p></div></article><article><Image /><div><h3>More than words</h3><p>Explore support for rich content, including images and other media, to add context to conversations.</p></div></article><article><Radio /><div><h3>Reach out with purpose</h3><p>Explore broadcasts and automated follow-up to keep customers informed and engaged.</p></div></article></div></div><div className="inbox-wrap inbox-line-footnote">LINE integration is planned, not available today. It would require a LINE Official Account with the Messaging API enabled. LINE messaging quotas and charges depend on your account’s regional plan. LINE VOOM publishing is not included.</div></section>
       <section className="inbox-section inbox-wrap inbox-future"><div><div className="inbox-eyebrow">BUILT FOR THE WAY YOU WORK</div><h2>One Inbox.<br /><em>More possibilities.</em></h2></div><div><Sparkles size={27} /><h3>In the dashboard today.<br />Standalone in the future.</h3><p>Inbox is already part of your CityWide dashboard. A standalone app is planned for businesses that want to use Inbox on its own or alongside the rest of the CityWide suite.</p></div></section>
       <section className="inbox-wrap inbox-final"><div><div className="inbox-eyebrow">CONTINUE EXPLORING</div><h2>Find Inbox in<br /><em>your dashboard.</em></h2><p>Visit the dashboard to view the Inbox available to your account.</p></div><div className="inbox-actions"><Link className="inbox-button" to="/dashboard/inbox">Open dashboard Inbox <ArrowRight size={17} /></Link></div></section>
     </div>
