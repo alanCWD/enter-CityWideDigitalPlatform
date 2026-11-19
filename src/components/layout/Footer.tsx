@@ -17,7 +17,6 @@ const footerLinks: Record<string, FooterLink[]> = {
     { label: "Google Synced Website", href: "/services#website-builder", icon: Globe, iconClass: "text-[var(--product-website-icon)]" },
     { label: "Listing Sync Pro", href: "/services#listing-manager", icon: MapPin, iconClass: "text-[var(--product-listing-icon)]" },
     { label: "Social Sync Pro", href: "/services#social-sync", icon: Share2, iconClass: "text-[var(--product-social-icon)]" },
-    { label: "Inbox", href: "/inbox" },
     { label: "Business Online Health", href: "/services#online-health", icon: Activity, iconClass: "text-[var(--footer-product-health)]" },
     { label: "Google Coach", href: "/services#google-coach", icon: GraduationCap, iconClass: "text-[var(--footer-product-coach)]" },
     { label: "Review Engine", href: "/services#video-reviews", icon: Video, iconClass: "text-[var(--footer-product-review)]" },
@@ -35,6 +34,7 @@ const footerLinks: Record<string, FooterLink[]> = {
     { label: "Partner Program", href: "/contact" },
   ],
   Guides: [
+    { label: "Understanding Inbox and LINE", href: "/inbox" },
     { label: "GBP-synced websites", href: "/google-business-profile-website-sync.html", plain: true },
     { label: "Google Business Profile as source of truth", href: "/gbp-source-of-truth" },
     { label: "Google Business Profile as a local listing", href: "/gbp-local-listing" },
