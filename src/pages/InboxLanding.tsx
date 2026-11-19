@@ -1,34 +1,65 @@
-import { ArrowRight, MessageCircle, MessagesSquare, Send, Sparkles, Layers, CheckCircle2 } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
-import "@/styles/inbox-landing.css";
+import { GlassHero } from "@/components/marketing/glass/GlassHero";
+import { GlassCTA } from "@/components/marketing/glass/GlassCTA";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-const benefits = [
-  { icon: MessagesSquare, title: "A clearer view of conversations", text: "Bring customer messages into a shared view instead of jumping between channels." },
-  { icon: Send, title: "Keep the conversation moving", text: "Read and respond from the dashboard Inbox, with conversations organized in one place." },
-  { icon: Layers, title: "Room to grow", text: "Broadcasts, sequences and automations are available in the dashboard for eligible plans." },
+const faqs = [
+  { question: "Where do I find Inbox?", answer: "Inbox is available in the CityWide dashboard. Sign in and select Inbox from the dashboard navigation to view the conversations available to your account." },
+  { question: "Which messages appear in Inbox?", answer: "Inbox is designed to bring messages from connected channels together. The conversations available depend on your connected accounts and their supported messaging capabilities." },
+  { question: "Can I reply to customers from Inbox?", answer: "Yes. Open a conversation in the dashboard Inbox to read its messages and respond, subject to the connected channel's messaging rules and availability." },
+  { question: "What are the Pro messaging tools?", answer: "The dashboard includes Pro tabs for broadcasts, sequences and automations. Access depends on your plan, and supported actions can vary by connected channel." },
+  { question: "Can I use Inbox without the CityWide dashboard?", answer: "Not yet. A standalone app is planned for use on its own or alongside the CityWide suite, but it is not currently available." },
 ];
 
 export default function InboxLanding() {
-  return <Layout variant="glass">
-    <div className="inbox-landing">
-      <section className="inbox-hero inbox-wrap">
-        <div className="inbox-hero-copy">
-          <div className="inbox-eyebrow"><span /> CITYWIDE DIGITAL / GUIDE</div>
-          <h1>Understanding<br /><em>Inbox Pro.</em></h1>
-          <p>Learn how Inbox brings customer conversations into your dashboard and explore plans for a standalone app.</p>
-          <div className="inbox-actions"><Link className="inbox-button" to="/dashboard/inbox">Open dashboard Inbox <ArrowRight size={17} /></Link></div>
-          <div className="inbox-note"><CheckCircle2 size={15} /> Available in your CityWide dashboard</div>
-        </div>
-        <div className="inbox-preview" aria-label="Illustrative Inbox conversation preview">
-          <div className="inbox-preview-top"><div><span className="inbox-preview-mark"><MessageCircle size={17} /></span><strong>Inbox</strong></div><span>ILLUSTRATIVE PREVIEW</span></div>
-          <div className="inbox-preview-body"><div className="inbox-list"><div className="inbox-list-heading">Conversations <span>●</span></div><div className="inbox-person active"><b>AM</b><div><strong>Alex Morgan</strong><small>Thanks for getting back to me!</small></div></div><div className="inbox-person"><b>JT</b><div><strong>Jamie Taylor</strong><small>Hi, I have a question...</small></div></div><div className="inbox-person"><b>SK</b><div><strong>Sam Kim</strong><small>That sounds great.</small></div></div></div><div className="inbox-thread"><div className="inbox-thread-header"><b>AM</b><div><strong>Alex Morgan</strong><small>Customer conversation</small></div></div><div className="inbox-thread-content"><span className="inbox-day">TODAY</span><div className="bubble">Hi! Could you tell me more about your services?</div><div className="bubble reply">Of course! We'd be happy to help.</div><div className="bubble">Thanks for getting back to me!</div></div><div className="inbox-compose">Write a reply... <Send size={16} /></div></div></div>
-          <div className="inbox-preview-caption"><span /> One place for the conversations that matter</div>
+  return (
+    <Layout variant="glass">
+      <GlassHero
+        kicker="Inbox Pro Guide"
+        title="Understanding Inbox Pro"
+        lede="A guide to managing customer conversations in your CityWide dashboard and the tools available as your messaging needs grow."
+      />
+      <section className="gp-section">
+        <div className="gp-shell">
+          <article className="gp-panel gp-article mx-auto max-w-[760px] px-6 py-10 md:px-10 md:py-12">
+            <Link to="/services" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-12 transition-colors group">
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" /> Back to services
+            </Link>
+            <div className="space-y-10">
+              <p className="text-lg text-muted-foreground leading-relaxed">Customer conversations can arrive across different channels. Inbox brings the conversations available from your connected accounts into your CityWide dashboard, giving you a central place to read messages and respond.</p>
+              <section className="space-y-4 pt-4 border-t border-border">
+                <h2 className="text-2xl font-bold text-foreground">How Inbox works</h2>
+                <p className="text-muted-foreground leading-relaxed">Open Inbox in the dashboard to see your conversation list. Select a conversation to read its messages and reply from the same workspace. The channels and conversations you see depend on your connected accounts and their messaging capabilities.</p>
+                <p className="text-muted-foreground leading-relaxed">Keeping conversations in one view can make it easier to follow up without checking each channel separately.</p>
+              </section>
+              <section className="space-y-4 pt-4 border-t border-border">
+                <h2 className="text-2xl font-bold text-foreground">Additional tools for eligible plans</h2>
+                <p className="text-muted-foreground leading-relaxed">Inbox includes Pro sections for broadcasts, sequences and automations. These tools are intended to support broader outreach and follow-up alongside individual conversations.</p>
+                <p className="text-muted-foreground leading-relaxed">Access depends on your plan, and available actions can vary by connected channel. Check your dashboard for the options available to your account.</p>
+              </section>
+              <section className="space-y-4 pt-4 border-t border-border">
+                <h2 className="text-2xl font-bold text-foreground">Dashboard today, standalone in the future</h2>
+                <p className="text-muted-foreground leading-relaxed">Inbox is currently part of the CityWide dashboard. A standalone app is planned for businesses that want to use Inbox on its own or alongside the CityWide suite. Standalone access is not available yet.</p>
+                <Link to="/dashboard/inbox" className="inline-block text-primary underline underline-offset-2 hover:text-primary/80 transition-colors">Open dashboard Inbox →</Link>
+              </section>
+              <section className="space-y-4 pt-4 border-t border-border">
+                <h2 className="text-2xl font-bold text-foreground">Frequently asked questions</h2>
+                <Accordion type="single" collapsible className="w-full">
+                  {faqs.map((faq, index) => (
+                    <AccordionItem value={`faq-${index}`} key={faq.question}>
+                      <AccordionTrigger className="text-left text-foreground">{faq.question}</AccordionTrigger>
+                      <AccordionContent className="text-muted-foreground leading-relaxed">{faq.answer}</AccordionContent>
+                    </AccordionItem>
+                  ))}
+                </Accordion>
+              </section>
+            </div>
+          </article>
         </div>
       </section>
-      <section className="inbox-section inbox-wrap"><div className="inbox-section-intro"><div className="inbox-eyebrow">HOW INBOX WORKS</div><h2>Conversations in<br /><em>one view.</em></h2><p>Inbox provides a central place to view customer conversations, respond and access additional messaging tools.</p></div><div className="inbox-benefits">{benefits.map(({ icon: Icon, title, text }, i) => <article key={title}><div className="inbox-benefit-top"><Icon size={21} /><span>0{i + 1}</span></div><h3>{title}</h3><p>{text}</p></article>)}</div></section>
-      <section className="inbox-section inbox-wrap inbox-future"><div><div className="inbox-eyebrow">BUILT FOR THE WAY YOU WORK</div><h2>One Inbox.<br /><em>More possibilities.</em></h2></div><div><Sparkles size={27} /><h3>In the dashboard today.<br />Standalone in the future.</h3><p>Inbox is already part of your CityWide dashboard. A standalone app is planned for businesses that want to use Inbox on its own or alongside the rest of the CityWide suite.</p></div></section>
-      <section className="inbox-wrap inbox-final"><div><div className="inbox-eyebrow">CONTINUE EXPLORING</div><h2>Find Inbox in<br /><em>your dashboard.</em></h2><p>Visit the dashboard to view the Inbox available to your account.</p></div><div className="inbox-actions"><Link className="inbox-button" to="/dashboard/inbox">Open dashboard Inbox <ArrowRight size={17} /></Link></div></section>
-    </div>
-  </Layout>;
+      <GlassCTA kicker="Next / Get started" />
+    </Layout>
+  );
 }
