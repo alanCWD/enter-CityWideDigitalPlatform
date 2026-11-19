@@ -34,10 +34,10 @@ const footerLinks: Record<string, FooterLink[]> = {
     { label: "Partner Program", href: "/contact" },
   ],
   Guides: [
+    { label: "GBP synced websites", href: "/google-business-profile-website-sync.html", plain: true },
+    { label: "GBP as source of truth", href: "/gbp-source-of-truth" },
+    { label: "GBP local listing", href: "/gbp-local-listing" },
     { label: "Inbox Pro", href: "/inbox" },
-    { label: "GBP-synced websites", href: "/google-business-profile-website-sync.html", plain: true },
-    { label: "Google Business Profile as source of truth", href: "/gbp-source-of-truth" },
-    { label: "Google Business Profile as a local listing", href: "/gbp-local-listing" },
   ],
 };
 
