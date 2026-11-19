@@ -65,6 +65,7 @@ const PUBLIC_META: Record<string, PageMeta> = {
 };
 
 const PRIVATE_PREFIXES = [
+  "/business-online-health/checkout",
   "/dashboard",
   "/portal",
   "/admin",

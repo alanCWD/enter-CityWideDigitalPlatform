@@ -1,5 +1,6 @@
 import Home from "./pages/Home";
 import InboxLanding from "./pages/InboxLanding";
+import BusinessOnlineHealthCheckout from "./pages/BusinessOnlineHealthCheckout";
 import Services from "./pages/Services";
 import Pricing from "./pages/Pricing";
 import About from "./pages/About";
@@ -81,6 +82,11 @@ export const routers = [
     path: "/pricing",
     name: "pricing",
     element: <Pricing />,
+  },
+  {
+    path: "/business-online-health/checkout",
+    name: "business-online-health-checkout",
+    element: <BusinessOnlineHealthCheckout />,
   },
   {
     path: "/about",
