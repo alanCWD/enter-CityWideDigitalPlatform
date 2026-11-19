@@ -1,4 +1,5 @@
 import Home from "./pages/Home";
+import InboxLanding from "./pages/InboxLanding";
 import Services from "./pages/Services";
 import Pricing from "./pages/Pricing";
 import About from "./pages/About";
@@ -65,6 +66,11 @@ export const routers = [
     path: "/",
     name: "home",
     element: <Home />,
+  },
+  {
+    path: "/inbox",
+    name: "inbox-landing",
+    element: <InboxLanding />,
   },
   {
     path: "/services",

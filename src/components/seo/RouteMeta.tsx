@@ -20,6 +20,10 @@ const PUBLIC_META: Record<string, PageMeta> = {
     description:
       "CityWide Digital connects your Google Business Profile to a live website, your social channels and 40+ directories — automatically. Plans from $197/mo CAD.",
   },
+  "/inbox": {
+    title: "Inbox — Customer Conversations | CityWide Digital",
+    description: "Explore CityWide Inbox, customer conversations in your dashboard, and our plans for standalone access and LINE integration.",
+  },
   "/services": {
     title: "Services — GBP-Synced Websites, Social Sync, Listings & Reviews | CityWide Digital",
     description:
