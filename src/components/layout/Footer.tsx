@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { MapPin, Mail, Phone, Facebook, Instagram, Linkedin, Twitter, Globe, Share2, Video, Settings, Megaphone, Activity, GraduationCap, type LucideIcon } from "lucide-react";
 import { LogoOnDark } from "@/components/branding/Logo";
+import AskAboutCityWide from "./AskAboutCityWide";
 import { cn } from "@/lib/utils";
 
 type FooterLink = {
@@ -134,6 +135,9 @@ export default function Footer({ variant = "default" }: FooterProps) {
             </div>
           ))}
         </div>
+
+        {/* AI discovery row */}
+        <AskAboutCityWide variant={variant} />
 
         {/* Bottom Bar */}
         <div className="border-t border-white/10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
