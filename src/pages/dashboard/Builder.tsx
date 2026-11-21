@@ -30,7 +30,7 @@ import { useAppBuilderAI } from "@/hooks/useAppBuilderAI";
 import { useCodeGen } from "@/hooks/useCodeGen";
 
 type CreationMode = "template" | "copy";
-type Tier = "basic" | "pro" | "enterprise";
+type Tier = "starter" | "growth" | "pro";
 
 const PROMPT_PRESETS = [
   { name: "Agency Blueprint", icon: Wand2, description: "Master prompt for generating full agency website apps.", color: "text-[#0078D7]", bg: "bg-[#0078D7]/10" },
@@ -46,10 +46,11 @@ const TEMPLATES = [
   { id: "retail", label: "Retail Store", icon: "🛍", desc: "Product catalog, inventory, Merchant Center" },
 ];
 
+// Plan names and prices must match /pricing (CAD, plus GST).
 const TIERS: { id: Tier; name: string; price: string; features: string[] }[] = [
-  { id: "basic", name: "Basic", price: "$97/mo", features: ["GMB Sync", "1 Template", "SEO Basics"] },
-  { id: "pro", name: "Pro", price: "$197/mo", features: ["Everything in Basic", "Social Sync", "Listing Sync Pro", "Analytics"] },
-  { id: "enterprise", name: "Enterprise", price: "$297/mo", features: ["Everything in Pro", "Video Reviews", "POS Integration", "Native Ordering"] },
+  { id: "starter", name: "Starter", price: "$197/mo", features: ["GBP-synced website", "Industry template", "Custom domain", "Basic SEO"] },
+  { id: "growth", name: "Growth", price: "$397/mo", features: ["Everything in Starter", "Social Sync Pro", "40+ directory listings", "Monthly report"] },
+  { id: "pro", name: "Pro", price: "$597/mo", features: ["Everything in Growth", "Review Engine", "3 Site Concierge credits", "Account manager"] },
 ];
 
 function OutputPanel({

@@ -70,6 +70,25 @@ Your output should include:
 Focus on eliminating marketplace commission fees through first-party commerce.`,
 };
 
+// Plan names and prices must match /pricing (CAD, plus GST).
+const TIER_DETAIL: Record<string, { name: string; price: string; summary: string }> = {
+  starter: {
+    name: "Starter",
+    price: "$197/mo CAD",
+    summary: "GBP-synced website, industry template, custom domain, social sync to Google plus 2 platforms, post scheduling, basic SEO",
+  },
+  growth: {
+    name: "Growth",
+    price: "$397/mo CAD",
+    summary: "everything in Starter, social sync to Google plus 3 platforms, 40+ directory listings, monthly performance report, priority support",
+  },
+  pro: {
+    name: "Pro",
+    price: "$597/mo CAD",
+    summary: "everything in Growth, social sync to up to 10 platforms, Review Engine, AI chatbot intake, 3 Site Concierge credits, dedicated account manager",
+  },
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -83,6 +102,8 @@ Deno.serve(async (req) => {
 
     const { niche, tier, mode, gbp, preset, competitorUrl, customPrompt, clientName } = await req.json();
 
+    const plan = TIER_DETAIL[tier] ?? TIER_DETAIL.pro;
+
     // Build context block
     const contextLines: string[] = [
       `You are CityWide Digital's AI App Builder — an expert local business website architect.`,
@@ -90,7 +111,7 @@ Deno.serve(async (req) => {
       `## Project Configuration`,
       `- **Client Name**: ${clientName || "New Client"}`,
       `- **Business Niche**: ${niche || "Restaurant"}`,
-      `- **Subscription Tier**: ${tier || "Pro"} (${ tier === "basic" ? "$97/mo — GMB Sync + SEO" : tier === "enterprise" ? "$297/mo — Full Suite including Video Reviews, POS, Native Ordering" : "$197/mo — Social Sync, Listing Manager, Analytics"})`,
+      `- **Subscription Plan**: ${plan.name} — ${plan.price} plus GST (${plan.summary})`,
       `- **Mode**: ${mode === "copy" ? `Clone & Improve Competitor (${competitorUrl || "URL not provided"})` : "Template-based Build"}`,
       `- **Google Business Profile**: ${gbp ? "Connected — full GBP sync enabled" : "Not connected — manual content mode"}`,
     ];

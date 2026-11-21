@@ -126,7 +126,7 @@ function SidebarContent({ onNav }: { onNav: () => void }) {
         <div className="mt-2 h-1 bg-sidebar-foreground/10 rounded-full">
           <div className="h-1 bg-[linear-gradient(90deg,#0078D7,#22C55E)] rounded-full w-3/4" />
         </div>
-        <div className="text-[10px] text-sidebar-foreground/40 mt-1">Next tier: Enterprise Scale</div>
+        <div className="text-[10px] text-sidebar-foreground/40 mt-1">Next tier: Pro</div>
       </div>
 
       {/* Settings */}
