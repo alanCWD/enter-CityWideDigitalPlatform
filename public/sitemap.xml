@@ -37,11 +37,13 @@
   </url>
   <url>
     <loc>https://www.citywidedigital.ca/gbp-source-of-truth</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://www.citywidedigital.ca/gbp-local-listing</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.6</priority>
   </url>

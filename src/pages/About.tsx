@@ -137,12 +137,12 @@ const faqSections = [
             It's also the most complete, Google-verified record of your business. By connecting CityWide directly to
             your GBP, we ensure your entire online presence starts from the most authoritative source available and
             stays in sync with it automatically.{" "}
-            <Link
-              to="/gbp-local-listing"
+            <a
+              href="/gbp-local-listing.html"
               className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium transition-colors"
             >
               Read our full guide on why GBP is your most important local listing →
-            </Link>
+            </a>
           </p>
         ),
       },
@@ -163,12 +163,12 @@ const faqSections = [
             local visibility in Google Search and Maps. By centralising updates in CityWide Digital, you're far more
             likely to keep your profile fully optimised — which supports better rankings in the Local Pack and more
             discovery from "near me" searches. Your business{" "}
-            <Link
-              to="/gbp-source-of-truth"
+            <a
+              href="/gbp-source-of-truth.html"
               className="text-primary underline underline-offset-2 hover:text-primary/80 font-medium transition-colors"
             >
               source of truth
-            </Link>{" "}
+            </a>{" "}
             helps your local visibility.
           </p>
         ),

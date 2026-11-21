@@ -36,8 +36,8 @@ const footerLinks: Record<string, FooterLink[]> = {
   ],
   Guides: [
     { label: "GBP synced websites", href: "/google-business-profile-website-sync.html", plain: true },
-    { label: "GBP as source of truth", href: "/gbp-source-of-truth" },
-    { label: "GBP local listing", href: "/gbp-local-listing" },
+    { label: "GBP as source of truth", href: "/gbp-source-of-truth.html", plain: true },
+    { label: "GBP local listing", href: "/gbp-local-listing.html", plain: true },
     { label: "Inbox Pro", href: "/inbox" },
   ],
 };

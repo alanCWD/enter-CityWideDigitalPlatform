@@ -33,8 +33,8 @@ Not synchronised: content that does not exist in Google, such as custom page cop
 - [Pricing](https://www.citywidedigital.ca/pricing): plans, feature comparison and trial signup.
 - [About](https://www.citywidedigital.ca/about): company background, process and frequently asked questions.
 - [Contact](https://www.citywidedigital.ca/contact): enquiry form and contact details.
-- [Google Business Profile as your source of truth](https://www.citywidedigital.ca/gbp-source-of-truth): guide to managing business information in Google.
-- [Google Business Profile as a local listing](https://www.citywidedigital.ca/gbp-local-listing): guide to local listing accuracy and citations.
+- [Google Business Profile as your source of truth](https://www.citywidedigital.ca/gbp-source-of-truth): standalone guide to managing business information in Google and letting the website, listings and social channels follow. Full text is rendered in the page HTML.
+- [Google Business Profile as a local listing](https://www.citywidedigital.ca/gbp-local-listing): standalone guide to local search, Maps, the Local Pack, citation accuracy and reviews. Full text is rendered in the page HTML.
 - [Privacy policy](https://www.citywidedigital.ca/privacy) · [Terms of service](https://www.citywidedigital.ca/terms)
 
 ## Contact
@@ -48,4 +48,4 @@ Not synchronised: content that does not exist in Google, such as custom page cop
 
 - This file is an optional summary for tools that choose to read it. It is not a registration and does not guarantee inclusion in any search or AI answer.
 - Google Search ignores llms.txt. Pages are also submitted through the sitemap at https://www.citywidedigital.ca/sitemap.xml.
-- Last reviewed: 12 November 2026.
+- Last reviewed: 21 November 2026.

@@ -4,6 +4,10 @@ import Layout from "@/components/layout/Layout";
 import { GlassHero } from "@/components/marketing/glass/GlassHero";
 import { GlassCTA } from "@/components/marketing/glass/GlassCTA";
 
+/**
+ * Static, crawlable twin: public/gbp-local-listing.html.
+ * Keep the guide copy in both places in step.
+ */
 export default function GbpLocalListing() {
   return (
     <Layout variant="glass">
