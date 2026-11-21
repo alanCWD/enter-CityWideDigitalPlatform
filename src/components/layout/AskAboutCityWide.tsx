@@ -52,13 +52,14 @@ const ASK_URLS: AskLink[] = [
 
 interface AskAboutCityWideProps {
   variant?: "default" | "capsule";
+  className?: string;
 }
 
-export default function AskAboutCityWide({ variant = "default" }: AskAboutCityWideProps) {
+export default function AskAboutCityWide({ variant = "default", className }: AskAboutCityWideProps) {
   const capsule = variant === "capsule";
 
   return (
-    <div className="border-t border-white/10 pt-8 pb-8">
+    <div className={cn("mt-7", className)}>
       <p
         className={cn(
           "text-sm",

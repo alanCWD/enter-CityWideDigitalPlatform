@@ -95,6 +95,8 @@ export default function Footer({ variant = "default" }: FooterProps) {
                 </a>
               </div>
             </div>
+
+            <AskAboutCityWide variant={variant} />
           </div>
 
           {/* Link Columns */}
@@ -135,9 +137,6 @@ export default function Footer({ variant = "default" }: FooterProps) {
             </div>
           ))}
         </div>
-
-        {/* AI discovery row */}
-        <AskAboutCityWide variant={variant} />
 
         {/* Bottom Bar */}
         <div className="border-t border-white/10 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
