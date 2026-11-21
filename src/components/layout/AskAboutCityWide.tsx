@@ -34,7 +34,9 @@ const ASK_URLS: AskLink[] = [
   },
   {
     name: "Gemini",
-    href: `https://gemini.google.com/app?q=${encodeURIComponent(QUESTION)}`,
+    // Gemini's app ignores ?q=, so ask through Google AI Mode, which is Gemini-powered
+    // and does preload the question (udm=50).
+    href: `https://www.google.com/search?q=${encodeURIComponent(QUESTION)}&udm=50`,
     icon: "/ai/gemini.png",
   },
   {
