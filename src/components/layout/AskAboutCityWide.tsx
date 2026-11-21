@@ -68,7 +68,7 @@ export default function AskAboutCityWide({ variant = "default" }: AskAboutCityWi
         Ask about CityWide Digital
       </p>
 
-      <ul className="mt-4 flex flex-wrap items-center gap-3 sm:gap-4">
+      <ul className="mt-3 flex flex-wrap items-center gap-2.5">
         {ASK_URLS.map(({ name, href, icon, align }) => (
           <li key={name} className="group relative">
             <a
@@ -77,7 +77,7 @@ export default function AskAboutCityWide({ variant = "default" }: AskAboutCityWi
               rel="noopener noreferrer"
               aria-label={`Ask ${name} about CityWide Digital`}
               className={cn(
-                "flex h-11 w-11 items-center justify-center rounded-full border transition-all duration-200",
+                "flex h-8 w-8 items-center justify-center rounded-full border transition-all duration-200",
                 "border-white/10 bg-white/[0.03]",
                 "hover:border-[#0078D7]/50 hover:bg-white/[0.07]",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0078D7]/60",
@@ -88,7 +88,7 @@ export default function AskAboutCityWide({ variant = "default" }: AskAboutCityWi
                 alt=""
                 aria-hidden="true"
                 draggable={false}
-                className="h-[22px] w-auto max-w-[22px] object-contain opacity-70 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
+                className="h-[17px] w-auto max-w-[17px] object-contain opacity-70 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
               />
             </a>
             <span
