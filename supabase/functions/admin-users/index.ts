@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       case "setRole": {
         const { userId, role, enabled } = body;
         if (!userId || !role) return json({ error: "userId and role required" }, 400);
-        if (!["admin", "agency", "client"].includes(role))
+        if (!["super_admin", "admin", "agency", "client"].includes(role))
           return json({ error: "invalid role" }, 400);
 
         // Safety: don't let the last admin demote themselves
@@ -108,6 +108,43 @@ Deno.serve(async (req) => {
           if (error) return json({ error: error.message }, 500);
         }
         return json({ success: true });
+      }
+
+      // Secure provisioning: no password is ever created or shown here. An
+      // existing account gets a reset email; a new one gets an invite email.
+      case "inviteSuperAdmin": {
+        const rawEmail = typeof body.email === "string" ? body.email : "";
+        const email = rawEmail.toLowerCase().trim();
+        if (!email || !email.includes("@")) return json({ error: "a valid email is required" }, 400);
+        const origin = typeof body.origin === "string" && /^https?:\/\//i.test(body.origin)
+          ? body.origin.replace(/\/+$/, "")
+          : "";
+        const redirectTo = origin ? `${origin}/portal/login` : undefined;
+
+        const { data: list, error: listErr } = await admin.auth.admin.listUsers({ perPage: 200 });
+        if (listErr) return json({ error: listErr.message }, 500);
+        const existing = (list?.users ?? []).find(
+          (u) => (u.email ?? "").toLowerCase() === email,
+        );
+
+        let userId = existing?.id ?? null;
+        if (userId) {
+          const { error: resetErr } = await admin.auth.admin.resetPasswordForEmail(email, { redirectTo });
+          if (resetErr) return json({ error: resetErr.message }, 500);
+        } else {
+          const { data: created, error: inviteErr } = await admin.auth.admin.inviteUserByEmail(email, { redirectTo });
+          if (inviteErr) return json({ error: inviteErr.message }, 500);
+          userId = created?.user?.id ?? null;
+        }
+        if (!userId) return json({ error: "Could not resolve that account" }, 500);
+
+        const { error: roleErr } = await admin
+          .from("user_roles")
+          .insert({ user_id: userId, role: "super_admin" });
+        if (roleErr && !roleErr.message.toLowerCase().includes("duplicate")) {
+          return json({ error: roleErr.message }, 500);
+        }
+        return json({ success: true, invited: !existing, userId });
       }
 
       case "deleteUser": {

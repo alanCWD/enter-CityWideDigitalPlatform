@@ -27,6 +27,7 @@ interface ManagedUser {
 }
 
 const ROLE_META: Record<AppRole, { icon: typeof Shield; color: string; label: string }> = {
+  super_admin: { icon: Shield, color: "text-[#F59E0B] bg-[#F59E0B]/15 border-[#F59E0B]/30", label: "Super admin" },
   admin: { icon: Shield, color: "text-[#22C55E] bg-[#22C55E]/15 border-[#22C55E]/30", label: "Admin" },
   agency: { icon: Briefcase, color: "text-[#0078D7] bg-[#0078D7]/15 border-[#0078D7]/30", label: "Agency" },
   client: { icon: UserIcon, color: "text-[#A855F7] bg-[#A855F7]/15 border-[#A855F7]/30", label: "Client" },
@@ -256,7 +257,7 @@ export function AdminUsers() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1.5">
-                          {(["admin", "agency", "client"] as AppRole[]).map((role) => {
+                          {(["super_admin", "admin", "agency", "client"] as AppRole[]).map((role) => {
                             const has = u.roles.includes(role);
                             const meta = ROLE_META[role];
                             return (

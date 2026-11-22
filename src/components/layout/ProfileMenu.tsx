@@ -26,7 +26,7 @@ import { useUserRole } from "@/hooks/useUserRole";
  */
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
-  const { isAdmin, isAgency, isClient } = useUserRole(user?.id);
+  const { isSuperAdmin, isAdmin, isAgency, isClient } = useUserRole(user?.id);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -42,7 +42,8 @@ export function ProfileMenu() {
   const handleSignOut = async () => {
     setOpen(false);
     await signOut();
-    navigate("/");
+    // Always land on the sign-in screen: no page may trap a signed-out user.
+    navigate("/portal/login", { replace: true });
   };
 
   if (!user) {
@@ -57,6 +58,15 @@ export function ProfileMenu() {
   }
 
   const initial = (user.email || "U").charAt(0).toUpperCase();
+  const roleLabel = isSuperAdmin
+    ? "Super admin"
+    : isAdmin
+      ? "Admin"
+      : isAgency
+        ? "Agency"
+        : isClient
+          ? "Client"
+          : "No role";
 
   // Build menu items based on role. Admins see everything.
   const items: { label: string; to: string; icon: typeof UserIcon; badge?: string }[] = [];
@@ -106,11 +116,9 @@ export function ProfileMenu() {
               <span className="text-[10px] font-bold text-[rgba(238,241,250,0.5)] uppercase tracking-wider">
                 Signed in
               </span>
-              {isAdmin && (
-                <span className="ml-auto flex items-center gap-1 text-[9px] font-bold bg-[#22C55E]/15 text-[#22C55E] px-1.5 py-0.5 rounded-full">
-                  <Shield className="w-2.5 h-2.5" /> Admin
-                </span>
-              )}
+              <span className="ml-auto flex items-center gap-1 text-[9px] font-bold bg-[#5BB8FF]/15 text-[#5BB8FF] px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                <Shield className="w-2.5 h-2.5" /> {roleLabel}
+              </span>
             </div>
             <p className="text-xs font-semibold text-[#EEF1FA] truncate">{user.email}</p>
           </div>

@@ -21,7 +21,7 @@ interface PortalLayoutProps {
 function PortalLayoutInner({ children, wide }: PortalLayoutProps) {
   const { clientId } = useParams();
   const { user, loading: authLoading, signOut } = useAuth();
-  const { isAdmin, loading: roleLoading } = useUserRole(user?.id);
+  const { isAgency, loading: roleLoading } = useUserRole(user?.id);
   const { connections, loading: connsLoading } = usePortalConnections(user?.id);
   const navigate = useNavigate();
 
@@ -29,14 +29,14 @@ function PortalLayoutInner({ children, wide }: PortalLayoutProps) {
     if (clientId || connsLoading || roleLoading) return;
     // A staff member opening /portal without choosing a client belongs in the
     // workspace, not in whichever portal happens to be first in the list.
-    if (isAdmin) {
+    if (isAgency) {
       navigate("/dashboard", { replace: true });
       return;
     }
     if (connections.length > 0) {
       navigate(`/portal/${connections[0].id}`, { replace: true });
     }
-  }, [clientId, connections, connsLoading, isAdmin, roleLoading, navigate]);
+  }, [clientId, connections, connsLoading, isAgency, roleLoading, navigate]);
 
   if (authLoading || connsLoading || roleLoading) {
     return (

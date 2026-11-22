@@ -390,6 +390,7 @@ async function syncClientApp(
   overrides: { plan?: string | null; seats?: number | null } = {},
 ): Promise<{ status: "active" | "paused"; workspace_slug: string | null; plan: string | null; seats: number | null }> {
   if (!clientId) throw new Error("Choose a client before syncing Inbox Pro.");
+  assertStaff(ctx);
   await assertClientAccess(ctx, clientId);
 
   const { rows: clientRows } = await exec({
@@ -398,7 +399,7 @@ async function syncClientApp(
   });
   const client = clientRows[0];
   if (!client) throw new Error(`client ${clientId} not found`);
-  const agencyId = String(client.agency_id ?? ctx.agencyId);
+  const agencyId = String(client.agency_id ?? "");
 
   const { rows: appRows } = await exec({
     sql: `SELECT id, citywide_client_id, workspace_slug, plan, seats, status FROM client_apps WHERE client_id = ? AND app_key = ? LIMIT 1`,
@@ -661,49 +662,102 @@ async function ensureSeedData() {
 
 interface AuthCtx {
   userId: string;
-  isSuperAdmin: boolean;
-  /** True for Citywide staff (super admin or a member of an agency). */
-  isStaff: boolean;
-  agencyId: string;
   email: string;
   name: string;
+  /** Postgres `user_roles.role` values for this user. */
+  roles: string[];
+  /** Agency-level super admin: may read and act on any client. */
+  isSuperAdmin: boolean;
+  /** Citywide or agency staff. Client users are never staff. */
+  isStaff: boolean;
+  /** Null for a client user — they are never given an agency identity. */
+  agencyId: string | null;
+  /** The clients a client user may touch (their own portal links). */
+  clientIds: string[];
 }
 async function resolveAuth(token: string): Promise<AuthCtx | { error: string }> {
-  const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
+  const adminClient = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
   const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
   if (userErr || !userData?.user) return { error: "Invalid token" };
   const userId = userData.user.id;
-  // The owning account is always super admin; ADMIN_EMAIL can extend this with a
-  // comma-separated list of additional addresses.
+  // The owning account stays a super admin; ADMIN_EMAIL can extend this.
   const OWNER_EMAIL = "alan@citywidedigital.ca";
   const adminEmails = (Deno.env.get("ADMIN_EMAIL") ?? "")
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
   const email = (userData.user.email ?? "").toLowerCase();
-  const isSuperAdmin = email === OWNER_EMAIL || adminEmails.includes(email);
   const meta = (userData.user.user_metadata ?? {}) as Record<string, unknown>;
   const metaName = [meta.full_name, meta.name].find((v) => typeof v === "string" && v.trim());
   const name = typeof metaName === "string" ? metaName.trim() : (email.split("@")[0] || "Citywide user");
-  let agencyId = "citywide";
+
+  // Roles live in Postgres; the enum's own values decide authority.
+  let roles: string[] = [];
+  try {
+    const { data } = await adminClient.from("user_roles").select("role").eq("user_id", userId);
+    roles = (data ?? []).map((row) => String((row as { role?: string }).role ?? ""));
+  } catch { /* treat as no roles */ }
+
+  const isSuperAdmin =
+    roles.includes("super_admin") || email === OWNER_EMAIL || adminEmails.includes(email);
+
+  let agencyId: string | null = null;
   let hasAgencyMembership = false;
   try {
     const { rows } = await exec({ sql: `SELECT agency_id FROM agency_members WHERE user_id = ? LIMIT 1`, args: [userId] });
     if (rows[0]?.agency_id) { agencyId = rows[0].agency_id as string; hasAgencyMembership = true; }
-  } catch { /* default to citywide */ }
-  return { userId, isSuperAdmin, isStaff: isSuperAdmin || hasAgencyMembership, agencyId, email, name };
+  } catch { /* no membership */ }
+
+  const isStaff =
+    isSuperAdmin || hasAgencyMembership || roles.includes("admin") || roles.includes("agency");
+
+  // Staff without a membership row keep working inside the default agency.
+  // A client user gets NO agency identity, so tenant filters cannot match them.
+  if (isStaff && !agencyId) agencyId = "citywide";
+
+  let clientIds: string[] = [];
+  if (!isStaff) {
+    try {
+      const { data: links } = await adminClient
+        .from("portal_users")
+        .select("connection_id")
+        .eq("user_id", userId);
+      const connectionIds = (links ?? [])
+        .map((link) => String((link as { connection_id?: string }).connection_id ?? ""))
+        .filter(Boolean);
+      if (connectionIds.length) {
+        const placeholders = connectionIds.map(() => "?").join(",");
+        const { rows } = await exec({
+          sql: `SELECT id FROM clients WHERE gbp_connection_id IN (${placeholders})`,
+          args: connectionIds,
+        });
+        clientIds = rows.map((row) => String(row.id));
+      }
+    } catch { clientIds = []; }
+  }
+
+  return { userId, email, name, roles, isSuperAdmin, isStaff, agencyId, clientIds };
+}
+
+/** Agency staff only. Client users may never mutate the client book. */
+function assertStaff(ctx: AuthCtx): void {
+  if (!ctx.isStaff) throw new Error("Forbidden: agency staff only");
 }
 
 function tenantScope(ctx: AuthCtx): { sql: string; args: SqlValue[] } {
   if (ctx.isSuperAdmin) return { sql: "1=1", args: [] };
-  return { sql: "agency_id = ?", args: [ctx.agencyId] };
+  if (ctx.agencyId) return { sql: "agency_id = ?", args: [ctx.agencyId] };
+  // A client user has no agency scope: bulk listing returns nothing.
+  return { sql: "1=0", args: [] };
 }
 
 async function assertClientAccess(ctx: AuthCtx, clientId: string): Promise<void> {
   const { rows } = await exec({ sql: `SELECT agency_id FROM clients WHERE id = ? LIMIT 1`, args: [clientId] });
   if (!rows[0]) throw new Error(`client ${clientId} not found`);
   if (ctx.isSuperAdmin) return;
-  if (rows[0].agency_id !== ctx.agencyId) throw new Error("Forbidden: client belongs to another agency");
+  if (ctx.isStaff && ctx.agencyId && rows[0].agency_id === ctx.agencyId) return;
+  if (ctx.clientIds.includes(clientId)) return;
+  throw new Error("Forbidden: this client is not in your account");
 }
 
 async function ensureStripeCustomer(clientId: string): Promise<string> {
@@ -818,10 +872,25 @@ async function summariseHealth(clientId: string) {
   return { score, ...bucketFor(score), checks: checks.rows, audits: audits.rows };
 }
 
+/**
+ * What a client user (a portal account with no staff role) may call at all.
+ * Everything else is staff-only: it is refused before any handler runs, so a
+ * client session can never reach the client book, billing or another client.
+ */
+const CLIENT_USER_ACTIONS = new Set([
+  "ping",
+  "clients.get",
+  "clientApps.list",
+  "clientApps.status",
+]);
+
 async function handle(action: string, payload: Record<string, unknown>, ctx: AuthCtx): Promise<unknown> {
+  if (!ctx.isStaff && !CLIENT_USER_ACTIONS.has(action)) {
+    throw new Error("Forbidden: this action requires an agency seat");
+  }
   const ts = tenantScope(ctx);
   switch (action) {
-    case "ping": return { ok: true, agency_id: ctx.agencyId, super_admin: ctx.isSuperAdmin };
+    case "ping": return { ok: true, agency_id: ctx.agencyId, super_admin: ctx.isSuperAdmin, is_staff: ctx.isStaff };
 
     case "debug.tables": {
       if (!ctx.isSuperAdmin) return { error: "Forbidden: super-admin only" };
@@ -957,8 +1026,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     case "clients.create": {
       const id = (payload.id as string) || uuid();
       // Super-admin can stamp a specific agency; otherwise use authenticated agency
-      const agencyId = (ctx.isSuperAdmin && payload.agency_id) ? (payload.agency_id as string) : ctx.agencyId;
-      await exec({ sql: `INSERT INTO clients (id, name, status, source, owner_id, billing_email, phone, address_line1, city, region, postal_code, country, gbp_connection_id, website, industry, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.name as string, (payload.status as string) ?? "lead", (payload.source as string) ?? null, (payload.owner_id as string) ?? null, (payload.billing_email as string) ?? null, (payload.phone as string) ?? null, (payload.address_line1 as string) ?? null, (payload.city as string) ?? null, (payload.region as string) ?? null, (payload.postal_code as string) ?? null, (payload.country as string) ?? null, (payload.gbp_connection_id as string) ?? null, (payload.website as string) ?? null, (payload.industry as string) ?? null, (payload.notes as string) ?? null, agencyId] });
+      const agencyId = (ctx.isSuperAdmin && payload.agency_id) ? (payload.agency_id as string) : ctx.agencyId;      await exec({ sql: `INSERT INTO clients (id, name, status, source, owner_id, billing_email, phone, address_line1, city, region, postal_code, country, gbp_connection_id, website, industry, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.name as string, (payload.status as string) ?? "lead", (payload.source as string) ?? null, (payload.owner_id as string) ?? null, (payload.billing_email as string) ?? null, (payload.phone as string) ?? null, (payload.address_line1 as string) ?? null, (payload.city as string) ?? null, (payload.region as string) ?? null, (payload.postal_code as string) ?? null, (payload.country as string) ?? null, (payload.gbp_connection_id as string) ?? null, (payload.website as string) ?? null, (payload.industry as string) ?? null, (payload.notes as string) ?? null, agencyId] });
       if (((payload.status as string) ?? "lead") === "active") await enqueueRecorder(id, "crm-create");
       return { id };
     }
@@ -1017,7 +1085,13 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const clientId = payload.client_id as string | undefined;
       const where: string[] = ["ca.app_key = ?"];
       const args: SqlValue[] = [appKey];
-      if (!ctx.isSuperAdmin) { where.push("c.agency_id = ?"); args.push(ctx.agencyId); }
+      if (!ctx.isSuperAdmin) {
+        if (ctx.agencyId) { where.push("c.agency_id = ?"); args.push(ctx.agencyId); }
+        else if (ctx.clientIds.length) {
+          where.push(`ca.client_id IN (${ctx.clientIds.map(() => "?").join(",")})`);
+          args.push(...ctx.clientIds);
+        } else where.push("1=0");
+      }
       if (clientId) {
         await assertClientAccess(ctx, clientId);
         where.push("ca.client_id = ?");
@@ -1036,6 +1110,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     case "clientApps.launch": {
       const clientId = payload.client_id as string;
       if (!clientId) throw new Error("Choose a client before launching Inbox Pro.");
+      assertStaff(ctx);
 
       const adminClient = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
       const { rows: clientRows } = await exec({
@@ -1053,7 +1128,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         args: [clientId, "inbox_pro"],
       });
       const app = appRows[0];
-      const agencyId = String(client.agency_id ?? ctx.agencyId);
+      const agencyId = String(client.agency_id ?? "");
       const slug = (app?.workspace_slug as string | null) ?? null;
       const role = await resolveLaunchRole(ctx, (client.gbp_connection_id as string | null) ?? null);
 
@@ -1164,7 +1239,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       }
 
       const citywideClientId = String(app.citywide_client_id);
-      const agencyId = String(app.agency_id ?? ctx.agencyId);
+      const agencyId = String(app.agency_id ?? "");
 
       // Cached for a minute; an explicit Refresh always reads Inbox Pro.
       const lastAttempt = app.last_checked_at ? Date.parse(String(app.last_checked_at)) : Number.NaN;

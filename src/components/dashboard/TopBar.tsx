@@ -1,6 +1,7 @@
 import { Bell, ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { ClientSearch } from "./ClientSearch";
+import { ScopeSwitcher } from "./ScopeSwitcher";
 import { ThemeToggle } from "./ThemeToggle";
 import { ProfileMenu } from "@/components/layout/ProfileMenu";
 
@@ -22,6 +23,9 @@ export function TopBar({ title, subtitle, action }: TopBarProps) {
       </div>
 
       <div className="flex items-center gap-3">
+        {/* Agency vs client scope, with a client switcher for super admins */}
+        <ScopeSwitcher />
+
         {/* GBP Client Search */}
         <ClientSearch />
 
