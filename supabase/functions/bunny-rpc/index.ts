@@ -715,9 +715,11 @@ async function resolveAuth(token: string): Promise<AuthCtx | { error: string }> 
     roles.includes("agency") ||
     roles.includes("agency_staff");
 
-  // No implicit agency identity. Without a membership row a staff account has
-  // no workspace scope at all, instead of silently inheriting `citywide`.
-  // Super admins are the only accounts allowed across every client.
+  // No implicit agency identity for client users. A super admin, however, has
+  // no agency_members row by design, and client-scoped writes (vault, invoices)
+  // require a concrete agency_id — give them the default workspace.
+  // Agency staff without a membership still get no scope at all.
+  if (isSuperAdmin && !agencyId) agencyId = "citywide";
 
   let clientIds: string[] = [];
   if (!isStaff) {
@@ -1049,7 +1051,8 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     case "clients.create": {
       const id = (payload.id as string) || uuid();
       // Super-admin can stamp a specific agency; otherwise use authenticated agency
-      const agencyId = (ctx.isSuperAdmin && payload.agency_id) ? (payload.agency_id as string) : ctx.agencyId;      await exec({ sql: `INSERT INTO clients (id, name, status, source, owner_id, billing_email, phone, address_line1, city, region, postal_code, country, gbp_connection_id, website, industry, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.name as string, (payload.status as string) ?? "lead", (payload.source as string) ?? null, (payload.owner_id as string) ?? null, (payload.billing_email as string) ?? null, (payload.phone as string) ?? null, (payload.address_line1 as string) ?? null, (payload.city as string) ?? null, (payload.region as string) ?? null, (payload.postal_code as string) ?? null, (payload.country as string) ?? null, (payload.gbp_connection_id as string) ?? null, (payload.website as string) ?? null, (payload.industry as string) ?? null, (payload.notes as string) ?? null, agencyId] });
+      const agencyId = (ctx.isSuperAdmin && payload.agency_id) ? (payload.agency_id as string) : ctx.agencyId;
+      await exec({ sql: `INSERT INTO clients (id, name, status, source, owner_id, billing_email, phone, address_line1, city, region, postal_code, country, gbp_connection_id, website, industry, notes, agency_id) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, args: [id, payload.name as string, (payload.status as string) ?? "lead", (payload.source as string) ?? null, (payload.owner_id as string) ?? null, (payload.billing_email as string) ?? null, (payload.phone as string) ?? null, (payload.address_line1 as string) ?? null, (payload.city as string) ?? null, (payload.region as string) ?? null, (payload.postal_code as string) ?? null, (payload.country as string) ?? null, (payload.gbp_connection_id as string) ?? null, (payload.website as string) ?? null, (payload.industry as string) ?? null, (payload.notes as string) ?? null, agencyId] });
       if (((payload.status as string) ?? "lead") === "active") await enqueueRecorder(id, "crm-create");
       return { id };
     }
