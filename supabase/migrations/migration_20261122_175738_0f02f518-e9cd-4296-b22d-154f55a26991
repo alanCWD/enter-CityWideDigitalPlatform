@@ -1,0 +1,27 @@
+CREATE TABLE IF NOT EXISTS public.inbox_launch_audit (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agency_id text NOT NULL,
+  client_id text NOT NULL,
+  app_key text NOT NULL DEFAULT 'inbox_pro',
+  workspace_slug text,
+  user_id uuid,
+  user_email text,
+  role text,
+  result text NOT NULL CHECK (result IN ('issued','rejected')),
+  error_code text,
+  error_message text,
+  jti text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS inbox_launch_audit_client_idx
+  ON public.inbox_launch_audit (client_id, created_at DESC);
+
+ALTER TABLE public.inbox_launch_audit ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "staff read own launches, admins read all"
+  ON public.inbox_launch_audit FOR SELECT
+  USING (is_admin() OR user_id = auth.uid());
+
+GRANT SELECT ON public.inbox_launch_audit TO authenticated;
+REVOKE INSERT, UPDATE, DELETE ON public.inbox_launch_audit FROM authenticated, anon;

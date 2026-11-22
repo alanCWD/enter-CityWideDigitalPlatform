@@ -3,12 +3,14 @@ import {
   AlertCircle,
   ExternalLink,
   Inbox,
+  Loader2,
   Pause,
   RotateCw,
   Settings2,
 } from "lucide-react";
 import { StatusPill } from "@/components/crm/StatusPill";
-import { APP_STATUS_LABEL, formatWhen, type ClientApp } from "@/lib/apps";
+import { formatWhen, launchBlockedReason, type ClientApp } from "@/lib/apps";
+import { handOffToInboxPro, requestInboxLaunch } from "@/lib/inboxLaunch";
 import { cn } from "@/lib/utils";
 
 interface ClientSummary {
@@ -29,8 +31,6 @@ interface InboxProCardProps {
 const ACTION_REASONS = {
   connect:
     "Connecting creates this client's workspace in Inbox Pro and needs the Inbox Pro contract and its server-side key. That arrives in the next step, so nothing was sent.",
-  open:
-    "Opening needs a live workspace and Inbox Pro's address and sign-in hand-off. That arrives with the connection step, so nothing was opened.",
   manage:
     "Plan and seat changes are sent to Inbox Pro. That arrives with the connection step, so nothing was changed.",
   pause:
@@ -41,6 +41,8 @@ const ACTION_REASONS = {
 
 export function InboxProCard({ app, client, compact = false }: InboxProCardProps) {
   const [notice, setNotice] = useState<{ action: keyof typeof ACTION_REASONS; text: string } | null>(null);
+  const [launching, setLaunching] = useState(false);
+  const [launchError, setLaunchError] = useState<string | null>(null);
 
   const blocked = (action: keyof typeof ACTION_REASONS, text: string) => setNotice({ action, text });
 
@@ -81,6 +83,22 @@ export function InboxProCard({ app, client, compact = false }: InboxProCardProps
 
   const sample = app.is_sample === true;
   const when = (iso: string | null | undefined) => formatWhen(iso);
+  const blockedReason = launchBlockedReason(app);
+
+  const launch = async () => {
+    if (blockedReason || launching) return;
+    setLaunching(true);
+    setLaunchError(null);
+    setNotice(null);
+    try {
+      const ticket = await requestInboxLaunch(app.client_id);
+      // The token exists only inside this navigation.
+      handOffToInboxPro(ticket.url);
+    } catch (e) {
+      setLaunchError((e as Error).message);
+      setLaunching(false);
+    }
+  };
 
   return (
     <div
@@ -162,27 +180,45 @@ export function InboxProCard({ app, client, compact = false }: InboxProCardProps
           <div className="mt-5 flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() =>
-                blocked(
-                  "open",
-                  app.status !== "active" || !app.workspace_slug
-                    ? `Open Inbox Pro is blocked because this workspace is ${APP_STATUS_LABEL[app.status].toLowerCase()}${app.workspace_slug ? "" : " and has no recorded address"}. Nothing was opened.`
-                    : ACTION_REASONS.open,
-                )
-              }
-              className="inline-flex items-center gap-1.5 bg-[#0078D7] hover:bg-[#005FA3] text-primary-foreground text-xs font-bold px-4 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              onClick={() => void launch()}
+              disabled={!!blockedReason || launching}
+              aria-describedby={blockedReason ? `launch-blocked-${app.id}` : undefined}
+              className="inline-flex items-center gap-1.5 bg-[#0078D7] hover:bg-[#005FA3] text-primary-foreground text-xs font-bold px-4 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#0078D7]"
             >
-              <ExternalLink className="w-3.5 h-3.5" />
-              Open Inbox Pro
+              {launching ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <ExternalLink className="w-3.5 h-3.5" />
+              )}
+              {launching ? "Opening Inbox Pro…" : "Open Inbox Pro"}
             </button>
             <ActionButton icon={Settings2} label="Manage plan" onClick={() => blocked("manage", ACTION_REASONS.manage)} />
             <ActionButton icon={Pause} label="Pause" onClick={() => blocked("pause", ACTION_REASONS.pause)} />
             <ActionButton icon={RotateCw} label="Retry" onClick={() => blocked("retry", ACTION_REASONS.retry)} />
           </div>
 
+          {blockedReason && (
+            <p
+              id={`launch-blocked-${app.id}`}
+              className="text-[11px] text-amber-700 dark:text-amber-300 mt-3"
+            >
+              {blockedReason}
+            </p>
+          )}
+
+          {launchError && (
+            <div
+              role="alert"
+              className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2"
+            >
+              <AlertCircle className="w-3.5 h-3.5 text-destructive flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-destructive break-words">{launchError}</p>
+            </div>
+          )}
+
           <p className="text-[11px] text-muted-foreground mt-3">
-            Nothing on this card is sent to Inbox Pro yet. Pausing is the only way to stop a
-            workspace — Citywide never deletes one.
+            Launching hands this browser to Inbox Pro with a single-use signed link that expires in
+            minutes. Pausing is the only way to stop a workspace — Citywide never deletes one.
           </p>
 
           <ActionNotice notice={notice} />

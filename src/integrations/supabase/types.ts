@@ -3578,6 +3578,54 @@ export type Database = {
           },
         ]
       }
+      inbox_launch_audit: {
+        Row: {
+          agency_id: string
+          app_key: string
+          client_id: string
+          created_at: string
+          error_code: string | null
+          error_message: string | null
+          id: string
+          jti: string | null
+          result: string
+          role: string | null
+          user_email: string | null
+          user_id: string | null
+          workspace_slug: string | null
+        }
+        Insert: {
+          agency_id: string
+          app_key?: string
+          client_id: string
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          jti?: string | null
+          result: string
+          role?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          workspace_slug?: string | null
+        }
+        Update: {
+          agency_id?: string
+          app_key?: string
+          client_id?: string
+          created_at?: string
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          jti?: string | null
+          result?: string
+          role?: string | null
+          user_email?: string | null
+          user_id?: string | null
+          workspace_slug?: string | null
+        }
+        Relationships: []
+      }
       oauth_states: {
         Row: {
           agency_id: string

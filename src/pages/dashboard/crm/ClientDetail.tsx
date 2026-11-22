@@ -420,11 +420,10 @@ export function ClientDetail() {
 }
 
 // ─── Inline client detail editor ─────────────────────────────────────────
-type ClientRow = Record<string, string | null>;
-
 const CLIENT_STATUS_OPTIONS = ["lead", "prospect", "active", "paused", "churned"] as const;
 
-function ClientEditForm({ client, onSaved, onCancel }: { client: ClientRow; onSaved: () => void; onCancel: () => void }) {
+function ClientEditForm({ client, onSaved, onCancel }: { client: CrmClient; onSaved: () => void; onCancel: () => void }) {
+  const source = client as unknown as Record<string, string | number | null>;
   const fields: { key: string; label: string; type?: string; placeholder?: string }[] = [
     { key: "name",          label: "Business Name",  placeholder: "Acme Corp" },
     { key: "billing_email", label: "Billing Email",  type: "email", placeholder: "billing@company.com" },
@@ -443,7 +442,7 @@ function ClientEditForm({ client, onSaved, onCancel }: { client: ClientRow; onSa
 
   const [form, setForm] = useState<Record<string, string>>(() => ({
     status: (client.status as string) ?? "lead",
-    ...Object.fromEntries(fields.map(({ key }) => [key, String(client[key] ?? "")])),
+    ...Object.fromEntries(fields.map(({ key }) => [key, String(source[key] ?? "")])),
   }));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -458,7 +457,7 @@ function ClientEditForm({ client, onSaved, onCancel }: { client: ClientRow; onSa
     }
     setBusy(true); setErr(null);
     try {
-      const payload: Record<string, string | number | null> = { id: client.id as string, status: form.status };
+      const payload: Record<string, string | number | null> = { id: client.id, status: form.status };
       for (const { key } of fields) payload[key] = form[key] || null;
       payload.seats = form.seats.trim() ? Math.trunc(Number(form.seats)) : null;
       await crm("clients.update", payload);

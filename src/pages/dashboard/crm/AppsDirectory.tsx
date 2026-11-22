@@ -1,8 +1,9 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { AlertCircle, ArrowRight, Inbox, RotateCw } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { StatusPill } from "@/components/crm/StatusPill";
+import { LaunchResultBanner } from "@/components/apps/LaunchResultBanner";
 import { useClientApps } from "@/hooks/useClientApps";
 import {
   APP_STATUS_LABEL,
@@ -23,6 +24,15 @@ const STATUSES: AppStatus[] = ["active", "paused", "needs_attention", "not_conne
  */
 export function AppsDirectory() {
   const { rows, loading, error, reload } = useClientApps();
+  const [params, setParams] = useSearchParams();
+  const launchCode = params.get("code") ?? params.get("error");
+
+  const dismissLaunchResult = () => {
+    const next = new URLSearchParams(params);
+    next.delete("code");
+    next.delete("error");
+    setParams(next, { replace: true });
+  };
 
   const showingSamples = !loading && !error && rows.length === 0;
   const displayed = sortClientApps(showingSamples ? SAMPLE_CLIENT_APPS : rows);
@@ -37,6 +47,8 @@ export function AppsDirectory() {
       />
 
       <div className="px-6 py-6 space-y-4">
+        <LaunchResultBanner code={launchCode} onDismiss={dismissLaunchResult} />
+
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">
             A client's Inbox Pro reads <span className="font-semibold text-foreground">Active</span>{" "}

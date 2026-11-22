@@ -34,6 +34,7 @@ import { ClientsList } from "./pages/dashboard/crm/ClientsList";
 import { ClientDetail } from "./pages/dashboard/crm/ClientDetail";
 import { Catalog } from "./pages/dashboard/crm/Catalog";
 import { AppsDirectory } from "./pages/dashboard/crm/AppsDirectory";
+import { LaunchResult } from "./pages/dashboard/crm/LaunchResult";
 import { InvoicesList } from "./pages/dashboard/crm/InvoicesList";
 import { ApiAccess } from "./pages/dashboard/crm/ApiAccess";
 import { ContentStudio } from "./pages/dashboard/crm/ContentStudio";
@@ -283,6 +284,12 @@ export const routers = [
     path: "/dashboard/crm/apps",
     name: "crm-apps",
     element: <Auth><AppsDirectory /></Auth>,
+  },
+  {
+    // Where Inbox Pro returns a refused handoff, e.g. ?code=409
+    path: "/dashboard/crm/apps/launch",
+    name: "crm-apps-launch-result",
+    element: <Auth><LaunchResult /></Auth>,
   },
   {
     path: "/dashboard/crm/catalog",

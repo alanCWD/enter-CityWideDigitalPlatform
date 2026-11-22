@@ -93,7 +93,6 @@ export function formatWhen(iso: string | null | undefined): string | null {
 }
 
 const hoursAgo = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
-
 /**
  * Presentation-only sample rows so the Apps surfaces can be judged before any
  * real Inbox Pro record exists. Every row is tagged Sample in the UI, is never
@@ -185,3 +184,43 @@ export const SAMPLE_CLIENT_APPS: ClientApp[] = [
     is_sample: true,
   },
 ];
+
+// ── Launch handoff ──────────────────────────────────────────────────────────
+
+/**
+ * Why launch is not offered right now, or null when it is. A workspace with no
+ * address or a paused workspace can never be launched into.
+ */
+export function launchBlockedReason(app: ClientApp | null): string | null {
+  if (!app) return "No Inbox Pro workspace is recorded for this client yet.";
+  if (app.is_sample) {
+    return "This is a sample row, so launch is disabled here. Launch works on real Inbox Pro workspaces.";
+  }
+  if (!app.workspace_slug) {
+    return "Launch is disabled: this client has no Inbox Pro workspace address yet.";
+  }
+  if (app.status === "paused") {
+    return "Launch is disabled: this Inbox Pro workspace is paused. Resume it first — Citywide pauses workspaces and never deletes them.";
+  }
+  return null;
+}
+
+/** Inbox Pro's answers to a handoff, mapped to what the person should do next. */
+export const LAUNCH_RESULT_MESSAGES: Record<string, string> = {
+  "401": "Inbox Pro rejected the sign-in link because it had expired or had been tampered with. Launch again for a fresh link.",
+  "403": "Inbox Pro says this workspace is paused, so it refused the sign-in. Resume the workspace in Inbox Pro, then launch again.",
+  "404": "Inbox Pro could not find this client's workspace. Check the workspace address recorded for this client.",
+  "409": "Inbox Pro rejected the link because it was already used, or the workspace has no seats left. Launch again for a new link, or free a seat.",
+  "503": "Inbox Pro is not configured to accept sign-ins right now. Its server settings need to be completed.",
+};
+
+export function launchResultMessage(code: string | null): string {
+  if (!code) {
+    return "No launch result was provided. If you reached this page by accident, go back to apps and launch again.";
+  }
+  return (
+    LAUNCH_RESULT_MESSAGES[code] ??
+    `Inbox Pro reported an unexpected result (${code}). Nothing was changed in Citywide.`
+  );
+}
+

@@ -76,6 +76,51 @@ async function execMany(stmts: ExecRequest[]) {
 function uuid() { return crypto.randomUUID(); }
 function now() { return new Date().toISOString(); }
 
+// ── Inbox Pro handoff signing ───────────────────────────────────────────────
+// The launch secret never leaves the server. Only the signed token is handed to
+// the browser, which navigates straight to Inbox Pro with it.
+function base64UrlEncode(bytes: Uint8Array): string {
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function base64UrlEncodeText(text: string): string {
+  return base64UrlEncode(new TextEncoder().encode(text));
+}
+async function hmacSha256Base64Url(secret: string, message: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const signature = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return base64UrlEncode(new Uint8Array(signature));
+}
+
+/** How the signed-in user should appear to Inbox Pro for this client. */
+async function resolveLaunchRole(ctx: AuthCtx, connectionId: string | null): Promise<"admin" | "agent" | "customer"> {
+  // Citywide staff provision and manage the client's Inbox Pro.
+  if (ctx.isStaff) return "admin";
+  if (!connectionId) return "customer";
+  try {
+    const adminClient = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const { data } = await adminClient
+      .from("portal_users")
+      .select("role")
+      .eq("user_id", ctx.userId)
+      .eq("connection_id", connectionId)
+      .maybeSingle();
+    const role = String((data as { role?: string } | null)?.role ?? "").toLowerCase();
+    if (role === "owner" || role === "admin") return "admin";
+    if (role === "staff" || role === "agent" || role === "member") return "agent";
+    return "customer";
+  } catch {
+    return "customer";
+  }
+}
+
 /** SHA-256 hex digest — API keys are stored only as their hash. */
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
@@ -191,7 +236,15 @@ async function ensureSeedData() {
   seedEnsured = true;
 }
 
-interface AuthCtx { userId: string; isSuperAdmin: boolean; agencyId: string; }
+interface AuthCtx {
+  userId: string;
+  isSuperAdmin: boolean;
+  /** True for Citywide staff (super admin or a member of an agency). */
+  isStaff: boolean;
+  agencyId: string;
+  email: string;
+  name: string;
+}
 async function resolveAuth(token: string): Promise<AuthCtx | { error: string }> {
   const adminClient = createClient(SUPABASE_URL, SERVICE_KEY);
   const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
@@ -206,12 +259,16 @@ async function resolveAuth(token: string): Promise<AuthCtx | { error: string }> 
     .filter(Boolean);
   const email = (userData.user.email ?? "").toLowerCase();
   const isSuperAdmin = email === OWNER_EMAIL || adminEmails.includes(email);
+  const meta = (userData.user.user_metadata ?? {}) as Record<string, unknown>;
+  const metaName = [meta.full_name, meta.name].find((v) => typeof v === "string" && v.trim());
+  const name = typeof metaName === "string" ? metaName.trim() : (email.split("@")[0] || "Citywide user");
   let agencyId = "citywide";
+  let hasAgencyMembership = false;
   try {
     const { rows } = await exec({ sql: `SELECT agency_id FROM agency_members WHERE user_id = ? LIMIT 1`, args: [userId] });
-    if (rows[0]?.agency_id) agencyId = rows[0].agency_id as string;
+    if (rows[0]?.agency_id) { agencyId = rows[0].agency_id as string; hasAgencyMembership = true; }
   } catch { /* default to citywide */ }
-  return { userId, isSuperAdmin, agencyId };
+  return { userId, isSuperAdmin, isStaff: isSuperAdmin || hasAgencyMembership, agencyId, email, name };
 }
 
 function tenantScope(ctx: AuthCtx): { sql: string; args: SqlValue[] } {
@@ -548,6 +605,112 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         args,
       });
       return { client_apps: rows };
+    }
+
+    // One-click launch: signs the signed-in user into that client's Inbox Pro
+    // workspace. The token is single-use, expires in minutes, and is never
+    // logged, stored or audited — only its id and the outcome are recorded.
+    case "clientApps.launch": {
+      const clientId = payload.client_id as string;
+      if (!clientId) throw new Error("Choose a client before launching Inbox Pro.");
+
+      const adminClient = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+      const { rows: clientRows } = await exec({
+        sql: `SELECT id, name, agency_id, gbp_connection_id FROM clients WHERE id = ? LIMIT 1`,
+        args: [clientId],
+      });
+      const client = clientRows[0];
+      if (!client) throw new Error(`client ${clientId} not found`);
+      if (!ctx.isSuperAdmin && client.agency_id !== ctx.agencyId) {
+        throw new Error("Forbidden: client belongs to another agency");
+      }
+
+      const { rows: appRows } = await exec({
+        sql: `SELECT status, workspace_slug FROM client_apps WHERE client_id = ? AND app_key = ? LIMIT 1`,
+        args: [clientId, "inbox_pro"],
+      });
+      const app = appRows[0];
+      const agencyId = String(client.agency_id ?? ctx.agencyId);
+      const slug = (app?.workspace_slug as string | null) ?? null;
+      const role = await resolveLaunchRole(ctx, (client.gbp_connection_id as string | null) ?? null);
+
+      const record = async (
+        result: "issued" | "rejected",
+        errorCode: string | null,
+        errorMessage: string | null,
+        jti: string | null,
+      ) => {
+        const { error } = await adminClient.from("inbox_launch_audit").insert({
+          agency_id: agencyId,
+          client_id: clientId,
+          app_key: "inbox_pro",
+          workspace_slug: slug,
+          user_id: ctx.userId,
+          user_email: ctx.email,
+          role,
+          result,
+          error_code: errorCode,
+          error_message: errorMessage,
+          jti,
+        });
+        // Every launch must be accountable, including refusals.
+        if (error) throw new Error(`Launch audit could not be written: ${error.message}`);
+      };
+      const refuse = async (message: string, code: string): Promise<never> => {
+        await record("rejected", code, message, null);
+        throw new Error(message);
+      };
+
+      if (!app) {
+        await refuse(
+          "This client has no Inbox Pro workspace yet, so there is nothing to launch. Connect Inbox Pro first.",
+          "404",
+        );
+      }
+      if (app.status === "paused") {
+        await refuse(
+          "This Inbox Pro workspace is paused, so launch is disabled. Resume the workspace first — Citywide pauses workspaces and never deletes them.",
+          "403",
+        );
+      }
+      if (!slug) {
+        await refuse(
+          "This client has no Inbox Pro workspace address yet, so launch is disabled.",
+          "404",
+        );
+      }
+
+      const launchSecret = Deno.env.get("INBOX_PRO_LAUNCH_SECRET");
+      const origin = (Deno.env.get("INBOX_PRO_ORIGIN") ?? "").trim().replace(/\/+$/, "");
+      if (!launchSecret || !/^https?:\/\//i.test(origin)) {
+        await refuse(
+          "Inbox Pro is not configured on this server. Add the launch secret and its origin, then try again.",
+          "503",
+        );
+      }
+
+      // At most five minutes ahead, and a fresh id for every launch.
+      const exp = Math.floor(Date.now() / 1000) + 240;
+      const jti = uuid();
+      const encodedPayload = base64UrlEncodeText(JSON.stringify({
+        email: ctx.email,
+        name: ctx.name,
+        workspace_slug: slug,
+        role,
+        exp,
+        jti,
+      }));
+      const signature = await hmacSha256Base64Url(String(launchSecret), encodedPayload);
+      const token = `${encodedPayload}.${signature}`;
+
+      await record("issued", null, null, jti);
+
+      return {
+        url: `${origin}/sso?token=${encodeURIComponent(token)}`,
+        expires_at: exp,
+        role,
+        workspace_slug: slug,
+      };
     }
 
     case "contacts.upsert": {
