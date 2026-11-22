@@ -237,6 +237,146 @@ async function postTenantUpsert(body: Record<string, unknown>): Promise<TenantSy
   };
 }
 
+// ── Inbox Pro live status ──────────────────────────────────────────────────
+// A read, not a sync: one request, no retries (Refresh is the retry). Only the
+// whitelisted fields below are ever handed to the browser.
+interface InboxStatusOutcome {
+  ok: boolean;
+  linked: boolean;
+  status: "active" | "paused" | "not_connected" | null;
+  plan: string | null;
+  seats: number | null;
+  seatsUsed: number | null;
+  openConversations: number | null;
+  lastActivityAt: string | null;
+  statusCode: number | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+}
+
+const STATUS_FIELDS_EMPTY = {
+  plan: null,
+  seats: null,
+  seatsUsed: null,
+  openConversations: null,
+  lastActivityAt: null,
+  statusCode: null,
+};
+
+async function fetchInboxStatus(citywideClientId: string): Promise<InboxStatusOutcome> {
+  const url = (Deno.env.get("INBOX_PRO_SYNC_URL") ?? "").trim();
+  const secret = Deno.env.get("INBOX_PRO_SYNC_SECRET") ?? "";
+
+  if (!/^https?:\/\//i.test(url) || !secret) {
+    return {
+      ...STATUS_FIELDS_EMPTY,
+      ok: false,
+      linked: true,
+      status: null,
+      errorCode: "not_configured",
+      errorMessage:
+        "Inbox Pro is not configured on this server. Add its sync address and secret in server secrets.",
+    };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${secret}` },
+      body: JSON.stringify({ action: "status", client_id: citywideClientId }),
+      signal: controller.signal,
+    });
+    const text = await response.text();
+    let parsed: unknown = null;
+    try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
+
+    if (!response.ok) {
+      const record = (parsed ?? {}) as Record<string, unknown>;
+      return {
+        ...STATUS_FIELDS_EMPTY,
+        ok: false,
+        linked: true,
+        status: null,
+        statusCode: response.status,
+        errorCode: String(response.status),
+        errorMessage:
+          readString(record.error) ?? readString(record.message) ?? `Inbox Pro responded ${response.status}.`,
+      };
+    }
+
+    const envelope = (parsed ?? {}) as Record<string, unknown>;
+    const nest = (envelope.workspace ?? envelope.tenant ?? envelope.data ?? envelope) as Record<string, unknown>;
+    const ws = (nest.workspace && typeof nest.workspace === "object" ? nest.workspace : nest) as Record<string, unknown>;
+
+    const linkedRaw = envelope.linked ?? ws.linked;
+    if (linkedRaw === false) {
+      return {
+        ...STATUS_FIELDS_EMPTY,
+        ok: true,
+        linked: false,
+        status: "not_connected",
+        statusCode: response.status,
+        errorCode: null,
+        errorMessage: null,
+      };
+    }
+
+    const statusRaw = (readString(ws.status) ?? readString(envelope.status) ?? "").toLowerCase();
+    return {
+      ok: true,
+      linked: true,
+      status: statusRaw === "paused" ? "paused" : statusRaw === "active" ? "active" : null,
+      plan: readString(ws.plan) ?? readString(envelope.plan),
+      seats: readNumber(ws.seats) ?? readNumber(envelope.seats),
+      seatsUsed:
+        readNumber(ws.seats_used) ?? readNumber(envelope.seats_used) ??
+        readNumber(ws.seatsUsed) ?? readNumber(envelope.seatsUsed),
+      openConversations:
+        readNumber(ws.open_conversations) ?? readNumber(envelope.open_conversations) ??
+        readNumber(ws.openConversations) ?? readNumber(envelope.openConversations),
+      lastActivityAt:
+        readString(ws.last_activity_at) ?? readString(envelope.last_activity_at) ??
+        readString(ws.last_activity) ?? readString(envelope.last_activity) ??
+        readString(ws.lastActivity) ?? readString(envelope.lastActivity),
+      statusCode: response.status,
+      errorCode: null,
+      errorMessage: null,
+    };
+  } catch (e) {
+    const err = e as Error;
+    return {
+      ...STATUS_FIELDS_EMPTY,
+      ok: false,
+      linked: true,
+      status: null,
+      errorCode: "network",
+      errorMessage: err.name === "AbortError"
+        ? "Inbox Pro did not answer the status read within 10 seconds."
+        : `Could not reach Inbox Pro: ${err.message}`,
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** The only shape the browser receives for a status read. */
+function toStatusPayload(row: BunnyRow, error: string | null) {
+  return {
+    linked: String(row.status) !== "not_connected",
+    status: (row.status as string | null) ?? "not_connected",
+    plan: (row.plan as string | null) ?? null,
+    seats: (row.seats as number | null) ?? null,
+    seats_used: (row.seats_used as number | null) ?? null,
+    open_conversations: (row.open_conversations as number | null) ?? null,
+    last_activity_at: (row.last_activity_at as string | null) ?? null,
+    last_checked_at: (row.last_checked_at as string | null) ?? null,
+    status_ok_at: (row.status_ok_at as string | null) ?? null,
+    error: error ?? (row.last_error as string | null) ?? null,
+  };
+}
+
 type SyncIntent = "connect" | "sync" | "pause" | "resume" | "plan";
 
 /**
@@ -382,8 +522,8 @@ async function syncClientApp(
     const message = outcome.errorMessage ?? "Inbox Pro did not confirm the sync.";
     // Never report Active on failure: the client needs a human to look at it.
     await exec({
-      sql: `UPDATE client_apps SET status = 'needs_attention', last_checked_at = ?, last_error = ?, updated_at = ? WHERE id = ?`,
-      args: [now(), message, now(), app.id],
+      sql: `UPDATE client_apps SET status = 'needs_attention', last_error = ?, updated_at = ? WHERE id = ?`,
+      args: [message, now(), app.id],
     });
     throw new Error(message);
   }
@@ -393,8 +533,8 @@ async function syncClientApp(
   const savedSeats = outcome.seats ?? seats;
 
   await exec({
-    sql: `UPDATE client_apps SET status = ?, workspace_slug = ?, plan = ?, seats = ?, last_sync_at = ?, last_checked_at = ?, last_error = NULL, updated_at = ? WHERE id = ?`,
-    args: [targetStatus, savedSlug, savedPlan, savedSeats, now(), now(), now(), app.id],
+    sql: `UPDATE client_apps SET status = ?, workspace_slug = ?, plan = ?, seats = ?, last_sync_at = ?, last_error = NULL, updated_at = ? WHERE id = ?`,
+    args: [targetStatus, savedSlug, savedPlan, savedSeats, now(), now(), app.id],
   });
 
   return { status: targetStatus, workspace_slug: savedSlug, plan: savedPlan, seats: savedSeats };
@@ -493,7 +633,11 @@ async function bootstrap() {
     // Inbox Pro response; nothing is inferred. `citywide_client_id` is the id
     // Inbox Pro uses for this client. No delete path exists for these rows:
     // a workspace is paused, never removed.
-    `CREATE TABLE IF NOT EXISTS client_apps (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, app_key TEXT NOT NULL DEFAULT 'inbox_pro', status TEXT NOT NULL DEFAULT 'not_connected' CHECK (status IN ('not_connected','active','paused','needs_attention')), citywide_client_id TEXT, workspace_slug TEXT, plan TEXT, seats INTEGER, last_sync_at TEXT, last_checked_at TEXT, last_error TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE TABLE IF NOT EXISTS client_apps (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, app_key TEXT NOT NULL DEFAULT 'inbox_pro', status TEXT NOT NULL DEFAULT 'not_connected' CHECK (status IN ('not_connected','active','paused','needs_attention')), citywide_client_id TEXT, workspace_slug TEXT, plan TEXT, seats INTEGER, seats_used INTEGER, open_conversations INTEGER, last_activity_at TEXT, last_sync_at TEXT, last_checked_at TEXT, status_ok_at TEXT, last_error TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `ALTER TABLE client_apps ADD COLUMN seats_used INTEGER`,
+    `ALTER TABLE client_apps ADD COLUMN open_conversations INTEGER`,
+    `ALTER TABLE client_apps ADD COLUMN last_activity_at TEXT`,
+    `ALTER TABLE client_apps ADD COLUMN status_ok_at TEXT`,
     `CREATE UNIQUE INDEX IF NOT EXISTS client_apps_client_app_uq ON client_apps(client_id, app_key)`,
     `CREATE INDEX IF NOT EXISTS client_apps_app_idx ON client_apps(app_key)`,
   ];
@@ -879,7 +1023,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         args.push(clientId);
       }
       const { rows } = await exec({
-        sql: `SELECT ca.id, ca.client_id, ca.app_key, ca.status, ca.citywide_client_id, ca.workspace_slug, ca.plan, ca.seats, ca.last_sync_at, ca.last_checked_at, ca.last_error, ca.created_at, ca.updated_at, c.name AS client_name, c.status AS client_status, c.plan AS client_plan, c.seats AS client_seats, c.billing_email AS client_email, c.agency_id FROM client_apps ca JOIN clients c ON c.id = ca.client_id WHERE ${where.join(" AND ")} ORDER BY c.name ASC LIMIT 500`,
+        sql: `SELECT ca.id, ca.client_id, ca.app_key, ca.status, ca.citywide_client_id, ca.workspace_slug, ca.plan, ca.seats, ca.seats_used, ca.open_conversations, ca.last_activity_at, ca.last_sync_at, ca.last_checked_at, ca.status_ok_at, ca.last_error, ca.created_at, ca.updated_at, c.name AS client_name, c.status AS client_status, c.plan AS client_plan, c.seats AS client_seats, c.billing_email AS client_email, c.agency_id FROM client_apps ca JOIN clients c ON c.id = ca.client_id WHERE ${where.join(" AND ")} ORDER BY c.name ASC LIMIT 500`,
         args,
       });
       return { client_apps: rows };
@@ -988,6 +1132,129 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         expires_at: exp,
         role,
         workspace_slug: slug,
+      };
+    }
+
+    case "clientApps.status": {
+      const clientId = payload.client_id as string;
+      const forceRefresh = payload.refresh === true;
+      if (!clientId) throw new Error("Choose a client to read its Inbox Pro status.");
+      await assertClientAccess(ctx, clientId);
+
+      const { rows } = await exec({
+        sql: `SELECT ca.*, c.agency_id FROM client_apps ca JOIN clients c ON c.id = ca.client_id WHERE ca.client_id = ? AND ca.app_key = ? LIMIT 1`,
+        args: [clientId, "inbox_pro"],
+      });
+      const app = rows[0];
+
+      if (!app || !app.citywide_client_id) {
+        return {
+          linked: false,
+          status: "not_connected",
+          plan: null,
+          seats: null,
+          seats_used: null,
+          open_conversations: null,
+          last_activity_at: null,
+          last_checked_at: (app?.last_checked_at as string | null) ?? null,
+          status_ok_at: (app?.status_ok_at as string | null) ?? null,
+          error: null,
+        };
+      }
+
+      const citywideClientId = String(app.citywide_client_id);
+      const agencyId = String(app.agency_id ?? ctx.agencyId);
+
+      // Cached for a minute; an explicit Refresh always reads Inbox Pro.
+      const lastAttempt = app.last_checked_at ? Date.parse(String(app.last_checked_at)) : Number.NaN;
+      if (!forceRefresh && Number.isFinite(lastAttempt) && Date.now() - lastAttempt < 60_000) {
+        return toStatusPayload(app, null);
+      }
+
+      const outcome = await fetchInboxStatus(citywideClientId);
+
+      try {
+        const service = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+        const { error } = await service.from("inbox_sync_log").insert({
+          agency_id: agencyId,
+          client_id: clientId,
+          citywide_client_id: citywideClientId,
+          intent: "status",
+          attempt: 1,
+          outcome: outcome.ok ? "success" : "failure",
+          status_code: outcome.statusCode,
+          error_code: outcome.errorCode,
+          error_message: outcome.errorMessage,
+          duration_ms: null,
+          user_id: ctx.userId,
+        });
+        if (error) console.error("inbox_sync_log insert failed:", error.message);
+      } catch (e) {
+        console.error("inbox_sync_log insert failed:", (e as Error).message);
+      }
+
+      if (!outcome.ok) {
+        const message = outcome.errorMessage ?? "Inbox Pro did not answer the status read.";
+        // The last known numbers are deliberately left untouched.
+        await exec({
+          sql: `UPDATE client_apps SET status = 'needs_attention', last_checked_at = ?, last_error = ?, updated_at = ? WHERE id = ?`,
+          args: [now(), message, now(), app.id],
+        });
+        return {
+          ...toStatusPayload(app, message),
+          status: "needs_attention",
+          last_checked_at: now(),
+          error: message,
+        };
+      }
+
+      if (!outcome.linked) {
+        // Inbox Pro says there is no workspace for this id, so old numbers no
+        // longer describe anything.
+        await exec({
+          sql: `UPDATE client_apps SET status = 'not_connected', seats_used = NULL, open_conversations = NULL, last_activity_at = NULL, last_checked_at = ?, status_ok_at = ?, last_error = NULL, updated_at = ? WHERE id = ?`,
+          args: [now(), now(), now(), app.id],
+        });
+        return {
+          linked: false,
+          status: "not_connected",
+          plan: (app.plan as string | null) ?? null,
+          seats: (app.seats as number | null) ?? null,
+          seats_used: null,
+          open_conversations: null,
+          last_activity_at: null,
+          last_checked_at: now(),
+          status_ok_at: now(),
+          error: null,
+        };
+      }
+
+      // Explicit "paused" always wins; a read can never turn a paused workspace active.
+      const stored = String(app.status ?? "");
+      const nextStatus = outcome.status ?? (stored === "paused" ? "paused" : "active");
+
+      const plan = outcome.plan ?? (app.plan as string | null) ?? null;
+      const seats = outcome.seats ?? (app.seats as number | null) ?? null;
+      const seatsUsed = outcome.seatsUsed ?? (app.seats_used as number | null) ?? null;
+      const openConversations = outcome.openConversations ?? (app.open_conversations as number | null) ?? null;
+      const lastActivity = outcome.lastActivityAt ?? (app.last_activity_at as string | null) ?? null;
+
+      await exec({
+        sql: `UPDATE client_apps SET status = ?, plan = ?, seats = ?, seats_used = ?, open_conversations = ?, last_activity_at = ?, last_checked_at = ?, status_ok_at = ?, last_error = NULL, updated_at = ? WHERE id = ?`,
+        args: [nextStatus, plan, seats, seatsUsed, openConversations, lastActivity, now(), now(), now(), app.id],
+      });
+
+      return {
+        linked: true,
+        status: nextStatus,
+        plan,
+        seats,
+        seats_used: seatsUsed,
+        open_conversations: openConversations,
+        last_activity_at: lastActivity,
+        last_checked_at: now(),
+        status_ok_at: now(),
+        error: null,
       };
     }
 

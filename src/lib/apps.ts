@@ -46,6 +46,8 @@ export interface ClientApp {
   seats: number | null;
   last_sync_at: string | null;
   last_checked_at: string | null;
+  /** Last successful status read; everything numeric is last-known after this. */
+  status_ok_at?: string | null;
   last_error: string | null;
   client_name?: string | null;
   client_status?: string | null;

@@ -6,11 +6,13 @@ import {
   Loader2,
   Pause,
   Play,
+  RefreshCw,
   RotateCw,
   Settings2,
 } from "lucide-react";
 import { StatusPill } from "@/components/crm/StatusPill";
 import { formatWhen, launchBlockedReason, type ClientApp } from "@/lib/apps";
+import { useClientAppStatus } from "@/hooks/useClientAppStatus";
 import { handOffToInboxPro, requestInboxLaunch } from "@/lib/inboxLaunch";
 import {
   connectClientApp,
@@ -48,16 +50,24 @@ export function InboxProCard({ app, client, compact = false, onChanged }: InboxP
 
   const isSample = app?.is_sample === true;
 
+  const { data: live, refreshing, refresh, error: liveError } = useClientAppStatus({
+    clientId: app?.client_id,
+    // Nothing to poll until Inbox Pro knows this client at all.
+    enabled: !!app?.citywide_client_id && !isSample,
+  });
+
   const run = async (key: PendingAction, action: () => Promise<unknown>) => {
     setPending(key);
     setActionError(null);
     try {
       await action();
       onChanged?.();
+      refresh();
     } catch (e) {
       setActionError((e as Error).message);
       // A failed sync still changed the record (needs attention), so refresh it.
       onChanged?.();
+      refresh();
     } finally {
       setPending(null);
     }
@@ -115,10 +125,29 @@ export function InboxProCard({ app, client, compact = false, onChanged }: InboxP
 
   const sample = isSample;
   const when = (iso: string | null | undefined) => formatWhen(iso);
-  const blockedReason = launchBlockedReason(app);
-  const isPaused = app.status === "paused";
-  const notConnected = app.status === "not_connected";
-  const needsRetry = app.status === "needs_attention" || !!app.last_error;
+
+  // Live read wins over the stored snapshot; the snapshot is the fallback.
+  const view = live ?? {
+    linked: app.status !== "not_connected",
+    status: app.status,
+    plan: app.plan,
+    seats: app.seats,
+    seats_used: app.seats_used ?? null,
+    open_conversations: app.open_conversations ?? null,
+    last_activity_at: app.last_activity_at ?? null,
+    last_checked_at: app.last_checked_at,
+    status_ok_at: app.status_ok_at ?? null,
+    error: app.last_error,
+  };
+
+  const viewError = view.error ?? liveError ?? null;
+  const hasNumbers = view.seats_used != null || view.open_conversations != null;
+  // A failed read keeps the last known numbers and says so.
+  const stale = !!viewError && hasNumbers && !!view.status_ok_at;
+  const blockedReason = launchBlockedReason({ ...app, status: view.status });
+  const isPaused = view.status === "paused";
+  const notConnected = view.status === "not_connected";
+  const needsRetry = view.status === "needs_attention" || !!view.error;
 
   const launch = async () => {
     if (blockedReason || launching) return;
@@ -153,7 +182,7 @@ export function InboxProCard({ app, client, compact = false, onChanged }: InboxP
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-base font-bold text-foreground">Inbox Pro</h3>
-                <StatusPill status={app.status} />
+                <StatusPill status={view.status} />
                 {sample && (
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border border-amber-500/40 text-amber-600 dark:text-amber-400">
                     Sample
@@ -172,46 +201,54 @@ export function InboxProCard({ app, client, compact = false, onChanged }: InboxP
           </div>
 
           <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-4 gap-y-3 mt-5">
-            <Stat label="Plan" value={app.plan ?? null} emptyHint="No Inbox Pro plan recorded." />
+            <Stat label="Plan" value={view.plan ?? null} emptyHint="No Inbox Pro plan recorded." />
             <Stat
               label="Seats"
               value={
-                app.seats == null
+                view.seats == null
                   ? null
-                  : app.seats_used == null
-                    ? `— / ${app.seats}`
-                    : `${app.seats_used} / ${app.seats}`
+                  : view.seats_used == null
+                    ? `— / ${view.seats}`
+                    : `${view.seats_used} / ${view.seats}`
               }
               emptyHint="No seat limit recorded for this workspace."
               hint={
-                app.seats != null && app.seats_used == null
-                  ? "Seats in use need a status read from Inbox Pro."
+                view.seats != null && view.seats_used == null
+                  ? "Seats in use need a successful status read from Inbox Pro."
                   : undefined
               }
             />
             <Stat
               label="Open conversations"
-              value={app.open_conversations == null ? null : String(app.open_conversations)}
-              emptyHint="Open conversations need a status read from Inbox Pro."
+              value={view.open_conversations == null ? null : String(view.open_conversations)}
+              emptyHint="Open conversations need a successful status read from Inbox Pro."
             />
             <Stat
               label="Last activity"
-              value={when(app.last_activity_at)}
-              emptyHint="No activity recorded — it arrives with a status read."
+              value={when(view.last_activity_at)}
+              emptyHint="No activity recorded — it arrives with a successful status read."
             />
             <Stat
-              label="Last synced"
-              value={when(app.last_sync_at)}
-              emptyHint="Never synced with Inbox Pro."
+              label="Last checked"
+              value={when(view.last_checked_at)}
+              emptyHint="Never checked against Inbox Pro."
             />
           </dl>
 
-          {app.last_error && (
+          {viewError && (
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
               <AlertCircle className="w-3.5 h-3.5 text-destructive flex-shrink-0 mt-0.5" />
               <div className="min-w-0">
-                <p className="text-[11px] font-bold text-destructive">Needs attention</p>
-                <p className="text-[11px] text-destructive break-words">{app.last_error}</p>
+                <p className="text-[11px] font-bold text-destructive">
+                  {view.status === "needs_attention" ? "Needs attention" : "Last read failed"}
+                </p>
+                <p className="text-[11px] text-destructive break-words">{viewError}</p>
+                {stale && (
+                  <p className="text-[11px] text-destructive/80 mt-1">
+                    Showing the last known numbers from {when(view.status_ok_at)} — they are stale
+                    until a read succeeds.
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -257,6 +294,13 @@ export function InboxProCard({ app, client, compact = false, onChanged }: InboxP
                 {launching ? "Opening Inbox Pro…" : "Open Inbox Pro"}
               </button>
             )}
+
+            <ActionButton
+              icon={RefreshCw}
+              label={refreshing ? "Refreshing…" : "Refresh"}
+              disabled={sample || refreshing}
+              onClick={refresh}
+            />
 
             <ActionButton
               icon={Settings2}
@@ -321,7 +365,8 @@ export function InboxProCard({ app, client, compact = false, onChanged }: InboxP
 
           <p className="text-[11px] text-muted-foreground mt-3">
             Launching hands this browser to Inbox Pro with a single-use signed link that expires in
-            minutes. Pausing stops a workspace; Citywide never deletes one.
+            minutes. Status refreshes every minute while this tab is open. Pausing stops a
+            workspace; Citywide never deletes one.
           </p>
         </div>
       </div>
