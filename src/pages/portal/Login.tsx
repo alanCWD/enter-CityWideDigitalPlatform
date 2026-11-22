@@ -25,9 +25,13 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Coming from /dashboard means this is staff opening the agency workspace,
+  // not a client opening their business portal.
+  const from = (location.state as { from?: string } | null)?.from;
+  const forWorkspace = !!from && (from.startsWith("/dashboard") || from.startsWith("/admin/"));
+
   useEffect(() => {
     if (authLoading || roleLoading || !session) return;
-    const from = (location.state as { from?: string } | null)?.from;
     const adminRoute = !!from && (from.startsWith("/admin/") || from.startsWith("/dashboard"));
 
     // Staff accounts always land in the workspace. Only an explicit staff route
@@ -43,7 +47,7 @@ export default function Login() {
       return;
     }
     navigate("/portal", { replace: true });
-  }, [session, authLoading, roleLoading, isAdmin, isAgency, navigate, location.state]);
+  }, [session, authLoading, roleLoading, isAdmin, isAgency, navigate, from]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -68,8 +72,14 @@ export default function Login() {
           <Link to="/" className="inline-flex items-center justify-center mb-5" aria-label="CityWide Digital — home">
             <><Logo size="lg" className="dark:hidden" /><LogoOnDark size="lg" className="hidden dark:block" /></>
           </Link>
-          <h1 className="text-2xl font-bold text-foreground">Client Portal</h1>
-          <p className="text-sm text-muted-foreground mt-1">Sign in to your business workspace</p>
+          <h1 className="text-2xl font-bold text-foreground">
+            {forWorkspace ? "Agency workspace" : "Sign in"}
+          </h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {forWorkspace
+              ? "Sign in to the Citywide dashboard to manage every client."
+              : "Citywide staff and client accounts share one sign-in. Staff land in the agency workspace; clients land in their own portal."}
+          </p>
         </div>
 
         <form
