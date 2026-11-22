@@ -223,7 +223,8 @@ async function postTenantUpsert(body: Record<string, unknown>): Promise<TenantSy
   }
 
   const envelope = (successPayload ?? {}) as Record<string, unknown>;
-  const workspace = (envelope.workspace ?? envelope.tenant ?? envelope) as Record<string, unknown>;
+  const nest = (envelope.workspace ?? envelope.tenant ?? envelope.data ?? envelope) as Record<string, unknown>;
+  const workspace = (nest.workspace && typeof nest.workspace === "object" ? nest.workspace : nest) as Record<string, unknown>;
 
   return {
     ok: last?.ok ?? false,
