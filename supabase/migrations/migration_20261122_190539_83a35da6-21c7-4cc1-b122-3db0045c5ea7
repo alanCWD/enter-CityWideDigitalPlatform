@@ -1,0 +1,5 @@
+DELETE FROM public.user_roles r
+USING auth.users u
+WHERE r.user_id = u.id
+  AND lower(u.email) = 'localbizreach@gmail.com'
+  AND r.role = 'agency'::public.app_role;

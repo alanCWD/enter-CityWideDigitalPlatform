@@ -711,9 +711,9 @@ async function resolveAuth(token: string): Promise<AuthCtx | { error: string }> 
   const isStaff =
     isSuperAdmin || hasAgencyMembership || roles.includes("admin") || roles.includes("agency");
 
-  // Staff without a membership row keep working inside the default agency.
-  // A client user gets NO agency identity, so tenant filters cannot match them.
-  if (isStaff && !agencyId) agencyId = "citywide";
+  // No implicit agency identity. Without a membership row a staff account has
+  // no workspace scope at all, instead of silently inheriting `citywide`.
+  // Super admins are the only accounts allowed across every client.
 
   let clientIds: string[] = [];
   if (!isStaff) {
@@ -887,6 +887,10 @@ const CLIENT_USER_ACTIONS = new Set([
 async function handle(action: string, payload: Record<string, unknown>, ctx: AuthCtx): Promise<unknown> {
   if (!ctx.isStaff && !CLIENT_USER_ACTIONS.has(action)) {
     throw new Error("Forbidden: this action requires an agency seat");
+  }
+  // A staff role with no agency membership has no workspace to act in.
+  if (ctx.isStaff && !ctx.isSuperAdmin && !ctx.agencyId && action !== "ping") {
+    throw new Error("Forbidden: this account has no agency workspace assigned");
   }
   const ts = tenantScope(ctx);
   switch (action) {
