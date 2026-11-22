@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   User as UserIcon,
   LogOut,
@@ -26,10 +26,9 @@ import { useUserRole } from "@/hooks/useUserRole";
  */
 export function ProfileMenu() {
   const { user, signOut } = useAuth();
-  const { isSuperAdmin, isAdmin, isAgency, isClient } = useUserRole(user?.id);
+  const { isAdmin, isAgency, isClient, roleLabel } = useUserRole(user?.id);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
@@ -42,8 +41,9 @@ export function ProfileMenu() {
   const handleSignOut = async () => {
     setOpen(false);
     await signOut();
-    // Always land on the sign-in screen: no page may trap a signed-out user.
-    navigate("/portal/login", { replace: true });
+    // A full navigation, not a router push: the previous screen must not be
+    // restorable with the back button after the session is gone.
+    window.location.replace("/portal/login");
   };
 
   if (!user) {
@@ -58,15 +58,6 @@ export function ProfileMenu() {
   }
 
   const initial = (user.email || "U").charAt(0).toUpperCase();
-  const roleLabel = isSuperAdmin
-    ? "Super admin"
-    : isAdmin
-      ? "Admin"
-      : isAgency
-        ? "Agency"
-        : isClient
-          ? "Client"
-          : "No role";
 
   // Build menu items based on role. Admins see everything.
   const items: { label: string; to: string; icon: typeof UserIcon; badge?: string }[] = [];

@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
  */
 export function ScopeSwitcher() {
   const { user } = useAuth();
-  const { isAgency, isSuperAdmin, loading: roleLoading } = useUserRole(user?.id);
+  const { isAgency, loading: roleLoading } = useUserRole(user?.id);
   const match = useMatch("/dashboard/crm/clients/:id");
   const activeClientId = match?.params.id ?? null;
   const navigate = useNavigate();
@@ -40,11 +40,12 @@ export function ScopeSwitcher() {
     }
   }, []);
 
-  // The switcher is a super-admin tool; nobody else needs the full book.
+  // Agency users switch between the clients they can see; the server scopes
+  // the list (every client for a super admin, their agency for staff).
   useEffect(() => {
-    if (!isSuperAdmin) return;
+    if (!isAgency) return;
     void loadClients();
-  }, [isSuperAdmin, loadClients]);
+  }, [isAgency, loadClients]);
 
   // Name the client we are currently inside, even when the book is not loaded.
   useEffect(() => {
@@ -112,12 +113,12 @@ export function ScopeSwitcher() {
       >
         <Building2 className="w-3.5 h-3.5 text-[#0078D7]" />
         Viewing as: Agency
-        {isSuperAdmin && (
+        {isAgency && (
           <ChevronDown className={cn("w-3 h-3 text-muted-foreground transition-transform", open && "rotate-180")} />
         )}
       </button>
 
-      {open && isSuperAdmin && (
+      {open && isAgency && (
         <div
           role="menu"
           className="absolute right-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-white/10 bg-[#111E33] shadow-[0_8px_32px_rgba(0,0,0,0.5)]"

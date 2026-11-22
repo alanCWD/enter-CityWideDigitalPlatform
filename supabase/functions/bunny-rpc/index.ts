@@ -709,7 +709,11 @@ async function resolveAuth(token: string): Promise<AuthCtx | { error: string }> 
   } catch { /* no membership */ }
 
   const isStaff =
-    isSuperAdmin || hasAgencyMembership || roles.includes("admin") || roles.includes("agency");
+    isSuperAdmin ||
+    hasAgencyMembership ||
+    roles.includes("admin") ||
+    roles.includes("agency") ||
+    roles.includes("agency_staff");
 
   // No implicit agency identity. Without a membership row a staff account has
   // no workspace scope at all, instead of silently inheriting `citywide`.
@@ -717,23 +721,38 @@ async function resolveAuth(token: string): Promise<AuthCtx | { error: string }> 
 
   let clientIds: string[] = [];
   if (!isStaff) {
+    // Explicit binding first: a client role is bound to exactly one client.
     try {
-      const { data: links } = await adminClient
-        .from("portal_users")
-        .select("connection_id")
-        .eq("user_id", userId);
-      const connectionIds = (links ?? [])
-        .map((link) => String((link as { connection_id?: string }).connection_id ?? ""))
-        .filter(Boolean);
-      if (connectionIds.length) {
-        const placeholders = connectionIds.map(() => "?").join(",");
-        const { rows } = await exec({
-          sql: `SELECT id FROM clients WHERE gbp_connection_id IN (${placeholders})`,
-          args: connectionIds,
-        });
-        clientIds = rows.map((row) => String(row.id));
-      }
-    } catch { clientIds = []; }
+      const { data: membership } = await adminClient
+        .from("client_memberships")
+        .select("client_id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      const bound = String((membership as { client_id?: string } | null)?.client_id ?? "");
+      if (bound) clientIds = [bound];
+    } catch { /* fall back to portal linkage */ }
+
+    if (clientIds.length === 0) {
+      try {
+        const { data: links } = await adminClient
+          .from("portal_users")
+          .select("connection_id")
+          .eq("user_id", userId);
+        const connectionIds = (links ?? [])
+          .map((link) => String((link as { connection_id?: string }).connection_id ?? ""))
+          .filter(Boolean);
+        if (connectionIds.length) {
+          const placeholders = connectionIds.map(() => "?").join(",");
+          const { rows } = await exec({
+            // A client user is bound to exactly one client, even if their
+            // history has more than one portal link.
+            sql: `SELECT id FROM clients WHERE gbp_connection_id IN (${placeholders}) ORDER BY id ASC LIMIT 1`,
+            args: connectionIds,
+          });
+          clientIds = rows.slice(0, 1).map((row) => String(row.id));
+        }
+      } catch { clientIds = []; }
+    }
   }
 
   return { userId, email, name, roles, isSuperAdmin, isStaff, agencyId, clientIds };
@@ -894,7 +913,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
   }
   const ts = tenantScope(ctx);
   switch (action) {
-    case "ping": return { ok: true, agency_id: ctx.agencyId, super_admin: ctx.isSuperAdmin, is_staff: ctx.isStaff };
+    case "ping": return { ok: true, agency_id: ctx.agencyId, super_admin: ctx.isSuperAdmin, is_staff: ctx.isStaff, roles: ctx.roles, client_ids: ctx.clientIds };
 
     case "debug.tables": {
       if (!ctx.isSuperAdmin) return { error: "Forbidden: super-admin only" };
@@ -1036,6 +1055,9 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     }
     case "clients.update": {
       const id = payload.id as string; await assertClientAccess(ctx, id);
+      if (("plan" in payload || "seats" in payload) && !ctx.isSuperAdmin) {
+        throw new Error("Only a super admin can change a client's plan or seat count.");
+      }
       const fields: string[] = []; const args: SqlValue[] = [];
       const updatable = ["name","status","source","owner_id","billing_email","phone","address_line1","city","region","postal_code","country","gbp_connection_id","stripe_customer_id","website","industry","notes","plan","seats"];
       // Super-admin can re-assign a client to a different agency
@@ -1385,6 +1407,10 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       return { ok: true, ...result };
     }
     case "clientApps.plan": {
+      // Agency staff may run the workspace but only a super admin may resize it.
+      if (!ctx.isSuperAdmin) {
+        throw new Error("Only a super admin can change a client's plan or seat count.");
+      }
       const rawSeats = payload.seats;
       const seats = rawSeats === null || rawSeats === undefined || rawSeats === ""
         ? null

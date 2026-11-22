@@ -1,14 +1,26 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AppRole = "admin" | "agency" | "client" | "super_admin";
+/**
+ * Agency roles: `super_admin` (everything) and `agency_staff` (read + launch,
+ * no plan or seat changes). Client roles: `client_admin` and `client_user`,
+ * each bound to one client. `admin` / `agency` / `client` are legacy values
+ * kept for accounts created before this model.
+ */
+export type AppRole =
+  | "super_admin"
+  | "agency_staff"
+  | "client_admin"
+  | "client_user"
+  | "admin"
+  | "agency"
+  | "client";
 
 /**
  * Loads the signed-in user's roles from `user_roles`.
- * Returns role flags + a refresh helper.
  *
- * SECURITY: All real authorization is server-side (RLS and the CRM gateway
- * reading `user_roles`). This hook is for UI gating only.
+ * SECURITY: authorization is enforced server-side (RLS and the CRM gateway
+ * reading `user_roles` + `client_memberships`). This hook is for UI gating.
  */
 export function useUserRole(userId: string | undefined) {
   const [roles, setRoles] = useState<AppRole[]>([]);
@@ -33,15 +45,38 @@ export function useUserRole(userId: string | undefined) {
     reload();
   }, [reload]);
 
+  const has = (role: AppRole) => roles.includes(role);
+
+  const isSuperAdmin = has("super_admin");
+  const isAgencyStaff = has("agency_staff") || has("agency");
+  const isAdmin = has("admin");
+  const isAgency = isSuperAdmin || isAgencyStaff || isAdmin;
+  const isClientAdmin = has("client_admin") || has("client");
+  const isClientUser = has("client_user");
+
+  const roleLabel = isSuperAdmin
+    ? "Super admin"
+    : isAgencyStaff
+      ? "Agency staff"
+      : isAdmin
+        ? "Admin"
+        : isClientAdmin
+          ? "Client admin"
+          : isClientUser
+            ? "Client user"
+            : "No role";
+
   return {
     roles,
     loading,
-    /** Agency-level super admin: every client, including other agencies'. */
-    isSuperAdmin: roles.includes("super_admin"),
-    isAdmin: roles.includes("admin"),
-    isAgency:
-      roles.includes("agency") || roles.includes("admin") || roles.includes("super_admin"),
-    isClient: roles.includes("client"),
+    roleLabel,
+    isSuperAdmin,
+    isAgencyStaff,
+    isAdmin,
+    isAgency,
+    isClientAdmin,
+    isClientUser,
+    isClient: isClientAdmin || isClientUser,
     reload,
   };
 }

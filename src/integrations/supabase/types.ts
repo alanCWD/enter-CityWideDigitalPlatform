@@ -3407,6 +3407,24 @@ export type Database = {
         }
         Relationships: []
       }
+      client_memberships: {
+        Row: {
+          client_id: string
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       gbp_connections: {
         Row: {
           access_token: string | null
@@ -4647,7 +4665,14 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "agency" | "client" | "super_admin"
+      app_role:
+        | "admin"
+        | "agency"
+        | "client"
+        | "super_admin"
+        | "agency_staff"
+        | "client_admin"
+        | "client_user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5894,7 +5919,15 @@ export const Constants = {
   },
   public: {
     Enums: {
-      app_role: ["admin", "agency", "client", "super_admin"],
+      app_role: [
+        "admin",
+        "agency",
+        "client",
+        "super_admin",
+        "agency_staff",
+        "client_admin",
+        "client_user",
+      ],
     },
   },
   realtime: {

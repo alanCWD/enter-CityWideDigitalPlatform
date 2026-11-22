@@ -1,9 +1,11 @@
 import { NavLink } from "react-router-dom";
-import { X, Menu, TrendingUp, MessagesSquare, ExternalLink, Store } from "lucide-react";
+import { X, Menu, TrendingUp, MessagesSquare, ExternalLink, LogOut } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAgency } from "@/contexts/AgencyContext";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { AgencySwitcher } from "./AgencySwitcher";
 
 export function Sidebar() {
@@ -53,6 +55,16 @@ export function Sidebar() {
 
 function SidebarContent({ onNav }: { onNav: () => void }) {
   const { agency } = useAgency();
+  const { user, signOut } = useAuth();
+  const { roleLabel } = useUserRole(user?.id);
+  const [signingOut, setSigningOut] = useState(false);
+
+  const handleSignOut = async () => {
+    setSigningOut(true);
+    await signOut();
+    // Full navigation so the signed-out user cannot go "back" into the app.
+    window.location.replace("/portal/login");
+  };
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -129,15 +141,29 @@ function SidebarContent({ onNav }: { onNav: () => void }) {
         <div className="text-[10px] text-sidebar-foreground/40 mt-1">Next tier: Pro</div>
       </div>
 
-      {/* Settings */}
-      <div className="p-3 border-t border-sidebar-border">
-        <NavLink
-          to="/settings"
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-sidebar-foreground/50 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors"
+      {/* Account: email, role and sign out on every authenticated screen */}
+      <div className="p-3 border-t border-sidebar-border space-y-2">
+        <div className="px-3">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/50">
+            Signed in
+          </p>
+          <p
+            className="text-xs font-semibold text-sidebar-foreground truncate"
+            title={user?.email ?? undefined}
+          >
+            {user?.email ?? "—"}
+          </p>
+          <p className="text-[10px] text-sidebar-foreground/60">{roleLabel}</p>
+        </div>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={signingOut}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-semibold text-sidebar-foreground/70 hover:bg-red-500/10 hover:text-red-400 transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
-          <Store className="w-4 h-4" />
-          Settings
-        </NavLink>
+          <LogOut className="w-4 h-4" />
+          {signingOut ? "Signing out…" : "Sign out"}
+        </button>
       </div>
     </div>
   );

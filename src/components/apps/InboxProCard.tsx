@@ -13,6 +13,8 @@ import {
 import { StatusPill } from "@/components/crm/StatusPill";
 import { formatWhen, launchBlockedReason, type ClientApp } from "@/lib/apps";
 import { useClientAppStatus } from "@/hooks/useClientAppStatus";
+import { useAuth } from "@/hooks/useAuth";
+import { useUserRole } from "@/hooks/useUserRole";
 import { handOffToInboxPro, requestInboxLaunch } from "@/lib/inboxLaunch";
 import {
   connectClientApp,
@@ -47,6 +49,9 @@ export function InboxProCard({ app, client, compact = false, onChanged }: InboxP
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
   const [planOpen, setPlanOpen] = useState(false);
+
+  const { user } = useAuth();
+  const { isSuperAdmin } = useUserRole(user?.id);
 
   const isSample = app?.is_sample === true;
 
@@ -305,9 +310,15 @@ export function InboxProCard({ app, client, compact = false, onChanged }: InboxP
             <ActionButton
               icon={Settings2}
               label="Manage plan"
-              disabled={sample}
+              disabled={sample || !isSuperAdmin}
               onClick={() => { setActionError(null); setPlanOpen(true); }}
             />
+
+            {!isSuperAdmin && !sample && (
+              <span className="text-[11px] text-muted-foreground">
+                Plan and seat changes are limited to super admins.
+              </span>
+            )}
 
             {isPaused ? (
               <ActionButton
