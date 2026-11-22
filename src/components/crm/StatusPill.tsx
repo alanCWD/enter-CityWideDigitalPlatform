@@ -14,6 +14,8 @@ const STYLES: Record<string, string> = {
   paid:          "bg-[#22C55E]/15 text-[#22C55E] border-[#22C55E]/30",
   void:          "bg-muted dark:bg-white/10 text-muted-foreground border-border dark:border-white/15",
   uncollectible: "bg-red-500/15 text-red-300 border-red-500/30",
+  needs_attention: "bg-red-500/15 text-red-300 border-red-500/30",
+  not_connected: "bg-muted dark:bg-white/10 text-muted-foreground border-border dark:border-white/15",
 };
 
 export function StatusPill({ status, className }: { status: string; className?: string }) {

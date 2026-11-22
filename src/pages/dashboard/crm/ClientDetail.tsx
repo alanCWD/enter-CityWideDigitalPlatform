@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom"
 import { ArrowLeft, ExternalLink, Mail, Phone, MapPin, Plus, Send, Trash2, Repeat, AlertCircle, Pencil, Star, X, Check, User, Save, Printer, FileText, LayoutDashboard, Link2, UserPlus, Eye, RefreshCw, Store, Globe, MessageCircle, Pause, Play, ChevronDown, Undo2 } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { ClientContentStudio } from "@/components/recorder/ClientContentStudio";
+import { ClientAppsPanel } from "@/components/apps/ClientAppsPanel";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClient, useCrmProducts } from "@/hooks/useCrm";
 import { crm, fmtMoney, CrmClient, CrmInvoice } from "@/lib/crm";
@@ -46,7 +47,10 @@ export function ClientDetail() {
   const { detail, loading, error, reload } = useCrmClient(id);
   const isAdmin = useIsAdmin();
   const { toast } = useToast();
-  const [tab, setTab] = useState<"overview" | "health" | "online-health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp" | "integrations" | "content">("overview");
+  const [tab, setTab] = useState<"overview" | "apps" | "health" | "online-health" | "vault" | "subscriptions" | "invoices" | "payments" | "gbp" | "integrations" | "content">(
+    // The Apps directory links straight to a client's Apps tab.
+    () => (searchParams.get("tab") === "apps" ? "apps" : "overview"),
+  );
   const [integration, setIntegration] = useState<"qb-review" | "ledgerbridge">("qb-review");
   const [deleting, setDeleting] = useState(false);
   const [editingHeader, setEditingHeader] = useState(false);
@@ -284,6 +288,7 @@ export function ClientDetail() {
         {(() => {
           const tabs: { key: typeof tab; label: string }[] = [
             { key: "overview", label: "Overview" },
+            { key: "apps", label: "Apps" },
             { key: "health", label: "Health" },
             { key: "online-health" as const, label: "Online Health" },
             { key: "vault", label: "Vault" },
@@ -316,6 +321,11 @@ export function ClientDetail() {
 
         {tab === "overview" && (
           <ContactsPanel detail={detail} reload={reload} />
+        )}
+        {tab === "apps" && (
+          <ClientAppsPanel
+            client={{ id: c.id, name: c.name, plan: c.plan ?? null, seats: c.seats ?? null }}
+          />
         )}
         {tab === "health" && (
           <HealthPanel clientId={detail.client.id} />
@@ -426,12 +436,14 @@ function ClientEditForm({ client, onSaved, onCancel }: { client: ClientRow; onSa
     { key: "country",       label: "Country",        placeholder: "CA" },
     { key: "website",       label: "Website",        type: "url", placeholder: "https://company.ca" },
     { key: "industry",      label: "Industry",       placeholder: "Landscaping" },
+    { key: "plan",          label: "Plan",           placeholder: "Growth" },
+    { key: "seats",         label: "Seats",          type: "number", placeholder: "5" },
     { key: "notes",         label: "Notes",          placeholder: "Internal notes…" },
   ];
 
   const [form, setForm] = useState<Record<string, string>>(() => ({
     status: (client.status as string) ?? "lead",
-    ...Object.fromEntries(fields.map(({ key }) => [key, (client[key] as string) ?? ""])),
+    ...Object.fromEntries(fields.map(({ key }) => [key, String(client[key] ?? "")])),
   }));
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -440,10 +452,15 @@ function ClientEditForm({ client, onSaved, onCancel }: { client: ClientRow; onSa
 
   const save = async () => {
     if (!form.name.trim()) { setErr("Business name is required."); return; }
+    if (form.seats.trim() && (!Number.isFinite(Number(form.seats)) || Number(form.seats) < 0)) {
+      setErr("Seats must be a whole number of 0 or more.");
+      return;
+    }
     setBusy(true); setErr(null);
     try {
-      const payload: Record<string, string | null> = { id: client.id as string, status: form.status };
+      const payload: Record<string, string | number | null> = { id: client.id as string, status: form.status };
       for (const { key } of fields) payload[key] = form[key] || null;
+      payload.seats = form.seats.trim() ? Math.trunc(Number(form.seats)) : null;
       await crm("clients.update", payload);
       onSaved();
     } catch (e) { setErr((e as Error).message); }

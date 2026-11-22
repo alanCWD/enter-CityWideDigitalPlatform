@@ -5,6 +5,10 @@ export interface CrmClient {
   id: string;
   name: string;
   status: "active" | "paused" | "churned" | "lead";
+  /** The client's plan with Citywide (separate from any app's plan). */
+  plan: string | null;
+  /** The client's seat allowance with Citywide. */
+  seats: number | null;
   gbp_connection_id: string | null;
   stripe_customer_id: string | null;
   billing_email: string | null;

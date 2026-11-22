@@ -159,6 +159,20 @@ async function bootstrap() {
     `CREATE TABLE IF NOT EXISTS health_checks (client_id TEXT NOT NULL, agency_id TEXT NOT NULL DEFAULT 'citywide', key TEXT NOT NULL, category TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'unknown', weight INTEGER NOT NULL DEFAULT 1, auto INTEGER NOT NULL DEFAULT 1, client_visible INTEGER NOT NULL DEFAULT 1, evidence TEXT, evidence_url TEXT, metric_value TEXT, updated_by TEXT, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (client_id, key))`,
     `CREATE TABLE IF NOT EXISTS health_audits (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, url TEXT NOT NULL, strategy TEXT NOT NULL, performance INTEGER, seo INTEGER, accessibility INTEGER, best_practices INTEGER, lcp_ms INTEGER, cls REAL, inp_ms INTEGER, cwv_pass INTEGER, error TEXT, raw_report_url TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
     `CREATE TABLE IF NOT EXISTS health_citations (client_id TEXT NOT NULL, directory TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'unknown', listing_url TEXT, evidence TEXT, checked_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (client_id, directory))`,
+    // ── App catalog ────────────────────────────────────────────────────────
+    // Citywide is the hub: it owns each client's plan, seats and which apps
+    // they have. A client's plan/seats are separate from an app's plan/seats.
+    `ALTER TABLE clients ADD COLUMN plan TEXT`,
+    `ALTER TABLE clients ADD COLUMN seats INTEGER`,
+    `CREATE TABLE IF NOT EXISTS apps (app_key TEXT PRIMARY KEY, name TEXT NOT NULL, description TEXT NOT NULL DEFAULT '', sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `INSERT OR IGNORE INTO apps (app_key, name, description, sort_order) VALUES ('inbox_pro', 'Inbox Pro', 'Shared team inbox for client conversations, broadcasts and follow-ups.', 1)`,
+    // One row per client per app. `status` is only ever set from a real
+    // Inbox Pro response; nothing is inferred. `citywide_client_id` is the id
+    // Inbox Pro uses for this client. No delete path exists for these rows:
+    // a workspace is paused, never removed.
+    `CREATE TABLE IF NOT EXISTS client_apps (id TEXT PRIMARY KEY, client_id TEXT NOT NULL, app_key TEXT NOT NULL DEFAULT 'inbox_pro', status TEXT NOT NULL DEFAULT 'not_connected' CHECK (status IN ('not_connected','active','paused','needs_attention')), citywide_client_id TEXT, workspace_slug TEXT, plan TEXT, seats INTEGER, last_sync_at TEXT, last_checked_at TEXT, last_error TEXT, created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP)`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS client_apps_client_app_uq ON client_apps(client_id, app_key)`,
+    `CREATE INDEX IF NOT EXISTS client_apps_app_idx ON client_apps(app_key)`,
   ];
   try { await bootstrapBatch(stmts); } catch (e) { console.error("bootstrap batch failed", e); }
   bootstrapped = true;
@@ -444,7 +458,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
       const offset = Number(payload.offset ?? 0);
       const whereClause = where.join(" AND ");
       const [{ rows }, { rows: countRows }] = await execMany([
-        { sql: `SELECT id, name, status, billing_email, phone, city, region, gbp_connection_id, agency_id, created_at, updated_at FROM clients WHERE ${whereClause} ORDER BY CASE status WHEN 'active' THEN 1 WHEN 'prospect' THEN 2 WHEN 'lead' THEN 3 WHEN 'paused' THEN 4 WHEN 'churned' THEN 5 ELSE 6 END, name ASC LIMIT ? OFFSET ?`, args: [...args, limit, offset] },
+        { sql: `SELECT id, name, status, plan, seats, billing_email, phone, city, region, gbp_connection_id, agency_id, created_at, updated_at FROM clients WHERE ${whereClause} ORDER BY CASE status WHEN 'active' THEN 1 WHEN 'prospect' THEN 2 WHEN 'lead' THEN 3 WHEN 'paused' THEN 4 WHEN 'churned' THEN 5 ELSE 6 END, name ASC LIMIT ? OFFSET ?`, args: [...args, limit, offset] },
         { sql: `SELECT COUNT(*) as total FROM clients WHERE ${whereClause}`, args },
       ]);
       return { clients: rows, total: Number(countRows[0]?.total ?? 0), limit, offset };
@@ -471,7 +485,7 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     case "clients.update": {
       const id = payload.id as string; await assertClientAccess(ctx, id);
       const fields: string[] = []; const args: SqlValue[] = [];
-      const updatable = ["name","status","source","owner_id","billing_email","phone","address_line1","city","region","postal_code","country","gbp_connection_id","stripe_customer_id","website","industry","notes"];
+      const updatable = ["name","status","source","owner_id","billing_email","phone","address_line1","city","region","postal_code","country","gbp_connection_id","stripe_customer_id","website","industry","notes","plan","seats"];
       // Super-admin can re-assign a client to a different agency
       if (ctx.isSuperAdmin) updatable.push("agency_id");
       for (const k of updatable) if (k in payload) { fields.push(`${k} = ?`); args.push((payload[k] as SqlValue) ?? null); }
@@ -509,6 +523,31 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         } catch { skipped++; }
       }
       return { created, skipped };
+    }
+
+    // ── App catalog ────────────────────────────────────────────────────────
+    // Read-only in this step. Provisioning, status reads, sync and pause are
+    // added separately; nothing here contacts Inbox Pro.
+    case "apps.list": {
+      const { rows } = await exec({ sql: `SELECT app_key, name, description, sort_order FROM apps ORDER BY sort_order ASC, name ASC` });
+      return { apps: rows };
+    }
+    case "clientApps.list": {
+      const appKey = (payload.app_key as string) || "inbox_pro";
+      const clientId = payload.client_id as string | undefined;
+      const where: string[] = ["ca.app_key = ?"];
+      const args: SqlValue[] = [appKey];
+      if (!ctx.isSuperAdmin) { where.push("c.agency_id = ?"); args.push(ctx.agencyId); }
+      if (clientId) {
+        await assertClientAccess(ctx, clientId);
+        where.push("ca.client_id = ?");
+        args.push(clientId);
+      }
+      const { rows } = await exec({
+        sql: `SELECT ca.id, ca.client_id, ca.app_key, ca.status, ca.citywide_client_id, ca.workspace_slug, ca.plan, ca.seats, ca.last_sync_at, ca.last_checked_at, ca.last_error, ca.created_at, ca.updated_at, c.name AS client_name, c.status AS client_status, c.plan AS client_plan, c.seats AS client_seats, c.billing_email AS client_email, c.agency_id FROM client_apps ca JOIN clients c ON c.id = ca.client_id WHERE ${where.join(" AND ")} ORDER BY c.name ASC LIMIT 500`,
+        args,
+      });
+      return { client_apps: rows };
     }
 
     case "contacts.upsert": {

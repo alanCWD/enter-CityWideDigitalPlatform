@@ -33,6 +33,7 @@ import { CrmIndex } from "./pages/dashboard/crm/CrmIndex";
 import { ClientsList } from "./pages/dashboard/crm/ClientsList";
 import { ClientDetail } from "./pages/dashboard/crm/ClientDetail";
 import { Catalog } from "./pages/dashboard/crm/Catalog";
+import { AppsDirectory } from "./pages/dashboard/crm/AppsDirectory";
 import { InvoicesList } from "./pages/dashboard/crm/InvoicesList";
 import { ApiAccess } from "./pages/dashboard/crm/ApiAccess";
 import { ContentStudio } from "./pages/dashboard/crm/ContentStudio";
@@ -277,6 +278,11 @@ export const routers = [
     path: "/dashboard/crm/clients/:id",
     name: "crm-client-detail",
     element: <Auth><ClientDetail /></Auth>,
+  },
+  {
+    path: "/dashboard/crm/apps",
+    name: "crm-apps",
+    element: <Auth><AppsDirectory /></Auth>,
   },
   {
     path: "/dashboard/crm/catalog",
