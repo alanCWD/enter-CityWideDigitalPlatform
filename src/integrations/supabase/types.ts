@@ -3626,6 +3626,54 @@ export type Database = {
         }
         Relationships: []
       }
+      inbox_sync_log: {
+        Row: {
+          agency_id: string
+          attempt: number
+          citywide_client_id: string | null
+          client_id: string
+          created_at: string
+          duration_ms: number | null
+          error_code: string | null
+          error_message: string | null
+          id: string
+          intent: string
+          outcome: string
+          status_code: number | null
+          user_id: string | null
+        }
+        Insert: {
+          agency_id: string
+          attempt?: number
+          citywide_client_id?: string | null
+          client_id: string
+          created_at?: string
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          intent: string
+          outcome: string
+          status_code?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          agency_id?: string
+          attempt?: number
+          citywide_client_id?: string | null
+          client_id?: string
+          created_at?: string
+          duration_ms?: number | null
+          error_code?: string | null
+          error_message?: string | null
+          id?: string
+          intent?: string
+          outcome?: string
+          status_code?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       oauth_states: {
         Row: {
           agency_id: string

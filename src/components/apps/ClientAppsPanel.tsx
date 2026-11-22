@@ -83,6 +83,7 @@ export function ClientAppsPanel({ client }: ClientAppsPanelProps) {
         <InboxProCard
           app={inboxPro}
           client={{ id: client.id, name: client.name, plan, seats }}
+          onChanged={reload}
         />
       )}
     </div>

@@ -5,12 +5,20 @@ import {
   Inbox,
   Loader2,
   Pause,
+  Play,
   RotateCw,
   Settings2,
 } from "lucide-react";
 import { StatusPill } from "@/components/crm/StatusPill";
 import { formatWhen, launchBlockedReason, type ClientApp } from "@/lib/apps";
 import { handOffToInboxPro, requestInboxLaunch } from "@/lib/inboxLaunch";
+import {
+  connectClientApp,
+  pauseClientApp,
+  resumeClientApp,
+  setClientAppPlan,
+  syncClientApp,
+} from "@/lib/clientApps";
 import { cn } from "@/lib/utils";
 
 interface ClientSummary {
@@ -25,28 +33,38 @@ interface InboxProCardProps {
   client: ClientSummary;
   /** Tighter spacing when the card sits in the directory list. */
   compact?: boolean;
+  /** Called after a change lands, so the surrounding view reloads the record. */
+  onChanged?: () => void;
 }
 
-/** What each action would do once the Inbox Pro connection exists. */
-const ACTION_REASONS = {
-  connect:
-    "Connecting creates this client's workspace in Inbox Pro and needs the Inbox Pro contract and its server-side key. That arrives in the next step, so nothing was sent.",
-  manage:
-    "Plan and seat changes are sent to Inbox Pro. That arrives with the connection step, so nothing was changed.",
-  pause:
-    "Pausing sends the pause to Inbox Pro so the workspace stops without being deleted. That arrives with the connection step, so nothing was paused or deleted.",
-  retry:
-    "Retrying needs the status/sync request to Inbox Pro. That arrives with the connection step, so no request was made.",
-} as const;
+type PendingAction = "connect" | "sync" | "pause" | "resume";
 
-export function InboxProCard({ app, client, compact = false }: InboxProCardProps) {
-  const [notice, setNotice] = useState<{ action: keyof typeof ACTION_REASONS; text: string } | null>(null);
+export function InboxProCard({ app, client, compact = false, onChanged }: InboxProCardProps) {
+  const [pending, setPending] = useState<PendingAction | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [launching, setLaunching] = useState(false);
   const [launchError, setLaunchError] = useState<string | null>(null);
+  const [planOpen, setPlanOpen] = useState(false);
 
-  const blocked = (action: keyof typeof ACTION_REASONS, text: string) => setNotice({ action, text });
+  const isSample = app?.is_sample === true;
+
+  const run = async (key: PendingAction, action: () => Promise<unknown>) => {
+    setPending(key);
+    setActionError(null);
+    try {
+      await action();
+      onChanged?.();
+    } catch (e) {
+      setActionError((e as Error).message);
+      // A failed sync still changed the record (needs attention), so refresh it.
+      onChanged?.();
+    } finally {
+      setPending(null);
+    }
+  };
 
   if (!app) {
+    const connecting = pending === "connect";
     return (
       <div className="bg-card dark:bg-[#111E33] border border-dashed border-border dark:border-white/15 rounded-2xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-start gap-4">
@@ -64,32 +82,48 @@ export function InboxProCard({ app, client, compact = false }: InboxProCardProps
             <div className="mt-4 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => blocked("connect", ACTION_REASONS.connect)}
-                className="inline-flex items-center gap-1.5 bg-[#0078D7] hover:bg-[#005FA3] text-primary-foreground text-xs font-bold px-4 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                onClick={() => void run("connect", () => connectClientApp(client.id))}
+                disabled={connecting}
+                className="inline-flex items-center gap-1.5 bg-[#0078D7] hover:bg-[#005FA3] text-primary-foreground text-xs font-bold px-4 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <Inbox className="w-3.5 h-3.5" />
-                Connect Inbox Pro
+                {connecting ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Inbox className="w-3.5 h-3.5" />
+                )}
+                {connecting ? "Connecting…" : "Connect Inbox Pro"}
               </button>
               <span className="text-[11px] text-muted-foreground">
-                Nothing is sent to Inbox Pro yet.
+                Creates the workspace once and sends this client's plan and seats.
               </span>
             </div>
+
+            {actionError && (
+              <div
+                role="alert"
+                className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2"
+              >
+                <AlertCircle className="w-3.5 h-3.5 text-destructive flex-shrink-0 mt-0.5" />
+                <p className="text-[11px] text-destructive break-words">{actionError}</p>
+              </div>
+            )}
           </div>
         </div>
-        <ActionNotice notice={notice} />
       </div>
     );
   }
 
-  const sample = app.is_sample === true;
+  const sample = isSample;
   const when = (iso: string | null | undefined) => formatWhen(iso);
   const blockedReason = launchBlockedReason(app);
+  const isPaused = app.status === "paused";
+  const notConnected = app.status === "not_connected";
+  const needsRetry = app.status === "needs_attention" || !!app.last_error;
 
   const launch = async () => {
     if (blockedReason || launching) return;
     setLaunching(true);
     setLaunchError(null);
-    setNotice(null);
     try {
       const ticket = await requestInboxLaunch(app.client_id);
       // The token exists only inside this navigation.
@@ -99,6 +133,8 @@ export function InboxProCard({ app, client, compact = false }: InboxProCardProps
       setLaunching(false);
     }
   };
+
+  const busy = (key: PendingAction) => pending === key;
 
   return (
     <div
@@ -164,45 +200,112 @@ export function InboxProCard({ app, client, compact = false }: InboxProCardProps
               emptyHint="No activity recorded — it arrives with a status read."
             />
             <Stat
-              label="Last checked"
-              value={when(app.last_checked_at)}
-              emptyHint="Never checked against Inbox Pro."
+              label="Last synced"
+              value={when(app.last_sync_at)}
+              emptyHint="Never synced with Inbox Pro."
             />
           </dl>
 
           {app.last_error && (
             <div className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2">
               <AlertCircle className="w-3.5 h-3.5 text-destructive flex-shrink-0 mt-0.5" />
-              <p className="text-[11px] text-destructive break-words">{app.last_error}</p>
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold text-destructive">Needs attention</p>
+                <p className="text-[11px] text-destructive break-words">{app.last_error}</p>
+              </div>
+            </div>
+          )}
+
+          {actionError && (
+            <div
+              role="alert"
+              className="mt-3 flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2"
+            >
+              <AlertCircle className="w-3.5 h-3.5 text-destructive flex-shrink-0 mt-0.5" />
+              <p className="text-[11px] text-destructive break-words">{actionError}</p>
             </div>
           )}
 
           <div className="mt-5 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void launch()}
-              disabled={!!blockedReason || launching}
-              aria-describedby={blockedReason ? `launch-blocked-${app.id}` : undefined}
-              className="inline-flex items-center gap-1.5 bg-[#0078D7] hover:bg-[#005FA3] text-primary-foreground text-xs font-bold px-4 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#0078D7]"
-            >
-              {launching ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <ExternalLink className="w-3.5 h-3.5" />
-              )}
-              {launching ? "Opening Inbox Pro…" : "Open Inbox Pro"}
-            </button>
-            <ActionButton icon={Settings2} label="Manage plan" onClick={() => blocked("manage", ACTION_REASONS.manage)} />
-            <ActionButton icon={Pause} label="Pause" onClick={() => blocked("pause", ACTION_REASONS.pause)} />
-            <ActionButton icon={RotateCw} label="Retry" onClick={() => blocked("retry", ACTION_REASONS.retry)} />
+            {notConnected ? (
+              <button
+                type="button"
+                onClick={() => void run("connect", () => connectClientApp(app.client_id))}
+                disabled={sample || busy("connect")}
+                className="inline-flex items-center gap-1.5 bg-[#0078D7] hover:bg-[#005FA3] text-primary-foreground text-xs font-bold px-4 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {busy("connect") ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <Inbox className="w-3.5 h-3.5" />
+                )}
+                {busy("connect") ? "Connecting…" : "Connect Inbox Pro"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => void launch()}
+                disabled={!!blockedReason || launching}
+                aria-describedby={blockedReason ? `launch-blocked-${app.id}` : undefined}
+                className="inline-flex items-center gap-1.5 bg-[#0078D7] hover:bg-[#005FA3] text-primary-foreground text-xs font-bold px-4 py-2 rounded-lg transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#0078D7]"
+              >
+                {launching ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                ) : (
+                  <ExternalLink className="w-3.5 h-3.5" />
+                )}
+                {launching ? "Opening Inbox Pro…" : "Open Inbox Pro"}
+              </button>
+            )}
+
+            <ActionButton
+              icon={Settings2}
+              label="Manage plan"
+              disabled={sample}
+              onClick={() => { setActionError(null); setPlanOpen(true); }}
+            />
+
+            {isPaused ? (
+              <ActionButton
+                icon={Play}
+                label={busy("resume") ? "Resuming…" : "Resume"}
+                disabled={sample || busy("resume")}
+                onClick={() => void run("resume", () => resumeClientApp(app.client_id))}
+              />
+            ) : (
+              !notConnected && (
+                <ActionButton
+                  icon={Pause}
+                  label={busy("pause") ? "Pausing…" : "Pause"}
+                  disabled={sample || busy("pause")}
+                  onClick={() => void run("pause", () => pauseClientApp(app.client_id))}
+                />
+              )
+            )}
+
+            {needsRetry && (
+              <ActionButton
+                icon={RotateCw}
+                label={busy("sync") ? "Retrying…" : "Retry sync"}
+                disabled={sample || busy("sync")}
+                onClick={() => void run("sync", () => syncClientApp(app.client_id))}
+              />
+            )}
           </div>
 
-          {blockedReason && (
+          {blockedReason && !notConnected && (
             <p
               id={`launch-blocked-${app.id}`}
               className="text-[11px] text-amber-700 dark:text-amber-300 mt-3"
             >
               {blockedReason}
+            </p>
+          )}
+
+          {sample && (
+            <p className="text-[11px] text-amber-700 dark:text-amber-300 mt-3">
+              Sample row — connecting, plan changes, pausing and syncing are disabled here. They run
+              against real Inbox Pro workspaces.
             </p>
           )}
 
@@ -218,28 +321,130 @@ export function InboxProCard({ app, client, compact = false }: InboxProCardProps
 
           <p className="text-[11px] text-muted-foreground mt-3">
             Launching hands this browser to Inbox Pro with a single-use signed link that expires in
-            minutes. Pausing is the only way to stop a workspace — Citywide never deletes one.
+            minutes. Pausing stops a workspace; Citywide never deletes one.
           </p>
-
-          <ActionNotice notice={notice} />
         </div>
       </div>
+
+      {planOpen && (
+        <PlanDialog
+          client={client}
+          app={app}
+          onClose={() => {
+            setPlanOpen(false);
+            // A failed attempt may already have marked the record needs attention.
+            onChanged?.();
+          }}
+          onSubmit={async (plan, seats) => {
+            await setClientAppPlan(app.client_id, plan, seats);
+            setPlanOpen(false);
+            onChanged?.();
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function ActionNotice({ notice }: { notice: { action: string; text: string } | null }) {
+function PlanDialog({
+  client,
+  app,
+  onClose,
+  onSubmit,
+}: {
+  client: ClientSummary;
+  app: ClientApp;
+  onClose: () => void;
+  onSubmit: (plan: string, seats: number) => Promise<void>;
+}) {
+  const [plan, setPlan] = useState(app.plan ?? client.plan ?? "");
+  const [seats, setSeats] = useState(String(app.seats ?? client.seats ?? ""));
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!plan.trim()) { setError("Enter the plan to send to Inbox Pro."); return; }
+    const seatCount = Number(seats);
+    if (!seats.trim() || !Number.isFinite(seatCount) || seatCount < 0) {
+      setError("Seats must be a whole number of 0 or more.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await onSubmit(plan.trim(), Math.trunc(seatCount));
+    } catch (e2) {
+      setError((e2 as Error).message);
+      setBusy(false);
+    }
+  };
+
   return (
-    <div aria-live="polite" className={cn(notice ? "mt-4" : "sr-only")}>
-      {notice && (
-        <div
-          role="status"
-          className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2"
-        >
-          <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-          <p className="text-[11px] text-amber-700 dark:text-amber-300">{notice.text}</p>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <form
+        onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-md bg-card border border-border rounded-2xl p-6 m-4 shadow-xl"
+        aria-labelledby="plan-dialog-title"
+      >
+        <h2 id="plan-dialog-title" className="text-lg font-bold text-foreground">
+          Manage Inbox Pro plan
+        </h2>
+        <p className="text-xs text-muted-foreground mt-1">
+          This sends {client.name}'s plan and seat count to Inbox Pro and updates this client's record.
+        </p>
+
+        <div className="mt-5 space-y-4">
+          <label className="block">
+            <span className="text-xs font-semibold text-foreground">Plan</span>
+            <input
+              value={plan}
+              onChange={(e) => setPlan(e.target.value)}
+              placeholder="Growth"
+              className="mt-1.5 w-full bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs font-semibold text-foreground">Seats</span>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              value={seats}
+              onChange={(e) => setSeats(e.target.value)}
+              placeholder="5"
+              className="mt-1.5 w-full bg-background border border-input rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/50"
+            />
+          </label>
         </div>
-      )}
+
+        {error && (
+          <p role="alert" className="mt-4 text-xs text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={busy}
+            className="bg-[#0078D7] hover:bg-[#005FA3] disabled:opacity-50 text-primary-foreground text-sm font-bold px-5 py-2 rounded-lg transition-colors"
+          >
+            {busy ? "Sending…" : "Save & sync"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }
@@ -248,16 +453,19 @@ function ActionButton({
   icon: Icon,
   label,
   onClick,
+  disabled,
 }: {
   icon: React.ElementType;
   label: string;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex items-center gap-1.5 bg-transparent hover:bg-accent text-foreground text-xs font-bold px-3 py-2 rounded-lg border border-border dark:border-white/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      disabled={disabled}
+      className="inline-flex items-center gap-1.5 bg-transparent hover:bg-accent text-foreground text-xs font-bold px-3 py-2 rounded-lg border border-border dark:border-white/15 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
     >
       <Icon className="w-3.5 h-3.5" />
       {label}

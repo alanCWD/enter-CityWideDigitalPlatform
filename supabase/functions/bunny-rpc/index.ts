@@ -121,8 +121,285 @@ async function resolveLaunchRole(ctx: AuthCtx, connectionId: string | null): Pro
   }
 }
 
-/** SHA-256 hex digest — API keys are stored only as their hash. */
-async function sha256Hex(value: string): Promise<string> {
+// ── Inbox Pro tenant sync ───────────────────────────────────────────────────
+// Server-side only: the sync secret never reaches the browser. Each change is
+// one upsert with a bounded timeout, retrying only transient failures.
+const SYNC_TIMEOUT_MS = 10_000;
+const SYNC_BACKOFF_MS = [300, 900, 2_000];
+
+interface SyncAttempt {
+  attempt: number;
+  status: number | null;
+  ok: boolean;
+  errorCode: string | null;
+  errorMessage: string | null;
+  durationMs: number;
+}
+
+interface TenantSyncOutcome {
+  ok: boolean;
+  attempts: SyncAttempt[];
+  workspaceSlug: string | null;
+  plan: string | null;
+  seats: number | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value : null;
+}
+function readNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+async function postTenantUpsert(body: Record<string, unknown>): Promise<TenantSyncOutcome> {
+  const url = (Deno.env.get("INBOX_PRO_SYNC_URL") ?? "").trim();
+  const secret = Deno.env.get("INBOX_PRO_SYNC_SECRET") ?? "";
+  const attempts: SyncAttempt[] = [];
+
+  // Missing configuration is a real failure, recorded like any other.
+  if (!/^https?:\/\//i.test(url) || !secret) {
+    return {
+      ok: false,
+      attempts,
+      workspaceSlug: null,
+      plan: null,
+      seats: null,
+      errorCode: "not_configured",
+      errorMessage:
+        "Inbox Pro sync is not configured on this server. Add the sync address and the sync secret in server secrets.",
+    };
+  }
+
+  let successPayload: unknown = null;
+  let last: SyncAttempt | null = null;
+
+  for (let index = 0; index < 1 + SYNC_BACKOFF_MS.length; index++) {
+    if (index > 0) await new Promise((resolve) => setTimeout(resolve, SYNC_BACKOFF_MS[index - 1]));
+    const started = Date.now();
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), SYNC_TIMEOUT_MS);
+    let status: number | null = null;
+    let ok = false;
+    let errorCode: string | null = null;
+    let errorMessage: string | null = null;
+    let parsed: unknown = null;
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${secret}` },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      status = response.status;
+      const text = await response.text();
+      try { parsed = text ? JSON.parse(text) : null; } catch { parsed = null; }
+      if (response.ok) {
+        ok = true;
+        successPayload = parsed;
+      } else {
+        const record = (parsed ?? {}) as Record<string, unknown>;
+        errorCode = String(response.status);
+        errorMessage =
+          readString(record.error) ?? readString(record.message) ?? `Inbox Pro responded ${response.status}.`;
+      }
+    } catch (e) {
+      const err = e as Error;
+      errorCode = "network";
+      errorMessage = err.name === "AbortError"
+        ? "Inbox Pro did not answer within 10 seconds."
+        : `Could not reach Inbox Pro: ${err.message}`;
+    } finally {
+      clearTimeout(timer);
+    }
+
+    last = { attempt: index + 1, status, ok, errorCode, errorMessage, durationMs: Date.now() - started };
+    attempts.push(last);
+    if (ok) break;
+    // A 4xx is a decision, not a blip: never retry it.
+    if (status !== null && status < 500) break;
+  }
+
+  const envelope = (successPayload ?? {}) as Record<string, unknown>;
+  const workspace = (envelope.workspace ?? envelope) as Record<string, unknown>;
+
+  return {
+    ok: last?.ok ?? false,
+    attempts,
+    workspaceSlug: readString(workspace.slug),
+    plan: readString(workspace.plan),
+    seats: readNumber(workspace.seats),
+    errorCode: last?.errorCode ?? null,
+    errorMessage: last?.errorMessage ?? null,
+  };
+}
+
+type SyncIntent = "connect" | "sync" | "pause" | "resume" | "plan";
+
+/**
+ * One upsert for a client's Inbox Pro tenant. The permanent id is created once
+ * and never changes, so repeating a sync can never produce a second workspace.
+ */
+async function syncClientApp(
+  ctx: AuthCtx,
+  clientId: string,
+  intent: SyncIntent,
+  overrides: { plan?: string | null; seats?: number | null } = {},
+): Promise<{ status: "active" | "paused"; workspace_slug: string | null; plan: string | null; seats: number | null }> {
+  if (!clientId) throw new Error("Choose a client before syncing Inbox Pro.");
+  await assertClientAccess(ctx, clientId);
+
+  const { rows: clientRows } = await exec({
+    sql: `SELECT id, name, industry, plan, seats, agency_id FROM clients WHERE id = ? LIMIT 1`,
+    args: [clientId],
+  });
+  const client = clientRows[0];
+  if (!client) throw new Error(`client ${clientId} not found`);
+  const agencyId = String(client.agency_id ?? ctx.agencyId);
+
+  const { rows: appRows } = await exec({
+    sql: `SELECT id, citywide_client_id, workspace_slug, plan, seats, status FROM client_apps WHERE client_id = ? AND app_key = ? LIMIT 1`,
+    args: [clientId, "inbox_pro"],
+  });
+  let app = appRows[0];
+
+  if (app && intent === "connect" && app.status !== "not_connected") {
+    throw new Error("This client's Inbox Pro is already connected. Use Retry sync instead of connecting again.");
+  }
+  if (!app && intent !== "connect") {
+    throw new Error("This client has no Inbox Pro record yet. Connect Inbox Pro first.");
+  }
+  // Check the client record before creating anything, so a refused connect
+  // leaves no half-made record behind.
+  if (intent === "connect" && (!readString(client.plan) || readNumber(client.seats) === null)) {
+    throw new Error(
+      "Set this client's plan and seats on the client record before connecting Inbox Pro (Edit company details).",
+    );
+  }
+
+  // Permanent for the life of the client; a retry reuses it.
+  const citywideClientId = (app?.citywide_client_id as string | null) ?? uuid();
+
+  if (!app) {
+    const rowId = uuid();
+    await exec({
+      sql: `INSERT INTO client_apps (id, client_id, app_key, status, citywide_client_id) VALUES (?,?,?,?,?)`,
+      args: [rowId, clientId, "inbox_pro", "not_connected", citywideClientId],
+    });
+    app = {
+      id: rowId,
+      citywide_client_id: citywideClientId,
+      workspace_slug: null,
+      plan: null,
+      seats: null,
+      status: "not_connected",
+    };
+  } else if (!app.citywide_client_id) {
+    await exec({ sql: `UPDATE client_apps SET citywide_client_id = ? WHERE id = ?`, args: [citywideClientId, app.id] });
+  }
+
+  if (intent === "plan") {
+    const plan = (overrides.plan ?? "").trim();
+    const seats = overrides.seats;
+    if (!plan) throw new Error("Enter the plan to send to Inbox Pro.");
+    if (seats === null || seats === undefined || !Number.isFinite(seats) || seats < 0) {
+      throw new Error("Seats must be a whole number of 0 or more.");
+    }
+    await exec({
+      sql: `UPDATE clients SET plan = ?, seats = ?, updated_at = ? WHERE id = ?`,
+      args: [plan, Math.trunc(seats), now(), clientId],
+    });
+  }
+
+  const plan = intent === "plan"
+    ? (overrides.plan ?? "").trim()
+    : (readString(client.plan) ?? null);
+  const seats = intent === "plan"
+    ? Math.trunc(Number(overrides.seats))
+    : readNumber(client.seats);
+
+  // A new workspace needs a plan and a seat count to be useful.
+  if ((intent === "connect" || intent === "plan" || intent === "sync") && (!plan || seats === null)) {
+    throw new Error(
+      "Set this client's plan and seats on the client record before syncing Inbox Pro (Edit company details).",
+    );
+  }
+
+  // Retrying a paused workspace must not quietly resume it.
+  const targetStatus: "active" | "paused" =
+    intent === "pause" ? "paused" : (intent === "sync" && app.status === "paused" ? "paused" : "active");
+
+  const outcome = await postTenantUpsert({
+    action: "upsert",
+    citywide_client_id: citywideClientId,
+    name: client.name,
+    industry: client.industry ?? null,
+    plan,
+    seats,
+    status: targetStatus,
+  });
+
+  // Every attempt is logged, without the secret or any request header.
+  try {
+    const service = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const rows = outcome.attempts.length
+      ? outcome.attempts.map((a) => ({
+        agency_id: agencyId,
+        client_id: clientId,
+        citywide_client_id: citywideClientId,
+        intent,
+        attempt: a.attempt,
+        outcome: a.ok ? "success" : "failure",
+        status_code: a.status,
+        error_code: a.errorCode,
+        error_message: a.errorMessage,
+        duration_ms: a.durationMs,
+        user_id: ctx.userId,
+      }))
+      : [{
+        agency_id: agencyId,
+        client_id: clientId,
+        citywide_client_id: citywideClientId,
+        intent,
+        attempt: 1,
+        outcome: "failure",
+        status_code: null,
+        error_code: outcome.errorCode,
+        error_message: outcome.errorMessage,
+        duration_ms: null,
+        user_id: ctx.userId,
+      }];
+    const { error } = await service.from("inbox_sync_log").insert(rows);
+    if (error) console.error("inbox_sync_log insert failed:", error.message);
+  } catch (e) {
+    console.error("inbox_sync_log insert failed:", (e as Error).message);
+  }
+
+  if (!outcome.ok) {
+    const message = outcome.errorMessage ?? "Inbox Pro did not confirm the sync.";
+    // Never report Active on failure: the client needs a human to look at it.
+    await exec({
+      sql: `UPDATE client_apps SET status = 'needs_attention', last_checked_at = ?, last_error = ?, updated_at = ? WHERE id = ?`,
+      args: [now(), message, now(), app.id],
+    });
+    throw new Error(message);
+  }
+
+  const savedSlug = outcome.workspaceSlug ?? (app.workspace_slug as string | null) ?? null;
+  const savedPlan = outcome.plan ?? plan;
+  const savedSeats = outcome.seats ?? seats;
+
+  await exec({
+    sql: `UPDATE client_apps SET status = ?, workspace_slug = ?, plan = ?, seats = ?, last_sync_at = ?, last_checked_at = ?, last_error = NULL, updated_at = ? WHERE id = ?`,
+    args: [targetStatus, savedSlug, savedPlan, savedSeats, now(), now(), now(), app.id],
+  });
+
+  return { status: targetStatus, workspace_slug: savedSlug, plan: savedPlan, seats: savedSeats };
+}
+
+/** SHA-256 hex digest — API keys are stored only as their hash. */async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
 }
@@ -711,6 +988,34 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
         role,
         workspace_slug: slug,
       };
+    }
+
+    case "clientApps.connect": {
+      const result = await syncClientApp(ctx, payload.client_id as string, "connect");
+      return { ok: true, ...result };
+    }
+    case "clientApps.sync": {
+      const result = await syncClientApp(ctx, payload.client_id as string, "sync");
+      return { ok: true, ...result };
+    }
+    case "clientApps.pause": {
+      const result = await syncClientApp(ctx, payload.client_id as string, "pause");
+      return { ok: true, ...result };
+    }
+    case "clientApps.resume": {
+      const result = await syncClientApp(ctx, payload.client_id as string, "resume");
+      return { ok: true, ...result };
+    }
+    case "clientApps.plan": {
+      const rawSeats = payload.seats;
+      const seats = rawSeats === null || rawSeats === undefined || rawSeats === ""
+        ? null
+        : Number(rawSeats);
+      const result = await syncClientApp(ctx, payload.client_id as string, "plan", {
+        plan: (payload.plan as string) ?? null,
+        seats: seats !== null && Number.isFinite(seats) ? seats : null,
+      });
+      return { ok: true, ...result };
     }
 
     case "contacts.upsert": {

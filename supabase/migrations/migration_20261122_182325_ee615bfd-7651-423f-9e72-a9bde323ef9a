@@ -1,0 +1,27 @@
+CREATE TABLE IF NOT EXISTS public.inbox_sync_log (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  agency_id text NOT NULL,
+  client_id text NOT NULL,
+  citywide_client_id text,
+  intent text NOT NULL,
+  attempt smallint NOT NULL DEFAULT 1,
+  outcome text NOT NULL CHECK (outcome IN ('success','failure')),
+  status_code integer,
+  error_code text,
+  error_message text,
+  duration_ms integer,
+  user_id uuid,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS inbox_sync_log_client_idx
+  ON public.inbox_sync_log (client_id, created_at DESC);
+
+ALTER TABLE public.inbox_sync_log ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "staff read own sync attempts, admins read all"
+  ON public.inbox_sync_log FOR SELECT
+  USING (is_admin() OR user_id = auth.uid());
+
+GRANT SELECT ON public.inbox_sync_log TO authenticated;
+REVOKE INSERT, UPDATE, DELETE ON public.inbox_sync_log FROM authenticated, anon;
