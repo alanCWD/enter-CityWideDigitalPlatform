@@ -223,7 +223,7 @@ async function postTenantUpsert(body: Record<string, unknown>): Promise<TenantSy
   }
 
   const envelope = (successPayload ?? {}) as Record<string, unknown>;
-  const workspace = (envelope.workspace ?? envelope) as Record<string, unknown>;
+  const workspace = (envelope.workspace ?? envelope.tenant ?? envelope) as Record<string, unknown>;
 
   return {
     ok: last?.ok ?? false,
@@ -333,7 +333,7 @@ async function syncClientApp(
 
   const outcome = await postTenantUpsert({
     action: "upsert",
-    citywide_client_id: citywideClientId,
+    client_id: citywideClientId,
     name: client.name,
     industry: client.industry ?? null,
     plan,
