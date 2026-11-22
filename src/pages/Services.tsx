@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Globe, Share2, MapPin, Video, Settings, Megaphone, Activity, GraduationCap, Check, ArrowUpRight, ArrowDownRight, type LucideIcon } from "lucide-react";
+import { Globe, Share2, MapPin, Video, Inbox, Megaphone, Activity, GraduationCap, Check, ArrowUpRight, ArrowDownRight, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { GlassHero } from "@/components/marketing/glass/GlassHero";
@@ -135,6 +135,28 @@ const services: Service[] = [
     },
   },
   {
+    id: "inbox-pro",
+    icon: Inbox,
+    name: "Inbox Pro",
+    price: "Included with CityWide plans",
+    tagline: "One shared inbox for every conversation",
+    description: "Customer conversations arrive across several channels. Inbox Pro brings the messages from your connected accounts into one shared team inbox, so your team can read, reply and follow up from a single workspace. It runs as its own app and signs you in from your CityWide dashboard.",
+    features: [
+      "Shared team inbox for your connected channels",
+      "Read and reply to conversations from one workspace",
+      "Broadcasts, sequences and automations on eligible plans",
+      "Seat-based access for your team",
+      "Per-client workspace with a signed hand-off from your dashboard",
+      "Workspace status, seats and open conversations in the dashboard",
+    ],
+    niches: [],
+    app: {
+      rgb: "0 120 215",
+      ink: "#a9dcff",
+      href: "https://inbox-pro.citywidedigital.ca/",
+    },
+  },
+  {
     id: "video-reviews",
     icon: Video,
     name: "Review Engine",
@@ -178,25 +200,6 @@ const services: Service[] = [
       href: "https://creator-campaigns.citywidedigital.ca/",
       action: { label: "Order a campaign", href: "https://creator-campaigns.citywidedigital.ca/order" },
     },
-  },
-  {
-    id: "site-concierge",
-    icon: Settings,
-    iconColor: "var(--product-concierge-icon)",
-    accentRgb: "255 204 164",
-    name: "Site Concierge",
-    price: "Pay-per-use",
-    tagline: "Any change you need — just ask",
-    description: "Need a new page, a photo gallery update, a seasonal banner, or a contact form tweak? Site Concierge is your on-demand website change service. Describe what you need in plain English to our AI-powered intake chatbot, and our team handles the rest.",
-    features: [
-      "AI chatbot intake — describe changes in plain English",
-      "Design, copy, layout, and functionality changes",
-      "No long-term contracts",
-      "3-business-day turnaround on standard requests",
-      "Photo editing and optimization included",
-      "Included credits with Pro plan",
-    ],
-    niches: [],
   },
 ];
 

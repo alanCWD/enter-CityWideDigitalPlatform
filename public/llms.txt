@@ -16,6 +16,7 @@ Not synchronised: content that does not exist in Google, such as custom page cop
 - Social Sync Pro: publishes a Google Business Profile post to connected social platforms.
 - Listing Sync Pro: keeps name, address and phone consistent across 40+ directories.
 - Review Engine: collects customer reviews by SMS or email and displays approved reviews on the website.
+- Inbox Pro: a shared team inbox for customer conversations from connected channels, with broadcasts, sequences and automations on eligible plans.
 - Site Concierge: on-demand website changes requested in plain language.
 
 ## Plans (CAD, plus GST)

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MapPin, Mail, Phone, Facebook, Instagram, Linkedin, Twitter, Globe, Share2, Video, Settings, Megaphone, Activity, GraduationCap, type LucideIcon } from "lucide-react";
+import { MapPin, Mail, Phone, Facebook, Instagram, Linkedin, Twitter, Globe, Share2, Video, Inbox, Megaphone, Activity, GraduationCap, type LucideIcon } from "lucide-react";
 import { LogoOnDark } from "@/components/branding/Logo";
 import AskAboutCityWide from "./AskAboutCityWide";
 import { cn } from "@/lib/utils";
@@ -20,9 +20,9 @@ const footerLinks: Record<string, FooterLink[]> = {
     { label: "Social Sync Pro", href: "/services#social-sync", icon: Share2, iconClass: "text-[var(--product-social-icon)]" },
     { label: "Business Online Health", href: "/services#online-health", icon: Activity, iconClass: "text-[var(--footer-product-health)]" },
     { label: "Google Coach", href: "/services#google-coach", icon: GraduationCap, iconClass: "text-[var(--footer-product-coach)]" },
+    { label: "Inbox Pro", href: "/services#inbox-pro", icon: Inbox, iconClass: "text-[var(--footer-product-inbox)]" },
     { label: "Review Engine", href: "/services#video-reviews", icon: Video, iconClass: "text-[var(--footer-product-review)]" },
     { label: "Creator Campaigns", href: "/services#creator-campaigns", icon: Megaphone, iconClass: "text-[var(--footer-product-creator)]" },
-    { label: "Site Concierge", href: "/services#site-concierge", icon: Settings, iconClass: "text-[var(--product-concierge-icon)]" },
   ],
   Company: [
     { label: "About Us", href: "/about" },
