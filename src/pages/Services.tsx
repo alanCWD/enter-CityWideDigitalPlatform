@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import { Globe, Share2, MapPin, Video, Inbox, Megaphone, Activity, GraduationCap, Check, ArrowUpRight, ArrowDownRight, type LucideIcon } from "lucide-react";
+import { Globe, Share2, MapPin, Video, Inbox, Megaphone, Activity, GraduationCap, Settings, Check, ArrowUpRight, ArrowDownRight, type LucideIcon } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { GlassHero } from "@/components/marketing/glass/GlassHero";
@@ -200,6 +200,25 @@ const services: Service[] = [
       href: "https://creator-campaigns.citywidedigital.ca/",
       action: { label: "Order a campaign", href: "https://creator-campaigns.citywidedigital.ca/order" },
     },
+  },
+  {
+    id: "site-concierge",
+    icon: Settings,
+    iconColor: "var(--product-concierge-icon)",
+    accentRgb: "255 204 164",
+    name: "Site Concierge",
+    price: "Pay-per-use",
+    tagline: "Any change you need — just ask",
+    description: "Need a new page, a photo gallery update, a seasonal banner, or a contact form tweak? Site Concierge is your on-demand website change service. Describe what you need in plain English to our AI-powered intake chatbot, and our team handles the rest.",
+    features: [
+      "AI chatbot intake — describe changes in plain English",
+      "Design, copy, layout, and functionality changes",
+      "No long-term contracts",
+      "3-business-day turnaround on standard requests",
+      "Photo editing and optimization included",
+      "Included credits with Pro plan",
+    ],
+    niches: [],
   },
 ];
 
