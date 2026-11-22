@@ -151,8 +151,8 @@ const services: Service[] = [
     ],
     niches: [],
     app: {
-      rgb: "0 120 215",
-      ink: "#a9dcff",
+      rgb: "255 140 74",
+      ink: "#ffd0ad",
       href: "https://inbox-pro.citywidedigital.ca/",
     },
   },
