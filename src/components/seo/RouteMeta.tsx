@@ -66,6 +66,8 @@ const PUBLIC_META: Record<string, PageMeta> = {
 
 const PRIVATE_PREFIXES = [
   "/business-online-health/checkout",
+  // Crew page is unlisted until it is added to the navigation.
+  "/crew",
   "/dashboard",
   "/portal",
   "/admin",

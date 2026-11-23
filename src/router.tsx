@@ -4,6 +4,7 @@ import BusinessOnlineHealthCheckout from "./pages/BusinessOnlineHealthCheckout";
 import Services from "./pages/Services";
 import Pricing from "./pages/Pricing";
 import About from "./pages/About";
+import Crew from "./pages/Crew";
 import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 import { Dashboard } from "./pages/dashboard/Dashboard";
@@ -94,6 +95,12 @@ export const routers = [
     path: "/about",
     name: "about",
     element: <About />,
+  },
+  // Unlisted while the page is being reviewed — no nav or footer links yet.
+  {
+    path: "/crew",
+    name: "crew",
+    element: <Crew />,
   },
   {
     path: "/contact",
