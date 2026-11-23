@@ -15,7 +15,6 @@ type CrewMember = {
   saying: string;
   /** Generated portrait. Cards fall back to a monogram until it is available. */
   portrait?: string;
-  status?: string;
   featured?: boolean;
   icon?: typeof Sparkles;
 };
@@ -41,10 +40,9 @@ const coreCrew: CrewMember[] = [
     title: "Agentic Helpbot · “Rob At”",
     niche: "First contact",
     blurb:
-      "Being built as the first voice prospects meet in the CWD chat assistant: reads the enquiry, works out which niche it belongs to, books the right demo and hands a clean brief to a human. Answers from the business data the platform already keeps in sync — never a guess.",
+      "An aspiring actor with a titanium ego, he’s currently moonlighting as CityWide Digital’s chattiest chatbot until Hollywood recognizes what his last three directors called “an unmistakable presence” and “a workplace concern.” As the first voice to greet you at CityWide Digital, he figures out what you need, matches you with the right team member, books the right demo, and hands the crew a clear brief so you don’t have to repeat yourself. Think of him as the opening act.",
     movie: "Futurama: Bender’s Big Score",
     saying: "Bite my shiny metal chassis.",
-    status: "In development",
     featured: true,
     icon: Sparkles,
   },
@@ -167,11 +165,6 @@ function FeaturedCard({ member }: { member: CrewMember }) {
         <div>
           <div className="flex flex-wrap items-center gap-2">
             <p className="gp-kicker">{member.niche}</p>
-            {member.status && (
-              <span className="rounded-full border border-[var(--gp-line)] bg-white/[0.06] px-2.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--gp-ink-55)]">
-                {member.status}
-              </span>
-            )}
           </div>
           <h3 className="gp-display mt-3 text-[clamp(1.6rem,3vw,2.1rem)]">{member.firstName}</h3>
           <p className="mt-1 text-[13px] font-light tracking-wide text-[var(--gp-blue)]">{member.title}</p>
@@ -284,7 +277,7 @@ export default function Crew() {
             <p className="max-w-3xl text-[12.5px] font-light leading-relaxed text-[var(--gp-ink-55)]">
               The niche crew represent independent white-label partner agencies working inside the CityWide Digital
               platform. You work with one platform and one invoice; each specialist brings the depth of their own
-              market. Rob@ is in development — until it ships, every conversation starts with a human.
+              market. Rob@ is the opening act for the chat assistant shipping with the platform — until then, every conversation starts with a human.
             </p>
           </div>
         </div>
