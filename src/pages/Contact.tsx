@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RobIntakeEmbed } from "@/components/marketing/contact/RobIntakeEmbed";
+import { RobIntroPanel } from "@/components/marketing/contact/RobIntroPanel";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/integrations/supabase/client";
 
 const OWNER_EMAIL = "alan@citywidedigital.ca";
@@ -91,6 +92,8 @@ export default function Contact() {
           <div className="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-10">
             {/* Info column */}
             <div className="space-y-6">
+              <RobIntroPanel />
+
               <div className="gp-panel p-7">
                 <p className="gp-kicker">Direct lines</p>
                 <div className="mt-6 space-y-5">
@@ -139,7 +142,7 @@ export default function Contact() {
             </div>
 
             {/* Intake column — Rob@ embed, with the legacy form kept for rollback */}
-            <div>
+            <div id="intake" data-contact-intake>
               {SHOW_LEGACY_FORM ? (
                 <>
               {submitted ? (

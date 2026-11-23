@@ -697,6 +697,236 @@
   color: #ffffff;
 }
 
+/* ── Rob@ contact intro panel ───────────────────────────────────────────── */
+/**
+ * The first card in the contact page's left column, above "Direct lines".
+ * Markup lives in components/marketing/contact/RobIntroPanel.tsx. The panel
+ * carries its own frame, so it must never be wrapped in another bordered card.
+ */
+
+.cwd-intro {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.17);
+  border-radius: 22px;
+  background:
+    linear-gradient(158deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.04) 48%, rgba(255, 255, 255, 0.02) 100%),
+    #080d16;
+  box-shadow:
+    0 28px 70px -32px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  color: #f2f5fa;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-weight: 300;
+  box-sizing: border-box;
+}
+
+.cwd-intro *,
+.cwd-intro *::before,
+.cwd-intro *::after {
+  box-sizing: border-box;
+}
+
+.cwd-intro__media {
+  position: relative;
+  aspect-ratio: 5 / 4;
+  overflow: hidden;
+  background: #05070a;
+}
+
+.cwd-intro__image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: 50% 46%;
+  transform: scale(1.001);
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cwd-intro:hover .cwd-intro__image {
+  transform: scale(1.035);
+}
+
+.cwd-intro__shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(to top, rgba(5, 7, 10, 0.9) 0%, rgba(5, 7, 10, 0.18) 34%, transparent 58%),
+    radial-gradient(700px 380px at 50% 0%, rgba(110, 168, 255, 0.12), transparent 70%);
+}
+
+.cwd-intro__status {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(5, 7, 10, 0.72);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  color: rgba(242, 245, 250, 0.72);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.cwd-intro__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #cfe2ff;
+  box-shadow: 0 0 10px rgba(207, 226, 255, 0.8);
+}
+
+.cwd-intro__body {
+  padding: 22px 22px 24px;
+}
+
+.cwd-intro__eyebrow {
+  margin: 0;
+  color: rgba(242, 245, 250, 0.4);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  line-height: 1.5;
+}
+
+.cwd-intro__title {
+  margin: 14px 0 0;
+  color: #f2f5fa;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-size: clamp(2rem, 3.2vw, 2.75rem);
+  font-weight: 300;
+  line-height: 1.03;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.cwd-intro__sub {
+  margin: 10px 0 0;
+  color: #cfe2ff;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-size: 1.08rem;
+  font-weight: 300;
+  line-height: 1.35;
+}
+
+.cwd-intro__copy {
+  margin: 14px 0 0;
+  color: rgba(242, 245, 250, 0.7);
+  font-size: 0.9rem;
+  font-weight: 300;
+  line-height: 1.75;
+}
+
+.cwd-intro__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.cwd-intro__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: #cfe2ff;
+  color: #05070a;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    color 200ms ease,
+    transform 200ms ease;
+}
+
+.cwd-intro__button:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.cwd-intro__button--ghost {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.03);
+  color: #f2f5fa;
+}
+
+.cwd-intro__button--ghost:hover {
+  border-color: rgba(255, 255, 255, 0.34);
+  background: rgba(255, 255, 255, 0.06);
+  color: #ffffff;
+}
+
+.cwd-intro__button:focus-visible {
+  outline: 2px solid #6ea8ff;
+  outline-offset: 3px;
+}
+
+.cwd-intro__note {
+  margin: 16px 0 0;
+  color: rgba(242, 245, 250, 0.38);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 8.5px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  line-height: 1.7;
+  text-transform: uppercase;
+}
+
+@media (max-width: 420px) {
+  .cwd-intro__body {
+    padding: 18px 18px 20px;
+  }
+
+  .cwd-intro__actions {
+    flex-direction: column;
+  }
+
+  .cwd-intro__button {
+    width: 100%;
+  }
+}
+
+/* Scroll target for the panel's "Start the conversation" link */
+[data-contact-intake] {
+  scroll-margin-top: 96px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cwd-intro__image,
+  .cwd-intro__button {
+    transition: none;
+  }
+
+  .cwd-intro:hover .cwd-intro__image,
+  .cwd-intro__button:hover {
+    transform: none;
+  }
+}
+
 /* ── Motion preferences ─────────────────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
