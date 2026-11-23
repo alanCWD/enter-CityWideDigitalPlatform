@@ -84,7 +84,21 @@
     .preload-facts li::before { content: ""; position: absolute; left: 0; top: 0.62em; width: 0.35rem; height: 0.35rem; border-radius: 50%; background: #6ea8ff; }
     .preload-facts strong { color: #f2f5fa; font-weight: 500; }
     .preload-links { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; margin-top: 0.75rem; font-size: 0.9rem; }
+    /* Visitors with JavaScript keep a dark canvas while the app boots instead of
+       seeing this plain-text copy; it returns if React never mounts. */
+    html, body { background: #05070a; }
+    html[data-js] .preload-page { visibility: hidden; }
   </style>
+
+  <script>
+    (function () {
+      var root = document.documentElement;
+      root.setAttribute("data-js", "on");
+      window.setTimeout(function () {
+        if (document.querySelector(".preload-page")) root.removeAttribute("data-js");
+      }, 4000);
+    })();
+  </script>
 </head>
 
 <body>

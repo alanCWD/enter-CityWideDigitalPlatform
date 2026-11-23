@@ -38,6 +38,19 @@ type IntakeMessage = {
 export function RobIntakeEmbed() {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const [height, setHeight] = useState(INITIAL_HEIGHT);
+  /**
+   * The intake page ships plain-text HTML (title plus the "Rob@ is an AI
+   * assistant" notice) that its script replaces with the conversation. Showing
+   * the frame only once that script reports a height keeps the text-only shell
+   * from flashing on load. The timer is the fallback for a frame that never
+   * reports, so a broken intake is still visible rather than invisible.
+   */
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setRevealed(true), 2500);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
@@ -54,6 +67,7 @@ export function RobIntakeEmbed() {
         Number.isFinite(data.height)
       ) {
         setHeight(Math.max(MIN_HEIGHT, Math.ceil(data.height)));
+        setRevealed(true);
       }
 
       if (data.type === "cw-intake:submitted") {
@@ -83,8 +97,8 @@ export function RobIntakeEmbed() {
         title="Rob@ — CityWide Digital intake"
         loading="lazy"
         allow="clipboard-write"
-        style={{ height }}
-        className="block w-full border-0 bg-transparent"
+        style={{ height, opacity: revealed ? 1 : 0 }}
+        className="block w-full border-0 bg-transparent transition-opacity duration-200"
       />
     </div>
   );
