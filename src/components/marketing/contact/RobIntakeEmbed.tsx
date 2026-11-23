@@ -48,7 +48,7 @@ export function RobIntakeEmbed() {
   const [revealed, setRevealed] = useState(false);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setRevealed(true), 2500);
+    const timer = window.setTimeout(() => setRevealed(true), 6000);
     return () => window.clearTimeout(timer);
   }, []);
 
@@ -91,15 +91,28 @@ export function RobIntakeEmbed() {
         Rob@ is an AI assistant. A human reviews every brief.
       </p>
 
-      <iframe
-        ref={frameRef}
-        src={INTAKE_URL}
-        title="Rob@ — CityWide Digital intake"
-        loading="lazy"
-        allow="clipboard-write"
-        style={{ height, opacity: revealed ? 1 : 0 }}
-        className="block w-full border-0 bg-transparent transition-opacity duration-200"
-      />
+      {/* The frame is loaded eagerly so its app boots alongside the page instead
+          of waiting for a scroll into view, which is what made mobile slow. */}
+      <div className="relative">
+        <iframe
+          ref={frameRef}
+          src={INTAKE_URL}
+          title="Rob@ — CityWide Digital intake"
+          allow="clipboard-write"
+          style={{ height, opacity: revealed ? 1 : 0 }}
+          className="block w-full border-0 bg-transparent transition-opacity duration-200"
+        />
+        {!revealed && (
+          <div className="pointer-events-none absolute inset-x-0 top-0 flex h-40 items-center justify-center">
+            <span
+              role="status"
+              className="animate-pulse font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--gp-ink-38)]"
+            >
+              Waking Rob@…
+            </span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
