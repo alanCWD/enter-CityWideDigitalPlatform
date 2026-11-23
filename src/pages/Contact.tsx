@@ -121,8 +121,7 @@ export default function Contact() {
 
                 <div className="mt-7 border-t border-white/10 pt-5">
                   <div className="gp-kicker mb-2">Support hours</div>
-                  <p className="text-sm font-light text-[var(--gp-ink-72)]">Mon–Fri: 9am – 6pm PST</p>
-                  <p className="text-sm font-light text-[var(--gp-ink-72)]">Sun: Closed</p>
+                  <p className="text-sm font-light text-[var(--gp-ink-72)]">Open Mon-Fri 9AM-5PM PST</p>
                 </div>
               </div>
 
