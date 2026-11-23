@@ -23,7 +23,7 @@ type CrewMember = {
 const coreCrew: CrewMember[] = [
   {
     id: "alan",
-    portrait: "https://cdn.enter.pro/resources/uid_100027458/crew-alan_966ae8a8.png",
+    portrait: "https://cdn.enter.pro/resources/projects/5831877fc23c4834938c8f0f2295f49b/ai_outputs/atomic_ab22a422-4672-460e-8f5f-8261b418a393/image_atomic_ab22a422-4672-460e-8f5f-8261b418a393_d07c9603.jpeg",
     firstName: "Alan",
     title: "Chief Technology Officer",
     niche: "Platform & product",
