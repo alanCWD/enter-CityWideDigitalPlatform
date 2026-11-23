@@ -39,6 +39,11 @@ const PUBLIC_META: Record<string, PageMeta> = {
     description:
       "Why CityWide Digital builds websites around the Google Business Profile, how setup works, and the questions local business owners ask before starting.",
   },
+  "/crew": {
+    title: "Crew — The Team Behind CityWide Digital",
+    description:
+      "Meet the crew behind CityWide Digital: the people who build the platform, the niche specialists for restaurants, trades, wholesale, retail and eCommerce, and Rob@ the helpbot.",
+  },
   "/contact": {
     title: "Contact CityWide Digital",
     description:
@@ -66,8 +71,6 @@ const PUBLIC_META: Record<string, PageMeta> = {
 
 const PRIVATE_PREFIXES = [
   "/business-online-health/checkout",
-  // Crew page is unlisted until it is added to the navigation.
-  "/crew",
   "/dashboard",
   "/portal",
   "/admin",

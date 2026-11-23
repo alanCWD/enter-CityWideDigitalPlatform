@@ -26,12 +26,11 @@ const footerLinks: Record<string, FooterLink[]> = {
   ],
   Company: [
     { label: "About Us", href: "/about" },
+    { label: "Crew", href: "/crew" },
     { label: "Pricing", href: "/pricing" },
     { label: "Contact", href: "/contact" },
     { label: "Help Center", href: "/about#faq" },
     { label: "Book a Demo", href: "https://calendly.com/alan-citywidedigital/30min", external: true },
-    { label: "Privacy Policy", href: "/privacy" },
-    { label: "Terms of Service", href: "/terms" },
     { label: "Partner Program", href: "/contact" },
   ],
   Guides: [
@@ -144,22 +143,6 @@ export default function Footer({ variant = "default" }: FooterProps) {
             &copy; {new Date().getFullYear()} CityWide Digital. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
-            <Link
-              to="/privacy"
-              className={cn(
-                capsule ? "cap-footer-link text-xs" : "text-xs text-[rgba(238,241,250,0.4)] hover:text-[#0078D7] transition-colors",
-              )}
-            >
-              Privacy Policy
-            </Link>
-            <Link
-              to="/terms"
-              className={cn(
-                capsule ? "cap-footer-link text-xs" : "text-xs text-[rgba(238,241,250,0.4)] hover:text-[#0078D7] transition-colors",
-              )}
-            >
-              Terms of Service
-            </Link>
             {[
               { icon: Facebook, href: "https://facebook.com" },
               { icon: Instagram, href: "https://instagram.com" },
