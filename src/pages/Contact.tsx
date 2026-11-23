@@ -90,10 +90,13 @@ export default function Contact() {
       <section className="gp-section">
         <div className="gp-shell">
           <div className="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-10">
-            {/* Info column */}
-            <div className="space-y-6">
+            {/* Intro panel — top of the left column on desktop, first on mobile */}
+            <div className="order-1 lg:order-none lg:col-start-1 lg:row-start-1">
               <RobIntroPanel />
+            </div>
 
+            {/* Detail panels — below the intro on desktop, after the intake on mobile */}
+            <div className="order-3 space-y-6 lg:order-none lg:col-start-1 lg:row-start-2">
               <div className="gp-panel p-7">
                 <p className="gp-kicker">Direct lines</p>
                 <div className="mt-6 space-y-5">
@@ -142,7 +145,11 @@ export default function Contact() {
             </div>
 
             {/* Intake column — Rob@ embed, with the legacy form kept for rollback */}
-            <div id="intake" data-contact-intake>
+            <div
+              id="intake"
+              data-contact-intake
+              className="order-2 lg:order-none lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-start"
+            >
               {SHOW_LEGACY_FORM ? (
                 <>
               {submitted ? (
