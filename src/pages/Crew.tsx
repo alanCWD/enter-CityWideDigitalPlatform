@@ -275,9 +275,9 @@ export default function Crew() {
           <div className="mt-8 flex flex-col gap-3 rounded-2xl border border-[var(--gp-line-soft)] bg-white/[0.03] p-5 sm:flex-row sm:items-start sm:gap-4">
             <CircleDot className="h-4 w-4 shrink-0 text-[var(--gp-blue)]" strokeWidth={1.5} />
             <p className="max-w-3xl text-[12.5px] font-light leading-relaxed text-[var(--gp-ink-55)]">
-              The niche crew represent independent white-label partner agencies working inside the CityWide Digital
-              platform. You work with one platform and one invoice; each specialist brings the depth of their own
-              market. Rob@ is the opening act for the chat assistant shipping with the platform — until then, every conversation starts with a human.
+              The platform crew represent independent partner agencies working inside the CityWide Digital platform.
+              You work with one platform and one invoice; each specialist brings the depth of their own market. Rob@
+              is the chat assistant.
             </p>
           </div>
         </div>
