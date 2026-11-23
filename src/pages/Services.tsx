@@ -16,6 +16,8 @@ type Service = {
   description: string;
   features: string[];
   niches: string[];
+  /** Keeps the full panel but leaves the service out of the explore card grid. */
+  hideFromIndex?: boolean;
   /** Set on panels that stand for one of our own apps. Each app gets its own colour. */
   app?: {
     /** Space-separated RGB channels of the app colour. */
@@ -219,6 +221,7 @@ const services: Service[] = [
       "Included credits with Pro plan",
     ],
     niches: [],
+    hideFromIndex: true,
   },
 ];
 
@@ -229,6 +232,7 @@ function serviceAccentStyle(service: Service): CSSProperties | undefined {
 }
 
 export default function Services() {
+  const indexedServices = services.filter((service) => !service.hideFromIndex);
   return (
     <Layout variant="glass">
       <GlassHero
@@ -252,11 +256,11 @@ export default function Services() {
               <p className="gp-kicker">Explore / Products & services</p>
               <h2 id="service-index-heading" className="gp-display mt-3 text-2xl md:text-3xl">Find the right tool for your business</h2>
             </div>
-            <span className="gp-kicker gp-service-index__count">{String(services.length).padStart(2, "0")} / Explore below</span>
+            <span className="gp-kicker gp-service-index__count">{String(indexedServices.length).padStart(2, "0")} / Explore below</span>
           </div>
           <nav aria-label="Products and services" className="overflow-x-auto py-1">
             <div className="grid min-w-[600px] grid-cols-4 gap-3">
-              {services.map((service, index) => (
+              {indexedServices.map((service, index) => (
                 <Link
                   key={service.id}
                   to={`/services#${service.id}`}
