@@ -915,6 +915,38 @@
   scroll-margin-top: 96px;
 }
 
+/* ── Rob@ intake console ────────────────────────────────────────────────── */
+/**
+ * The intake runs in a cross-origin frame whose document paints its own
+ * `#05070a` page background, so it can never be transparent. This console is
+ * that exact colour, which makes the frame's square edges disappear instead of
+ * cutting a black rectangle out of the lighter glass surface.
+ */
+
+.contact-intake {
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  background: #05070a;
+  box-shadow:
+    0 28px 70px -32px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.contact-intake__head {
+  padding: 26px 26px 0;
+}
+
+.contact-intake__frame {
+  padding: 0 10px 10px;
+}
+
+@media (min-width: 768px) {
+  .contact-intake__head {
+    padding: 32px 32px 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .cwd-intro__image,
   .cwd-intro__button {

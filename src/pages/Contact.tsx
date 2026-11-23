@@ -281,12 +281,14 @@ export default function Contact() {
               )}
                 </>
               ) : (
-                <div className="gp-panel p-7 md:p-9">
-                  <div>
+                <div className="contact-intake">
+                  <div className="contact-intake__head">
                     <p className="gp-kicker">Send a message</p>
                     <h3 className="gp-display mt-3 text-2xl">Tell us what you need</h3>
                   </div>
-                  <RobIntakeEmbed />
+                  <div className="contact-intake__frame">
+                    <RobIntakeEmbed />
+                  </div>
                 </div>
               )}
             </div>

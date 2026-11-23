@@ -18,8 +18,15 @@ const INTAKE_URL =
 
 const INTAKE_ORIGIN = new URL(INTAKE_URL).origin;
 
-/** Floor height, so the frame is usable before it reports a height. */
-const MIN_HEIGHT = 720;
+/**
+ * Starting height before the frame reports its own, so the section does not
+ * jump on load. Once a height arrives the frame is allowed to shrink: holding a
+ * larger floor leaves a dark band under the intake.
+ */
+const INITIAL_HEIGHT = 720;
+
+/** Never collapse below a usable conversation panel. */
+const MIN_HEIGHT = 420;
 
 type IntakeMessage = {
   type?: string;
@@ -30,7 +37,7 @@ type IntakeMessage = {
 
 export function RobIntakeEmbed() {
   const frameRef = useRef<HTMLIFrameElement>(null);
-  const [height, setHeight] = useState(MIN_HEIGHT);
+  const [height, setHeight] = useState(INITIAL_HEIGHT);
 
   useEffect(() => {
     const onMessage = (event: MessageEvent) => {
