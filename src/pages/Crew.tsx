@@ -37,7 +37,7 @@ const coreCrew: CrewMember[] = [
     id: "rob-at",
     portrait: "https://cdn.enter.pro/resources/uid_100027458/crew-rob-at_9cf946e9.png",
     firstName: "Rob@",
-    title: "Agentic Helpbot · “Rob At”",
+    title: "Agentic Helpbot",
     niche: "First contact",
     blurb:
       "An aspiring actor with a titanium ego, he’s currently moonlighting as CityWide Digital’s chattiest chatbot until Hollywood recognizes what his last three directors called “an unmistakable presence” and “a workplace concern.” As the first voice to greet you, he answers your questions, books the demo, and hands the crew a clear brief so you don’t have to repeat yourself. Think of him as the opening act.",
