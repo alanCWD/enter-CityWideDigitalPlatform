@@ -12,6 +12,8 @@ interface GlassHeroProps {
   titleClassName?: string;
   /** Renders the live orbit scene behind the hero. */
   scene?: boolean;
+  /** Holds a short hero to the deeper scene framing used on the story page. */
+  deepScene?: boolean;
 }
 
 export function GlassHero({
@@ -22,11 +24,14 @@ export function GlassHero({
   align = "left",
   titleClassName = "text-[clamp(2.2rem,5.4vw,4.2rem)]",
   scene = false,
+  deepScene = false,
 }: GlassHeroProps) {
   const centered = align === "center";
 
   return (
-    <header className={`gp-hero${scene ? " gp-hero--scene" : ""}`}>
+    <header
+      className={`gp-hero${scene ? " gp-hero--scene" : ""}${scene && deepScene ? " gp-hero--deep" : ""}`}
+    >
       {scene && <OrbitHeroScene />}
 
       <div className="gp-shell">

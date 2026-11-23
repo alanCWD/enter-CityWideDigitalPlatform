@@ -215,6 +215,7 @@ export default function Crew() {
       <GlassHero
         kicker="01 / The crew"
         scene
+        deepScene
         title="Small core. Deep bench."
         lede="CityWide Digital is one platform run by a small core team specializing in every kind of local business — and one extremely confident helpbot who answers first."
       />

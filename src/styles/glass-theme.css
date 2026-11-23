@@ -179,6 +179,21 @@
   }
 }
 
+/**
+ * Deeper scene framing for short headlines: holds the hero to the same
+ * depth as the story hero so the earth limb fills the frame instead of
+ * stopping just under the copy.
+ */
+.gp-hero--scene.gp-hero--deep {
+  min-height: 34rem;
+}
+
+@media (min-width: 768px) {
+  .gp-hero--scene.gp-hero--deep {
+    min-height: 41rem;
+  }
+}
+
 .gp-hero--scene .gp-shell {
   position: relative;
   z-index: 1;
