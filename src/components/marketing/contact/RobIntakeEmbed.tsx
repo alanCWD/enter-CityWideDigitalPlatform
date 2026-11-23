@@ -86,33 +86,6 @@ export function RobIntakeEmbed() {
         style={{ height }}
         className="block w-full border-0 bg-transparent"
       />
-
-      <p className="mt-3 font-mono text-[10px] leading-relaxed tracking-[0.08em] text-[var(--gp-ink-55)]">
-        Trouble loading the intake?{" "}
-        <a
-          href={INTAKE_URL}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[var(--gp-ice)] underline underline-offset-2 transition-colors hover:text-white"
-        >
-          Open it in a new tab
-        </a>
-        , email{" "}
-        <a
-          href="mailto:alan@citywidedigital.ca"
-          className="text-[var(--gp-ice)] underline underline-offset-2 transition-colors hover:text-white"
-        >
-          alan@citywidedigital.ca
-        </a>
-        , or call{" "}
-        <a
-          href="tel:+12508827378"
-          className="text-[var(--gp-ice)] underline underline-offset-2 transition-colors hover:text-white"
-        >
-          250-882-7378
-        </a>
-        .
-      </p>
     </div>
   );
 }
