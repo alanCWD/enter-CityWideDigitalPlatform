@@ -25,7 +25,7 @@ const footerLinks: Record<string, FooterLink[]> = {
     { label: "Creator Campaigns", href: "/services#creator-campaigns", icon: Megaphone, iconClass: "text-[var(--footer-product-creator)]" },
   ],
   Company: [
-    { label: "About Us", href: "/about" },
+    { label: "About", href: "/about" },
     { label: "Crew", href: "/crew" },
     { label: "Pricing", href: "/pricing" },
     { label: "Contact", href: "/contact" },
