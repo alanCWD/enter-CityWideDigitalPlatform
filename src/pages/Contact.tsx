@@ -71,6 +71,8 @@ export default function Contact() {
     <Layout variant="glass">
       <GlassHero
         kicker="05 / Contact"
+        scene
+        deepScene
         title="Let's talk about your business"
         lede="Book a free 20-minute discovery call or send us a message. We typically respond within one business day."
       />
