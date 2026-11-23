@@ -28,7 +28,7 @@ const coreCrew: CrewMember[] = [
     title: "Chief Technology Officer",
     niche: "Platform & product",
     blurb:
-      "Runs the technology side of CityWide Digital — the sync engine that turns a Google Business Profile into a live website, a listings feed and a publishing queue. The goal has never changed: an owner should never have to think about the software.",
+      "Runs the technology side of CityWide Digital — the sync engine that turns a Google Business Profile into a live web app, and all the apps that help your company get to a better place without the effort. The goal has never changed: a business owner should never have to think about the software.",
     movie: "Interstellar",
     saying: "Do not go gentle into that good night.",
     featured: true,
@@ -223,16 +223,16 @@ export default function Crew() {
         kicker="01 / The crew"
         scene
         title="Small core. Deep bench."
-        lede="CityWide Digital is one platform run by a small core team, backed by a specialist for every kind of local business — and one extremely confident helpbot who answers first."
+        lede="CityWide Digital is one platform run by a small core team specializing in every kind of local business — and one extremely confident helpbot who answers first."
       />
 
       <section className="gp-section">
         <div className="gp-shell">
           <div className="mb-12 max-w-2xl">
             <p className="gp-kicker">02 / Mission leads</p>
-            <h2 className="gp-display mt-4 text-[clamp(1.7rem,3.4vw,2.6rem)]">The people who own the platform</h2>
+            <h2 className="gp-display mt-4 text-[clamp(1.7rem,3.4vw,2.6rem)]">The people who work the platform</h2>
             <p className="gp-lede mt-4">
-              One builds it. One is being built to answer the phone at two in the morning.
+              The team who builds it, and one built to answer the inquiry at two in the morning.
             </p>
           </div>
 
