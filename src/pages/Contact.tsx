@@ -6,9 +6,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { RobIntakeEmbed } from "@/components/marketing/contact/RobIntakeEmbed";
 import { SUPABASE_PUBLISHABLE_KEY, SUPABASE_URL } from "@/integrations/supabase/client";
 
 const OWNER_EMAIL = "alan@citywidedigital.ca";
+
+/**
+ * ROLLBACK SWITCH — the pre-Rob@ contact form is retained here, not rendered.
+ * Set this to true to restore the old fields instantly; flip it back once the
+ * intake is confirmed. Remove this block and the `handleSubmit` it needs only
+ * after the labelled test brief is verified in Inbox Pro.
+ */
+const SHOW_LEGACY_FORM = false;
 
 const businessTypes = [
   "Restaurant / Food & Beverage",
@@ -129,8 +138,10 @@ export default function Contact() {
               </div>
             </div>
 
-            {/* Form column */}
+            {/* Intake column — Rob@ embed, with the legacy form kept for rollback */}
             <div>
+              {SHOW_LEGACY_FORM ? (
+                <>
               {submitted ? (
                 <div className="gp-panel flex h-full flex-col items-center justify-center p-12 text-center">
                   <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-[#7ee7c8]/30 bg-[#7ee7c8]/12">
@@ -257,6 +268,16 @@ export default function Contact() {
                     By submitting, you agree to our Privacy Policy. We never share your data.
                   </p>
                 </form>
+              )}
+                </>
+              ) : (
+                <div className="gp-panel p-7 md:p-9">
+                  <div>
+                    <p className="gp-kicker">Send a message</p>
+                    <h3 className="gp-display mt-3 text-2xl">Tell us what you need</h3>
+                  </div>
+                  <RobIntakeEmbed />
+                </div>
               )}
             </div>
           </div>
