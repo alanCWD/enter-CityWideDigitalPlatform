@@ -4615,6 +4615,166 @@ export type Database = {
         }
         Relationships: []
       }
+      studio_internal: {
+        Row: {
+          id: number
+          scheduler_secret_hash: string
+        }
+        Insert: {
+          id?: number
+          scheduler_secret_hash: string
+        }
+        Update: {
+          id?: number
+          scheduler_secret_hash?: string
+        }
+        Relationships: []
+      }
+      studio_mirror_targets: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          label: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          label?: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          label?: string
+          workspace_id?: string
+        }
+        Relationships: []
+      }
+      studio_sync_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          etag: string | null
+          http_status: number | null
+          id: string
+          message: string | null
+          status: string
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          etag?: string | null
+          http_status?: number | null
+          id?: string
+          message?: string | null
+          status: string
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          etag?: string | null
+          http_status?: number | null
+          id?: string
+          message?: string | null
+          status?: string
+          workspace_id?: string | null
+        }
+        Relationships: []
+      }
+      studio_workspace_mirror: {
+        Row: {
+          account_id: string
+          account_name: string
+          account_status: string
+          ai_monthly_cap_usd: number
+          billing_email: string
+          cancel_at_period_end: boolean
+          created_at: string
+          currency: string
+          current_period_end: string | null
+          etag: string | null
+          gst_rate: number
+          max_channels: number
+          members: Json
+          mirrored_at: string
+          plan_id: string
+          plan_name: string
+          price_cad: number
+          schema_version: string
+          social_studio: boolean
+          source_synced_at: string | null
+          subscription_status: string
+          timezone: string
+          updated_at: string
+          white_label: boolean
+          workspace_id: string
+        }
+        Insert: {
+          account_id: string
+          account_name: string
+          account_status: string
+          ai_monthly_cap_usd?: number
+          billing_email: string
+          cancel_at_period_end?: boolean
+          created_at?: string
+          currency: string
+          current_period_end?: string | null
+          etag?: string | null
+          gst_rate?: number
+          max_channels?: number
+          members?: Json
+          mirrored_at?: string
+          plan_id: string
+          plan_name: string
+          price_cad?: number
+          schema_version: string
+          social_studio?: boolean
+          source_synced_at?: string | null
+          subscription_status: string
+          timezone: string
+          updated_at?: string
+          white_label?: boolean
+          workspace_id: string
+        }
+        Update: {
+          account_id?: string
+          account_name?: string
+          account_status?: string
+          ai_monthly_cap_usd?: number
+          billing_email?: string
+          cancel_at_period_end?: boolean
+          created_at?: string
+          currency?: string
+          current_period_end?: string | null
+          etag?: string | null
+          gst_rate?: number
+          max_channels?: number
+          members?: Json
+          mirrored_at?: string
+          plan_id?: string
+          plan_name?: string
+          price_cad?: number
+          schema_version?: string
+          social_studio?: boolean
+          source_synced_at?: string | null
+          subscription_status?: string
+          timezone?: string
+          updated_at?: string
+          white_label?: boolean
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "studio_workspace_mirror_workspace_id_fkey"
+            columns: ["workspace_id"]
+            referencedRelation: "studio_mirror_targets"
+            referencedColumns: ["workspace_id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string

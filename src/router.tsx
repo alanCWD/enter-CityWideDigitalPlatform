@@ -38,6 +38,7 @@ import { AppsDirectory } from "./pages/dashboard/crm/AppsDirectory";
 import { LaunchResult } from "./pages/dashboard/crm/LaunchResult";
 import { InvoicesList } from "./pages/dashboard/crm/InvoicesList";
 import { ApiAccess } from "./pages/dashboard/crm/ApiAccess";
+import { StudioAccount } from "./pages/dashboard/studio/Account";
 import { ContentStudio } from "./pages/dashboard/crm/ContentStudio";
 import { ContentStudioCompanyPage } from "./pages/dashboard/crm/ContentStudioCompanyPage";
 import { ContentStudioSettings } from "./pages/dashboard/crm/ContentStudioSettings";
@@ -312,6 +313,11 @@ export const routers = [
     path: "/dashboard/crm/api",
     name: "crm-api",
     element: <Auth><ApiAccess /></Auth>,
+  },
+  {
+    path: "/dashboard/studio/account",
+    name: "studio-account",
+    element: <Auth><StudioAccount /></Auth>,
   },
   {
     path: "/dashboard/crm/content",

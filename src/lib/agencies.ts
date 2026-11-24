@@ -18,6 +18,7 @@ import {
   KeyRound,
   Clapperboard,
   LayoutGrid,
+  Workflow,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -91,6 +92,7 @@ export const AGENCIES: Agency[] = [
       { name: "Inbox",            path: "/dashboard/inbox",            icon: Inbox    },
       { name: "Review Requests",  path: "/dashboard/reviews",          icon: Star     },
       reviewEngineNav,
+      { name: "Studio Account", path: "/dashboard/studio/account", icon: Workflow },
       ...crmNav,
     ],
   },

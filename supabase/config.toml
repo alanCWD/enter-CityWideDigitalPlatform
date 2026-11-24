@@ -33,6 +33,12 @@ verify_jwt = false
 [functions.studio-access-admin]
 verify_jwt = true
 
+# Studio consumer side. Pulls the CED snapshot into the studio's mirror; staff
+# sessions and the scheduler credential are both verified inside the function, so
+# the gateway JWT check is off.
+[functions.studio-mirror]
+verify_jwt = false
+
 # One-off sandbox helper that suspends/resumes the Starter sandbox client so the
 # suspended-account contract can be verified. Inert once its secret is deleted.
 [functions.sandbox-status-once]
