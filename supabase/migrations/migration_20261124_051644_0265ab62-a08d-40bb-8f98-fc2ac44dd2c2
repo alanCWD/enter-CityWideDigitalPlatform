@@ -1,0 +1,1 @@
+delete from public.workspace_staff_invites where id = 'inv_sandbox_approver';

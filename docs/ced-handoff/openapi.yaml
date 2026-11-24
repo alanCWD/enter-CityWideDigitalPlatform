@@ -1,0 +1,377 @@
+openapi: 3.1.0
+info:
+  title: CityWide CED — Workspace entitlements
+  version: "2026-11-01"
+  summary: Read-only plan, entitlement and staff snapshot for the CityWide Social Studio.
+  description: |
+    A single authenticated, server-to-server `GET`. CED is the source of truth; the
+    studio mirrors this snapshot and never writes back.
+
+    **Path difference from the handoff brief.** The sandbox host exposes this
+    endpoint below a fixed function base, so the server URL below already contains
+    `/functions/v1/studio-entitlements` and the documented path is
+    `/v1/workspaces/{workspaceId}/entitlements`. A front proxy can expose the
+    canonical `/api/v1/workspaces/{workspaceId}/entitlements`: this endpoint also
+    accepts an extra leading `/api` segment, so both forms resolve to the same
+    handler.
+
+    **Caching and limits.** Every `200` carries a weak `ETag`; send it back as
+    `If-None-Match` to get `304` with no body. Responses are `private, no-store`,
+    so no proxy keeps them. The limit is 30 requests per hour per workspace, well
+    above the studio's four polls an hour, with `Retry-After` on `429`.
+
+    **Errors.** Every non-2xx response uses the same envelope with a `requestId`
+    that is also written to the server's request log.
+
+    Server-to-server only: no browser session, no cookies, no token in the URL.
+servers:
+  - url: https://spb-t4n1w2j9jwhhc7h6.supabase.opentrust.net/functions/v1/studio-entitlements
+    description: Sandbox host. Append the documented path directly to this base.
+security:
+  - bearerAuth: []
+tags:
+  - name: Workspace
+    description: Snapshot the studio mirrors locally.
+paths:
+  /v1/workspaces/{workspaceId}/entitlements:
+    get:
+      operationId: getWorkspaceEntitlements
+      summary: Complete entitlement snapshot for one workspace
+      description: |
+        Returns every field the studio needs on every call; there are no deltas.
+        A suspended or closed account still returns `200` so the studio can show
+        why posting is blocked. If CED cannot build a complete snapshot it returns
+        `503` instead of partial data.
+      tags: [Workspace]
+      parameters:
+        - name: workspaceId
+          in: path
+          required: true
+          description: Workspace of record, for example `ws_citywide`.
+          schema:
+            type: string
+            minLength: 1
+            pattern: "^[A-Za-z0-9_-]{1,120}$"
+          example: ws_citywide
+        - name: If-None-Match
+          in: header
+          required: false
+          description: The `etag` from a previous snapshot. A match returns `304` with no body.
+          schema:
+            type: string
+          example: W/"e1fff41e74683f7e0eeaaf2de5243e40"
+        - name: Accept
+          in: header
+          required: false
+          schema:
+            type: string
+            enum: [application/json]
+      responses:
+        "200":
+          description: Complete workspace snapshot.
+          headers:
+            ETag:
+              description: Fingerprint of this snapshot, ignoring `syncedAt`.
+              schema:
+                type: string
+              example: W/"e1fff41e74683f7e0eeaaf2de5243e40"
+            Cache-Control:
+              description: Always `private, no-store`.
+              schema:
+                type: string
+              example: private, no-store
+            X-Request-Id:
+              description: Correlates this request with the server log.
+              schema:
+                type: string
+              example: req_5d6c1034dbdc410480f502e18505d393
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntitlementSnapshot"
+              examples:
+                growth:
+                  summary: Active Growth workspace with two staff
+                  value:
+                    $ref: "./examples/growth.json"
+                starter:
+                  summary: Starter workspace without the studio
+                  value:
+                    $ref: "./examples/starter.json"
+        "304":
+          description: Nothing changed since the supplied `ETag`. No body.
+          headers:
+            ETag:
+              schema:
+                type: string
+            Cache-Control:
+              schema:
+                type: string
+        "400":
+          description: Malformed request, for example a missing or extra path segment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: invalid_request
+                  message: Expected /v1/workspaces/{workspaceId}/entitlements
+                  requestId: req_74d80285e22d4797a97c1bdde00c315f
+        "401":
+          description: Missing, malformed, unknown or revoked bearer token.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: unauthorized
+                  message: Missing or invalid bearer token
+                  requestId: req_fc9835d1f3a44494aa00ec1bbf3f89ac
+        "403":
+          description: The token is valid but not allowed for this workspace.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: forbidden
+                  message: This token is not allowed for this workspace
+                  requestId: req_b4d3b0301082456fa58a71c97e1bde69
+        "404":
+          description: Unknown workspace, or an unknown route.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: not_found
+                  message: Unknown workspace
+                  requestId: req_bf6c736c82cd44c8a97fad0671af5c46
+        "405":
+          description: Method other than GET or HEAD.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "429":
+          description: Per-workspace hourly limit reached.
+          headers:
+            Retry-After:
+              description: Seconds until a request will be accepted.
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: rate_limited
+                  message: "Rate limit exceeded: 30 requests per hour per workspace"
+                  requestId: req_8813da7398b04d4b824c922919797c53
+        "500":
+          description: Unexpected server error. The requestId identifies the log line.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+        "503":
+          description: CED cannot build a complete snapshot. Never a partial body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorEnvelope"
+              example:
+                error:
+                  code: snapshot_unavailable
+                  message: "Snapshot unavailable: the mapped CED client does not exist"
+                  requestId: req_c9a4c38f2d52447589d6a3073d73b3e5
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: cwd_ent_*
+      description: |
+        One token per workspace, issued by a CED super admin and delivered out of
+        band. Stored hashed; cannot be displayed again. Revoke and reissue to
+        rotate.
+  schemas:
+    EntitlementSnapshot:
+      type: object
+      required: [schemaVersion, workspaceId, account, subscription, entitlements, members, syncedAt, etag]
+      additionalProperties: false
+      properties:
+        schemaVersion:
+          type: string
+          description: Contract version. The studio rejects anything not starting with `2026-`.
+          pattern: "^2026-"
+          example: "2026-11-01"
+        workspaceId:
+          type: string
+          example: ws_citywide
+        account:
+          $ref: "#/components/schemas/Account"
+        subscription:
+          $ref: "#/components/schemas/Subscription"
+        entitlements:
+          $ref: "#/components/schemas/Entitlements"
+        members:
+          type: array
+          description: |
+            Complete list. A member missing from this array has been removed. Order
+            is owner first, then approver, then viewer.
+          items:
+            $ref: "#/components/schemas/Member"
+        syncedAt:
+          type: string
+          format: date-time
+          description: When this snapshot was assembled (UTC, ISO 8601).
+          example: "2026-11-24T05:13:00.730Z"
+        etag:
+          type: string
+          description: Same value as the `ETag` response header.
+          example: W/"e1fff41e74683f7e0eeaaf2de5243e40"
+    Account:
+      type: object
+      required: [id, name, status, billingEmail, timezone, currency]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Stable account identifier. Never changes when the name does.
+          example: acct_cwd-citywide
+        name:
+          type: string
+          example: CityWide Digital
+        status:
+          type: string
+          enum: [active, suspended, closed]
+          description: A suspended or closed account still returns 200 so the studio can explain blocked posting.
+        billingEmail:
+          type: string
+          format: email
+          description: Personal data. Display to staff only; never log it.
+        timezone:
+          type: string
+          description: IANA timezone the studio schedules in.
+          example: America/Toronto
+        currency:
+          type: string
+          description: ISO 4217 code for the prices in this snapshot.
+          example: CAD
+    Subscription:
+      type: object
+      required: [planId, planName, status, priceCad, gstRate, currentPeriodEnd, cancelAtPeriodEnd]
+      additionalProperties: false
+      properties:
+        planId:
+          type: string
+          enum: [starter, growth, pro]
+        planName:
+          type: string
+          description: The plan's name in CED, unchanged. May be more specific than `planId`.
+          example: Growth
+        status:
+          type: string
+          enum: [trialing, active, past_due, paused, canceled]
+        priceCad:
+          type: number
+          minimum: 0
+          description: Plan price before tax, in the account currency.
+          example: 397
+        gstRate:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Tax fraction, not a percentage. `0.05` means 5% GST.
+          example: 0.05
+        currentPeriodEnd:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: ISO 8601 UTC, or null when there is no committed period (trial, cancelled).
+          example: "2026-12-24T05:04:57.817Z"
+        cancelAtPeriodEnd:
+          type: boolean
+          example: false
+    Entitlements:
+      type: object
+      required: [socialStudio, maxChannels, whiteLabel, aiMonthlyCapUsd]
+      additionalProperties: false
+      properties:
+        socialStudio:
+          type: boolean
+          description: Whether the plan includes the studio at all. `false` on Starter.
+        maxChannels:
+          type: integer
+          minimum: 0
+          maximum: 50
+          description: Connected social channels the studio may use.
+        whiteLabel:
+          type: boolean
+        aiMonthlyCapUsd:
+          type: number
+          minimum: 0
+          description: Monthly AI drafting budget the studio enforces, in USD.
+          example: 40
+    Member:
+      type: object
+      required: [id, name, email, role, status, updatedAt]
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Stable staff identifier. Does not change when a name or email changes.
+          example: usr_f9c16e3dd9984038a4bf871ec8690c31
+        name:
+          type: string
+          example: Alan
+        email:
+          type: string
+          format: email
+          description: Personal data. Display to staff only; never log it.
+        role:
+          type: string
+          enum: [owner, approver, viewer]
+          description: CED roles mapped onto the three the studio understands.
+        status:
+          type: string
+          enum: [active, invited, disabled]
+        updatedAt:
+          type: string
+          format: date-time
+          description: When this person's CED record last changed (UTC, ISO 8601).
+    ErrorEnvelope:
+      type: object
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message, requestId]
+          additionalProperties: false
+          properties:
+            code:
+              type: string
+              enum:
+                - invalid_request
+                - unauthorized
+                - forbidden
+                - not_found
+                - method_not_allowed
+                - rate_limited
+                - snapshot_unavailable
+                - internal_error
+            message:
+              type: string
+            requestId:
+              type: string
+              description: Also written to the server log against this request.
+              example: req_01H

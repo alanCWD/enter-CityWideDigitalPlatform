@@ -1,0 +1,1 @@
+update public.workspace_api_tokens set token_hash = 'f6dac2ba610995fe0a93a2a73479210cd8260c166dabd98ba8323c91d377aa6c' where id = 'wtk_verify_temp';

@@ -1,0 +1,39 @@
+{
+  "schemaVersion": "2026-11-01",
+  "workspaceId": "ws_citywide_starter",
+  "account": {
+    "id": "acct_cwd-citywide-starter",
+    "name": "CityWide Digital \u2014 Starter (sandbox)",
+    "status": "active",
+    "billingEmail": "alan@citywidedigital.ca",
+    "timezone": "America/Toronto",
+    "currency": "CAD"
+  },
+  "subscription": {
+    "planId": "starter",
+    "planName": "Starter",
+    "status": "active",
+    "priceCad": 197,
+    "gstRate": 0.05,
+    "currentPeriodEnd": "2026-12-24T05:04:57.817Z",
+    "cancelAtPeriodEnd": false
+  },
+  "entitlements": {
+    "socialStudio": false,
+    "maxChannels": 0,
+    "whiteLabel": false,
+    "aiMonthlyCapUsd": 0
+  },
+  "members": [
+    {
+      "id": "usr_f9c16e3dd9984038a4bf871ec8690c31",
+      "name": "Alan",
+      "role": "owner",
+      "email": "alan@citywidedigital.ca",
+      "status": "active",
+      "updatedAt": "2026-11-24T03:49:08.294Z"
+    }
+  ],
+  "syncedAt": "2026-11-24T05:14:26.738Z",
+  "etag": "W/\"d0c9f3aba01827ba5ab051edd32c442b\""
+}

@@ -1,0 +1,120 @@
+-- Workspace entitlement mirror for the CityWide Social Studio (read-only partner API).
+-- CED owns every value here; the studio only reads. Plan, price and period are
+-- NOT copied: they are read live from the CRM client + subscription.
+
+create table if not exists public.workspace_entitlement_workspaces (
+  workspace_id text primary key,
+  crm_client_id text not null unique,
+  agency_id text not null default 'citywide',
+  timezone text not null default 'America/Toronto',
+  gst_rate numeric(6,4) not null default 0.0500,
+  currency text not null default 'CAD',
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+comment on table public.workspace_entitlement_workspaces is 'Workspace -> CED client mapping for the Social Studio entitlement API. Per-workspace settings CED has no other home for (timezone, GST fraction).';
+
+create table if not exists public.workspace_plan_entitlements (
+  plan_id text primary key check (plan_id in ('starter','growth','pro')),
+  social_studio boolean not null default false,
+  max_channels integer not null default 0 check (max_channels between 0 and 50),
+  white_label boolean not null default false,
+  ai_monthly_cap_usd numeric(10,2) not null default 0,
+  updated_at timestamptz not null default now()
+);
+
+comment on table public.workspace_plan_entitlements is 'Studio entitlements per plan tier. Editable in CED; no deploy needed to change a cap.';
+
+create table if not exists public.workspace_api_tokens (
+  id text primary key,
+  workspace_id text not null references public.workspace_entitlement_workspaces(workspace_id) on delete cascade,
+  label text not null default '',
+  token_prefix text not null,
+  token_hash text not null unique,
+  scope text not null default 'entitlements:read',
+  created_at timestamptz not null default now(),
+  last_used_at timestamptz,
+  revoked_at timestamptz
+);
+
+create index if not exists workspace_api_tokens_workspace_idx on public.workspace_api_tokens (workspace_id);
+create index if not exists workspace_api_tokens_hash_idx on public.workspace_api_tokens (token_hash);
+
+comment on table public.workspace_api_tokens is 'Hashed workspace bearer tokens for the Social Studio. Plaintext is shown once at issue time and never stored.';
+
+create table if not exists public.workspace_api_requests (
+  id uuid primary key default gen_random_uuid(),
+  workspace_id text,
+  token_id text references public.workspace_api_tokens(id) on delete set null,
+  route text not null,
+  status integer not null,
+  duration_ms integer not null,
+  request_id text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists workspace_api_requests_ws_time_idx on public.workspace_api_requests (workspace_id, created_at);
+create index if not exists workspace_api_requests_created_idx on public.workspace_api_requests (created_at);
+
+comment on table public.workspace_api_requests is 'Per-request log for the entitlement API. Route, status, duration and request id only - never the payload or an email address.';
+
+create table if not exists public.workspace_staff_invites (
+  id text primary key,
+  workspace_id text not null references public.workspace_entitlement_workspaces(workspace_id) on delete cascade,
+  name text not null,
+  email text not null,
+  role text not null check (role in ('owner','approver','viewer')),
+  status text not null default 'invited' check (status in ('active','invited','disabled')),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists workspace_staff_invites_ws_idx on public.workspace_staff_invites (workspace_id);
+
+comment on table public.workspace_staff_invites is 'People CED has invited to a studio workspace who have no login yet. Real members are derived live from CED access tables.';
+
+-- Service-role-only member directory over auth.users. The endpoint needs the
+-- name, email, last sign-in and ban state of the people CED already lists; a
+-- view keeps that to one query instead of one request per person. No grant to
+-- anon or authenticated: only the service role reads it.
+create or replace view public.workspace_member_directory as
+select
+  u.id,
+  u.email,
+  nullif(btrim(coalesce(u.raw_user_meta_data->>'full_name', u.raw_user_meta_data->>'name', '')), '') as full_name,
+  u.last_sign_in_at,
+  u.banned_until,
+  u.updated_at
+from auth.users u;
+
+revoke all on public.workspace_member_directory from anon, authenticated;
+grant select on public.workspace_member_directory to service_role;
+
+comment on view public.workspace_member_directory is 'Service-role-only directory of CED users for the entitlement API. Never exposed to anon or authenticated roles.';
+
+alter table public.workspace_entitlement_workspaces enable row level security;
+alter table public.workspace_plan_entitlements enable row level security;
+alter table public.workspace_api_tokens enable row level security;
+alter table public.workspace_api_requests enable row level security;
+alter table public.workspace_staff_invites enable row level security;
+
+-- Registry entries. ws_citywide is the workspace of record; the starter
+-- workspace exists so the Starter contract can be verified against live data.
+insert into public.workspace_entitlement_workspaces (workspace_id, crm_client_id, agency_id, timezone, gst_rate, currency)
+values
+  ('ws_citywide', 'cwd-citywide', 'citywide', 'America/Toronto', 0.0500, 'CAD'),
+  ('ws_citywide_starter', 'cwd-citywide-starter', 'citywide', 'America/Toronto', 0.0500, 'CAD')
+on conflict (workspace_id) do nothing;
+
+insert into public.workspace_plan_entitlements (plan_id, social_studio, max_channels, white_label, ai_monthly_cap_usd)
+values
+  ('starter', false, 0, false, 0),
+  ('growth', true, 4, false, 40),
+  ('pro', true, 4, true, 120)
+on conflict (plan_id) do nothing;
+
+-- One labelled sandbox approver so the Growth example carries two members.
+-- Never a login: status stays invited and it is marked as sandbox in the handoff.
+insert into public.workspace_staff_invites (id, workspace_id, name, email, role, status)
+values ('inv_sandbox_approver', 'ws_citywide', 'Sandbox Approver', 'sandbox.approver@citywidedigital.ca', 'approver', 'invited')
+on conflict (id) do nothing;

@@ -3423,7 +3423,14 @@ export type Database = {
           created_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "client_memberships_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "workspace_member_directory"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       gbp_connections: {
         Row: {
@@ -3768,6 +3775,12 @@ export type Database = {
             foreignKeyName: "portal_users_connection_id_fkey"
             columns: ["connection_id"]
             referencedRelation: "gbp_connections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portal_users_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "workspace_member_directory"
             referencedColumns: ["id"]
           },
         ]
@@ -4621,11 +4634,224 @@ export type Database = {
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "workspace_member_directory"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_api_requests: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          id: string
+          request_id: string
+          route: string
+          status: number
+          token_id: string | null
+          workspace_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration_ms: number
+          id?: string
+          request_id: string
+          route: string
+          status: number
+          token_id?: string | null
+          workspace_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          id?: string
+          request_id?: string
+          route?: string
+          status?: number
+          token_id?: string | null
+          workspace_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_api_requests_token_id_fkey"
+            columns: ["token_id"]
+            referencedRelation: "workspace_api_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workspace_api_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          last_used_at: string | null
+          revoked_at: string | null
+          scope: string
+          token_hash: string
+          token_prefix: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          label?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          scope?: string
+          token_hash: string
+          token_prefix: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_used_at?: string | null
+          revoked_at?: string | null
+          scope?: string
+          token_hash?: string
+          token_prefix?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_api_tokens_workspace_id_fkey"
+            columns: ["workspace_id"]
+            referencedRelation: "workspace_entitlement_workspaces"
+            referencedColumns: ["workspace_id"]
+          },
+        ]
+      }
+      workspace_entitlement_workspaces: {
+        Row: {
+          agency_id: string
+          created_at: string
+          crm_client_id: string
+          currency: string
+          gst_rate: number
+          timezone: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          agency_id?: string
+          created_at?: string
+          crm_client_id: string
+          currency?: string
+          gst_rate?: number
+          timezone?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          agency_id?: string
+          created_at?: string
+          crm_client_id?: string
+          currency?: string
+          gst_rate?: number
+          timezone?: string
+          updated_at?: string
+          workspace_id?: string
+        }
         Relationships: []
+      }
+      workspace_plan_entitlements: {
+        Row: {
+          ai_monthly_cap_usd: number
+          max_channels: number
+          plan_id: string
+          social_studio: boolean
+          updated_at: string
+          white_label: boolean
+        }
+        Insert: {
+          ai_monthly_cap_usd?: number
+          max_channels?: number
+          plan_id: string
+          social_studio?: boolean
+          updated_at?: string
+          white_label?: boolean
+        }
+        Update: {
+          ai_monthly_cap_usd?: number
+          max_channels?: number
+          plan_id?: string
+          social_studio?: boolean
+          updated_at?: string
+          white_label?: boolean
+        }
+        Relationships: []
+      }
+      workspace_staff_invites: {
+        Row: {
+          email: string
+          id: string
+          name: string
+          role: string
+          status: string
+          updated_at: string
+          workspace_id: string
+        }
+        Insert: {
+          email: string
+          id: string
+          name: string
+          role: string
+          status?: string
+          updated_at?: string
+          workspace_id: string
+        }
+        Update: {
+          email?: string
+          id?: string
+          name?: string
+          role?: string
+          status?: string
+          updated_at?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workspace_staff_invites_workspace_id_fkey"
+            columns: ["workspace_id"]
+            referencedRelation: "workspace_entitlement_workspaces"
+            referencedColumns: ["workspace_id"]
+          },
+        ]
       }
     }
     Views: {
-      [_ in never]: never
+      workspace_member_directory: {
+        Row: {
+          banned_until: string | null
+          email: string | null
+          full_name: string | null
+          id: string | null
+          last_sign_in_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          banned_until?: string | null
+          email?: string | null
+          full_name?: never
+          id?: string | null
+          last_sign_in_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          banned_until?: string | null
+          email?: string | null
+          full_name?: never
+          id?: string | null
+          last_sign_in_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_portal_invite: {
@@ -4662,6 +4888,22 @@ export type Database = {
       recorder_enqueue_location: {
         Args: { p_location_id: string; p_reason?: string }
         Returns: undefined
+      }
+      workspace_api_guard: {
+        Args: {
+          p_request_id: string
+          p_token_hash: string
+          p_workspace_id: string
+        }
+        Returns: Json
+      }
+      workspace_member_snapshot: {
+        Args: {
+          p_client_id: string
+          p_connection_id?: string
+          p_workspace_id: string
+        }
+        Returns: Json
       }
     }
     Enums: {

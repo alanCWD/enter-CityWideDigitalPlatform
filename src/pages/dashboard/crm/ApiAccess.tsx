@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Copy, Check, KeyRound, Plus, ShieldCheck, Trash2, RefreshCw, AlertTriangle, Terminal, Globe } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
+import { StudioAccessPanel } from "@/components/dashboard/StudioAccessPanel";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { crm, CrmApiKey } from "@/lib/crm";
 import { SUPABASE_URL } from "@/integrations/supabase/client";
@@ -371,6 +372,8 @@ export function ApiAccess() {
             </div>
           </section>
         </div>
+
+        {isSuperAdmin && <StudioAccessPanel />}
       </div>
     </DashboardLayout>
   );

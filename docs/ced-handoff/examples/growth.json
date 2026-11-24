@@ -1,0 +1,47 @@
+{
+  "schemaVersion": "2026-11-01",
+  "workspaceId": "ws_citywide",
+  "account": {
+    "id": "acct_cwd-citywide",
+    "name": "CityWide Digital",
+    "status": "active",
+    "billingEmail": "alan@citywidedigital.ca",
+    "timezone": "America/Toronto",
+    "currency": "CAD"
+  },
+  "subscription": {
+    "planId": "growth",
+    "planName": "Growth",
+    "status": "active",
+    "priceCad": 397,
+    "gstRate": 0.05,
+    "currentPeriodEnd": "2026-12-24T05:04:57.817Z",
+    "cancelAtPeriodEnd": false
+  },
+  "entitlements": {
+    "socialStudio": true,
+    "maxChannels": 4,
+    "whiteLabel": false,
+    "aiMonthlyCapUsd": 40
+  },
+  "members": [
+    {
+      "id": "usr_f9c16e3dd9984038a4bf871ec8690c31",
+      "name": "Alan",
+      "role": "owner",
+      "email": "alan@citywidedigital.ca",
+      "status": "active",
+      "updatedAt": "2026-11-24T03:49:08.294Z"
+    },
+    {
+      "id": "usr_inv_sandbox_approver",
+      "name": "Sandbox Approver",
+      "role": "approver",
+      "email": "sandbox.approver@citywidedigital.ca",
+      "status": "invited",
+      "updatedAt": "2026-11-24T05:02:33.210Z"
+    }
+  ],
+  "syncedAt": "2026-11-24T05:14:25.159Z",
+  "etag": "W/\"e1fff41e74683f7e0eeaaf2de5243e40\""
+}

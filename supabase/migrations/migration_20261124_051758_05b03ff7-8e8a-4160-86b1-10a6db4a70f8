@@ -1,0 +1,9 @@
+-- Cleanup of this task's own temporary test fixtures: the three verification
+-- tokens created during testing and the throwaway workspace row that pointed at a
+-- nonexistent client for the 503 check. No business data is involved.
+update public.workspace_api_tokens
+   set revoked_at = now()
+ where id in ('wtk_verify_temp', 'wtk_verify_starter', 'wtk_verify_503')
+   and revoked_at is null;
+
+delete from public.workspace_entitlement_workspaces where workspace_id = 'ws_snapshot_test';

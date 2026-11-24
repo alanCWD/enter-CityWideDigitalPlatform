@@ -17,6 +17,37 @@ verify_jwt = false
 [functions.seo-api]
 verify_jwt = false
 
+# Read-only workspace entitlement mirror for the Social Studio. Authenticates
+# with its own workspace bearer tokens (hashed at rest), never user sessions, so
+# the gateway JWT check must be off.
+[functions.social-studio-entitlements]
+verify_jwt = false
+
+# The entitlement endpoint the Social Studio integrates with. One database call
+# authenticates, rate-limits and logs; then the CRM and member reads run together.
+[functions.studio-entitlements]
+verify_jwt = false
+
+# Super-admin screens for issuing and revoking studio tokens. Called by the
+# dashboard with the signed-in user's session, so the gateway JWT check stays on.
+[functions.studio-access-admin]
+verify_jwt = true
+
+# One-off sandbox helper that suspends/resumes the Starter sandbox client so the
+# suspended-account contract can be verified. Inert once its secret is deleted.
+[functions.sandbox-status-once]
+verify_jwt = false
+
+# Staging twin of the entitlement endpoint: same logic, exposes failure detail
+# so the snapshot can be fixed. Not the endpoint the studio integrates with.
+[functions.entitlements-staging]
+verify_jwt = false
+
+# One-time sandbox setup for the entitlement API. Guarded by a one-off secret
+# hash and permanently disabled (410) once the sandbox workspaces exist.
+[functions.studio-seed-once]
+verify_jwt = false
+
 # Content Studio integration: public read-only pull route plus staff actions.
 # The pull route authenticates with its own rotatable token, so the gateway JWT
 # check is off; staff POST actions verify the user session in the function.

@@ -1,0 +1,1 @@
+update public.api_keys set revoked_at = now() where id = 'key_latency_probe' and revoked_at is null;
