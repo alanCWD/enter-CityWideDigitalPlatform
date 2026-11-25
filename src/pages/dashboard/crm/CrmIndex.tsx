@@ -212,7 +212,7 @@ export function CrmIndex() {
           <div className="bg-card dark:bg-card dark:bg-[#111E33] border border-border dark:border-border dark:border-white/10 rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-border dark:border-border dark:border-white/10 flex items-center justify-between">
               <h3 className="text-sm font-bold text-foreground">Recent Invoices</h3>
-              <Link to="/dashboard/crm/billing" className="text-xs font-bold text-[#0078D7] hover:text-[#00447A]">
+              <Link to="/dashboard/crm/invoices" className="text-xs font-bold text-[#0078D7] hover:text-[#00447A]">
                 View all →
               </Link>
             </div>
@@ -232,7 +232,9 @@ export function CrmIndex() {
                       <td className="px-5 py-3 text-xs font-semibold text-foreground">{fmtMoney(inv.amount_cents)}</td>
                       <td className="px-5 py-3"><StatusPill status={inv.status} /></td>
                       <td className="px-5 py-3">
-                        <button className="text-[10px] font-bold text-[#0078D7] hover:text-[#00447A]">View →</button>
+                        <Link to="/dashboard/crm/invoices" className="text-[10px] font-bold text-[#0078D7] hover:text-[#00447A]">
+                          View →
+                        </Link>
                       </td>
                     </tr>
                   ))}
