@@ -1085,6 +1085,17 @@ async function handle(action: string, payload: Record<string, unknown>, ctx: Aut
     }
     case "clients.delete": {
       const id = payload.id as string; await assertClientAccess(ctx, id);
+      // Refuse to delete a client that still has billing history: deleting the
+      // row would leave orphaned invoices/subscriptions/payments behind.
+      const [invCount, subCount] = await execMany([
+        { sql: `SELECT COUNT(*) AS n FROM invoices WHERE client_id = ?`, args: [id] },
+        { sql: `SELECT COUNT(*) AS n FROM subscriptions WHERE client_id = ?`, args: [id] },
+      ]);
+      const invoices = Number(invCount.rows[0]?.n ?? 0);
+      const subscriptions = Number(subCount.rows[0]?.n ?? 0);
+      if (invoices > 0 || subscriptions > 0) {
+        throw new Error(`This client has ${invoices} invoice(s) and ${subscriptions} subscription(s). Archive it instead of deleting, so billing history stays intact.`);
+      }
       await exec({ sql: `DELETE FROM clients WHERE id = ?`, args: [id] });
       return { ok: true };
     }

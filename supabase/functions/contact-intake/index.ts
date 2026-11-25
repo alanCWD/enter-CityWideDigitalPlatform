@@ -67,6 +67,22 @@ const text = (v: unknown, max = 200): string =>
 
 const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v);
 
+type BunnyCell = { type?: string; value?: string } | null;
+
+/** Map the first row of a Bunny pipeline result into a plain object. */
+function firstRow(res: unknown): Record<string, string | null> | null {
+  const result = (res as {
+    results?: Array<{ response?: { result?: { cols?: Array<{ name: string }>; rows?: BunnyCell[][] } } }>;
+  })?.results?.[0]?.response?.result;
+  if (!result?.cols || !result.rows?.length) return null;
+  const out: Record<string, string | null> = {};
+  result.cols.forEach((col, i) => {
+    const cell = result.rows![0][i];
+    out[col.name] = !cell || cell.type === "null" ? null : cell.value ?? null;
+  });
+  return out;
+}
+
 const esc = (v: string) =>
   v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -156,29 +172,46 @@ Deno.serve(async (req) => {
 
     const clientId = uuid();
 
-    await exec(
-      `INSERT INTO clients (id, name, status, source, billing_email, phone, industry, notes, agency_id, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
-      [
-        clientId,
-        business,
-        "lead",
-        "website_contact",
-        email,
-        phone || null,
-        type || null,
-        notes,
-        AGENCY_ID,
-        receivedAt,
-        receivedAt,
-      ],
-    );
+    // Repeat enquiries from the same address must not create a second client
+    // record. If the email already exists in this agency, append the enquiry to
+    // that client's notes and still notify the owner.
+    const existing = firstRow(await exec(
+      `SELECT id, notes FROM clients WHERE lower(billing_email) = ? AND agency_id = ? LIMIT 1`,
+      [email, AGENCY_ID],
+    ));
 
-    await exec(
-      `INSERT INTO contacts (id, client_id, full_name, email, phone, role, is_primary)
-       VALUES (?,?,?,?,?,?,?)`,
-      [uuid(), clientId, name, email, phone || null, "Owner", 1],
-    );
+    if (existing?.id) {
+      const priorNotes = existing.notes ?? "";
+      const mergedNotes = priorNotes ? `${priorNotes}\n\n──────────\n${notes}` : notes;
+      await exec(
+        `UPDATE clients SET notes = ?, updated_at = ? WHERE id = ?`,
+        [mergedNotes, receivedAt, existing.id],
+      );
+    } else {
+      await exec(
+        `INSERT INTO clients (id, name, status, source, billing_email, phone, industry, notes, agency_id, created_at, updated_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+        [
+          clientId,
+          business,
+          "lead",
+          "website_contact",
+          email,
+          phone || null,
+          type || null,
+          notes,
+          AGENCY_ID,
+          receivedAt,
+          receivedAt,
+        ],
+      );
+
+      await exec(
+        `INSERT INTO contacts (id, client_id, full_name, email, phone, role, is_primary)
+         VALUES (?,?,?,?,?,?,?)`,
+        [uuid(), clientId, name, email, phone || null, "Owner", 1],
+      );
+    }
 
     try {
       await sendNotification({ name, business, email, phone, type, message, receivedAt });

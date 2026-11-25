@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, Plus, X, Upload, ChevronLeft, ChevronRight, Trash2, Building2, AlertTriangle, RefreshCw } from "lucide-react";
+import { Search, Plus, X, Upload, ChevronLeft, ChevronRight, Trash2, Building2, AlertTriangle, RefreshCw, Archive } from "lucide-react";
 import { DashboardLayout } from "@/components/dashboard/DashboardLayout";
 import { TopBar } from "@/components/dashboard/TopBar";
 import { useCrmClients } from "@/hooks/useCrm";
@@ -53,6 +53,12 @@ export function ClientsList() {
   const deleteClient = useCallback(async (id: string, name: string) => {
     if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
     try { await crm("clients.delete", { id }); reload(); }
+    catch (e) { alert((e as Error).message); }
+  }, [reload]);
+
+  const archiveClient = useCallback(async (id: string, name: string) => {
+    if (!confirm(`Archive "${name}"? It is hidden from lists but all invoices, subscriptions and history are kept.`)) return;
+    try { await crm("clients.archive", { id }); reload(); }
     catch (e) { alert((e as Error).message); }
   }, [reload]);
 
@@ -110,6 +116,7 @@ export function ClientsList() {
             <option value="lead">Lead</option>
             <option value="paused">Paused</option>
             <option value="churned">Churned</option>
+            <option value="archived">Archived</option>
           </select>
           {/* Agency filter — CityWide master view only */}
           {isMaster && (
@@ -191,13 +198,24 @@ export function ClientsList() {
                     {new Date(c.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => deleteClient(c.id, c.name)}
-                      title="Delete client"
-                      className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center justify-end gap-1">
+                      {c.status !== "archived" && (
+                        <button
+                          onClick={() => archiveClient(c.id, c.name)}
+                          title="Archive client (keeps all history)"
+                          className="p-1 rounded text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => deleteClient(c.id, c.name)}
+                        title="Delete client"
+                        className="p-1 rounded text-muted-foreground hover:text-destructive transition-colors"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -346,13 +364,14 @@ function Field({ label, value, onChange, ...props }: { label: string; value: str
   );
 }
 
-const STATUS_OPTIONS = ["lead", "prospect", "active", "paused", "churned"] as const;
+const STATUS_OPTIONS = ["lead", "prospect", "active", "paused", "churned", "archived"] as const;
 const STATUS_STYLES: Record<string, string> = {
   active:   "bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30",
   lead:     "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30",
   prospect: "bg-orange-500/15 text-orange-700 dark:text-orange-400 border-orange-500/30",
   paused:   "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400 border-yellow-500/30",
   churned:  "bg-muted text-muted-foreground border-border",
+  archived: "bg-muted text-muted-foreground border-border",
 };
 
 function StatusSelect({ clientId, status, onUpdated }: { clientId: string; status: string; onUpdated: () => void }) {
