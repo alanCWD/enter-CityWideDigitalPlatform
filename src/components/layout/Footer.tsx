@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { MapPin, Mail, Phone, Facebook, Instagram, Linkedin, Twitter, Globe, Share2, Video, Inbox, Megaphone, Activity, GraduationCap, type LucideIcon } from "lucide-react";
+import { MapPin, Mail, Phone, Facebook, Instagram, Linkedin, X as XIcon, Globe, Share2, Video, Inbox, Megaphone, Activity, GraduationCap, type LucideIcon } from "lucide-react";
 import { LogoOnDark } from "@/components/branding/Logo";
 import AskAboutCityWide from "./AskAboutCityWide";
 import { cn } from "@/lib/utils";
@@ -144,14 +144,15 @@ export default function Footer({ variant = "default" }: FooterProps) {
           </p>
           <div className="flex items-center gap-4">
             {[
-              { icon: Facebook, href: "https://facebook.com" },
-              { icon: Instagram, href: "https://instagram.com" },
-              { icon: Linkedin, href: "https://linkedin.com" },
-              { icon: Twitter, href: "https://twitter.com" },
-            ].map(({ icon: Icon, href }) => (
+              { icon: Facebook, href: "https://www.facebook.com/citywidedigital", label: "Facebook" },
+              { icon: Instagram, href: "https://www.instagram.com/citywidedigital/", label: "Instagram" },
+              { icon: Linkedin, href: "https://www.linkedin.com/company/citywidedigital/", label: "LinkedIn" },
+              { icon: XIcon, href: "https://x.com/citywidedigita1", label: "X" },
+            ].map(({ icon: Icon, href, label }) => (
               <a
-                key={href}
+                key={label}
                 href={href}
+                aria-label={`CityWide Digital on ${label}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={cn(
