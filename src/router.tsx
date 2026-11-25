@@ -51,6 +51,7 @@ import InboxPage from "./pages/dashboard/inbox/InboxPage";
 import { RequirePortalAuth } from "./components/portal/RequirePortalAuth";
 import GbpSourceOfTruth from "./pages/GbpSourceOfTruth";
 import GbpLocalListing from "./pages/GbpLocalListing";
+import GooglePostsAndLocalSeo from "./pages/GooglePostsAndLocalSeo";
 import { QboCallback } from "./pages/QboCallback";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
@@ -117,6 +118,11 @@ export const routers = [
     path: "/gbp-local-listing",
     name: "gbp-local-listing",
     element: <GbpLocalListing />,
+  },
+  {
+    path: "/google-posts-and-local-seo",
+    name: "google-posts-and-local-seo",
+    element: <GooglePostsAndLocalSeo />,
   },
   {
     path: "/privacy",

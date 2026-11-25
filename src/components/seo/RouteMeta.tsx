@@ -59,6 +59,11 @@ const PUBLIC_META: Record<string, PageMeta> = {
     description:
       "How Google Business Profile drives local search, Maps and the Local Pack, and how CityWide keeps the website and citations aligned with it.",
   },
+  "/google-posts-and-local-seo": {
+    title: "Do Google Posts and Social Media Help SEO? | CityWide Digital",
+    description:
+      "What Google posting, social syndication and website content each contribute to local search visibility — and why the combination matters more than any single channel.",
+  },
   "/privacy": {
     title: "Privacy Policy — CityWide Digital",
     description: "How CityWide Digital collects, uses and protects business and customer information.",
