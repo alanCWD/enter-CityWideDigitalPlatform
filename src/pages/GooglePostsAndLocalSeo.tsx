@@ -123,7 +123,7 @@ export default function GooglePostsAndLocalSeo() {
       <GlassHero
         kicker="Local SEO Guide"
         title="Do Google Posts and Social Media Actually Help Your SEO?"
-        lede="Posting to Google, syndicating to social and publishing useful website content all contribute to local search visibility. The largest benefit comes from doing all three together — not from any one of them alone."
+        lede="Google posting, social syndication and website content all contribute to local search visibility — through three different mechanisms. The benefit compounds when all three run together."
       />
 
       <section className="gp-section">
@@ -141,18 +141,18 @@ export default function GooglePostsAndLocalSeo() {
 
             <div className="mt-8 space-y-10">
               <p className="text-lg leading-relaxed text-muted-foreground">
-                The short answer is yes, they can help — but it is worth being precise about how. Google posts, social
-                syndication and website content work through three different mechanisms, and they are often discussed
-                as if they were one thing. Google does not identify post frequency as a direct local ranking factor,
-                and social likes and shares are not established Google ranking signals. The durable advantage comes
-                from the combination: a current Google profile, consistent distribution and useful website pages.
+                Yes. Google posts, social syndication and website content all contribute to local search visibility —
+                but through three different mechanisms, not one. We separate them because the distinction changes what
+                a business should expect. Google does not treat post frequency as a direct local ranking factor, and
+                likes and shares are not Google ranking signals. What does work is the combination: a current Google
+                profile, consistent distribution and useful website pages built around the services a business sells.
               </p>
 
               <div className="space-y-4 border-t border-border pt-6">
                 <h2 className="text-2xl font-bold text-foreground">Three mechanisms, not one</h2>
                 <p className="leading-relaxed text-muted-foreground">
-                  When a business publishes one update, three separate things can be happening at once. Each
-                  contributes something different, and none replaces the others.
+                  One update can do three separate jobs at once. Each contributes something different, and none
+                  replaces the others.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-3">
                   {mechanisms.map((item) => (
@@ -170,12 +170,12 @@ export default function GooglePostsAndLocalSeo() {
                   Posting to Google strengthens the business's search presence
                 </h2>
                 <p className="leading-relaxed text-muted-foreground">
-                  When CityWide publishes a post through its dashboard to Google Business Profile, the business can:
+                  A post published from CityWide to Google Business Profile lets a business:
                 </p>
                 <Bullets items={profileCapabilities} />
                 <p className="leading-relaxed text-muted-foreground">
-                  There is a caveat. Google does not officially identify post frequency as a direct local ranking
-                  factor. Its published local ranking guidance centres on{" "}
+                  Google does not officially identify post frequency as a direct local ranking factor. Its published
+                  local ranking guidance centres on{" "}
                   <a
                     href="https://support.google.com/business/answer/7091"
                     target="_blank"
@@ -184,49 +184,50 @@ export default function GooglePostsAndLocalSeo() {
                   >
                     relevance, distance and popularity
                   </a>
-                  . Posts still help, because they give customers current and useful information — and because they
-                  give Google more detail about what the business actually offers.
-                </p>
-              </div>
-
-              <div className="space-y-4 border-t border-border pt-6">
-                <h2 className="text-2xl font-bold text-foreground">Syndicating to social media expands visibility</h2>
-                <p className="leading-relaxed text-muted-foreground">
-                  This is where the CityWide model becomes particularly interesting. One post can be distributed
-                  across Google Business Profile, Facebook, Instagram, LinkedIn and other connected social platforms.
-                  That creates more opportunities for customers to encounter the business.
-                </p>
-                <p className="leading-relaxed text-muted-foreground">It can also generate:</p>
-                <Bullets items={syndicationOutcomes} />
-                <p className="leading-relaxed text-muted-foreground">
-                  One qualification: social media likes and shares are not established direct Google ranking factors.
-                  Social posts can be discovered in Google Search, but syndication itself does not automatically
-                  create SEO authority.
+                  . A post earns its place by giving customers current, useful information, and by giving Google more
+                  detail about what the business offers.
                 </p>
               </div>
 
               <div className="space-y-4 border-t border-border pt-6">
                 <h2 className="text-2xl font-bold text-foreground">
-                  The website is where the SEO opportunity gets particularly interesting
+                  Social syndication expands distribution, not authority
                 </h2>
                 <p className="leading-relaxed text-muted-foreground">
-                  Consider a plumbing company in Victoria, BC. It regularly publishes useful updates about:
+                  This is where publishing from one place pays off. Through CityWide, a single post reaches
+                  Google Business Profile, Facebook, Instagram, LinkedIn and the other connected platforms — more
+                  opportunities for customers to encounter the business.
+                </p>
+                <p className="leading-relaxed text-muted-foreground">It also generates:</p>
+                <Bullets items={syndicationOutcomes} />
+                <p className="leading-relaxed text-muted-foreground">
+                  The same qualification applies: likes and shares are not established direct Google ranking factors.
+                  Social posts can be discovered in Google Search, but syndication does not create SEO authority by
+                  itself.
+                </p>
+              </div>
+
+              <div className="space-y-4 border-t border-border pt-6">
+                <h2 className="text-2xl font-bold text-foreground">
+                  The website is where the real SEO opportunity sits
+                </h2>
+                <p className="leading-relaxed text-muted-foreground">
+                  A plumbing company in Victoria, BC is a useful example. Its updates cover:
                 </p>
                 <Bullets items={plumbingTopics} />
                 <p className="leading-relaxed text-muted-foreground">
-                  With a connected CityWide system, those updates can be distributed across Google and social
-                  platforms, while the website maintains synchronised business information. The website matters
-                  because Google can crawl and index useful website pages.
+                  Through CityWide, those updates are distributed across Google and social while the website holds
+                  synchronised business information. But the website is doing different work: it gives Google pages it
+                  can crawl and index.
                 </p>
                 <p className="leading-relaxed text-muted-foreground">
-                  There is an important distinction here. Synchronising Google Business Profile information is not the
-                  same as creating new SEO landing pages. If that plumber wants to rank for searches such as:
+                  Here is the distinction that matters. Synchronising Google Business Profile information is not the
+                  same as creating SEO landing pages. If that plumber wants to rank for searches such as:
                 </p>
                 <Bullets items={plumbingSearches} />
                 <p className="leading-relaxed text-muted-foreground">
-                  … the website needs useful, relevant content addressing those services and searches. Publishing a
-                  Google post about drain cleaning does not automatically create a strong, dedicated drain-cleaning
-                  landing page. Google's{" "}
+                  … the website needs useful, relevant content addressing those services and searches. A Google post
+                  about drain cleaning does not create a dedicated drain-cleaning landing page. Google's{" "}
                   <a
                     href="https://developers.google.com/search/docs/fundamentals/seo-starter-guide"
                     target="_blank"
@@ -242,9 +243,9 @@ export default function GooglePostsAndLocalSeo() {
               <div className="space-y-4 border-t border-border pt-6">
                 <h2 className="text-2xl font-bold text-foreground">The connected local SEO ecosystem</h2>
                 <p className="leading-relaxed text-muted-foreground">
-                  It helps to picture the whole presence rather than a single channel. The Google Business Profile
-                  holds the central business information; the website, social channels and directories carry it to
-                  customers.
+                  The right way to see the presence is as one system, not a set of channels. The Google Business
+                  Profile holds the central business information; the website, social channels and directories carry
+                  it to customers.
                 </p>
 
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 md:p-6">
@@ -283,12 +284,10 @@ export default function GooglePostsAndLocalSeo() {
               </div>
 
               <div className="space-y-4 border-t border-border pt-6">
-                <h2 className="text-2xl font-bold text-foreground">
-                  What each CityWide capability actually contributes
-                </h2>
+                <h2 className="text-2xl font-bold text-foreground">What each capability actually contributes</h2>
                 <p className="leading-relaxed text-muted-foreground">
-                  It is worth describing the benefits capability by capability, without overstating what any one of
-                  them does for rankings.
+                  Each capability does a specific job. We keep them distinct rather than treating everything as "SEO",
+                  because that is what keeps the expectations honest.
                 </p>
 
                 <div className="overflow-x-auto">
@@ -311,16 +310,16 @@ export default function GooglePostsAndLocalSeo() {
                 </div>
 
                 <p className="leading-relaxed text-muted-foreground">
-                  The last item is particularly important. Service-specific website content is an opportunity that
-                  should be deliberately developed, rather than assumed to happen through synchronisation.
+                  The last row matters most. Service-specific website content has to be deliberately built; it is not a
+                  by-product of synchronisation.
                 </p>
               </div>
 
               <div className="space-y-4 border-t border-border pt-6">
-                <h2 className="text-2xl font-bold text-foreground">A weekly publishing routine that is realistic</h2>
+                <h2 className="text-2xl font-bold text-foreground">The weekly routine we recommend</h2>
                 <p className="leading-relaxed text-muted-foreground">
-                  For a typical local business, a three-post week is enough to stay current without turning into a
-                  content team:
+                  For a typical local business, three posts a week keep the profile current without requiring a content
+                  team:
                 </p>
 
                 <div className="overflow-hidden rounded-xl border border-white/10">
@@ -341,38 +340,39 @@ export default function GooglePostsAndLocalSeo() {
                 </div>
 
                 <p className="leading-relaxed text-muted-foreground">
-                  Publish to Google and distribute appropriate versions to social channels. Then measure:
+                  Publish to Google and distribute appropriate versions to social. Then measure:
                 </p>
                 <Bullets items={measures} />
                 <p className="leading-relaxed text-muted-foreground">
-                  Review performance after 8–12 weeks. Local visibility moves slowly, and a two-week sample is more
-                  likely to mislead than inform.
+                  Review after 8–12 weeks. Local visibility moves slowly, and a two-week sample misleads more often
+                  than it informs.
                 </p>
               </div>
 
               <div className="space-y-4 border-t border-border pt-6">
                 <h2 className="text-2xl font-bold text-foreground">
-                  The bigger opportunity: ongoing presence management
+                  Ongoing presence management, not a website project
                 </h2>
                 <p className="leading-relaxed text-muted-foreground">
-                  There is a particularly strong positioning opportunity here. Traditional website agencies sell
-                  website design, development and maintenance. CityWide can position itself as providing an ongoing
-                  local digital presence management system.
+                  Most website agencies sell a build, a launch and a maintenance plan. Google, social and directories
+                  fall outside that scope, so they get managed separately — or not at all. CityWide runs the whole
+                  presence as one system: business information is managed centrally, publishing happens from one
+                  dashboard, the website stays synchronised, and content is distributed across the connected channels.
                 </p>
 
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
-                    <p className="gp-kicker">Traditional approach</p>
+                    <p className="gp-kicker">The traditional model</p>
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      Build a website, maintain it, separately manage Google, separately manage social media, separately
-                      maintain directories.
+                      A website is built and maintained. Google, social media and directories are managed separately —
+                      if they are managed at all.
                     </p>
                   </div>
                   <div className="rounded-xl border border-[rgba(110,168,255,0.35)] bg-[rgba(110,168,255,0.08)] p-4">
-                    <p className="gp-kicker">CityWide approach</p>
+                    <p className="gp-kicker">The CityWide model</p>
                     <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                      Manage the business information centrally, publish through one dashboard, synchronise the website
-                      and distribute content across connected channels.
+                      Business information is managed centrally, publishing runs from one dashboard, and the website
+                      and connected channels stay synchronised.
                     </p>
                   </div>
                 </div>
@@ -395,9 +395,10 @@ export default function GooglePostsAndLocalSeo() {
               <div className="space-y-4 border-t border-border pt-6">
                 <h2 className="text-2xl font-bold text-foreground">Why we don't promise ranking improvements</h2>
                 <p className="leading-relaxed text-muted-foreground">
-                  The more credible and commercially compelling promise is that CityWide makes consistent local
-                  marketing easier to execute — and consistency, accurate information, quality website content and a
-                  strong reputation collectively support long-term search visibility.
+                  We do not promise automatic ranking improvements, because no provider honestly can. What we do
+                  promise is a consistent foundation — accurate business information, a current profile, and a website
+                  and channels that stay aligned — so that quality content and a strong reputation have something
+                  reliable to build on.
                 </p>
                 <p className="leading-relaxed text-muted-foreground">
                   That is the realistic version of SEO for a local business: not one post that changes everything, but
