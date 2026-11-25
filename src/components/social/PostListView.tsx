@@ -1,13 +1,13 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Globe, Instagram, Linkedin, Twitter, Facebook, Youtube, FileText, Clock, CheckCircle2, Pencil } from "lucide-react";
+import { Globe, Instagram, Linkedin, X as XIcon, Facebook, Youtube, FileText, Clock, CheckCircle2, Pencil } from "lucide-react";
 import type { CalPost } from "./CalendarMonthView";
 
 const PLATFORM_META: Record<string, { label: string; Icon: React.ElementType }> = {
   google_business: { label: "Google Business", Icon: Globe },
   instagram: { label: "Instagram", Icon: Instagram },
   linkedin: { label: "LinkedIn", Icon: Linkedin },
-  twitter: { label: "X", Icon: Twitter },
+  twitter: { label: "X", Icon: XIcon },
   facebook: { label: "Facebook", Icon: Facebook },
   youtube: { label: "YouTube", Icon: Youtube },
 };

@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  Globe, Instagram, Linkedin, Twitter, Facebook, Youtube,
+  Globe, Instagram, Linkedin, X as XIcon, Facebook, Youtube,
   Loader2, ImagePlus, X, Link, CheckCircle2,
 } from "lucide-react";
 import type { ZernioAccount } from "@/hooks/useZernioAccounts";
@@ -22,7 +22,7 @@ const PLATFORM_META: Record<string, { label: string; Icon: React.ElementType }> 
   google_business: { label: "Google Business", Icon: Globe      },
   instagram:       { label: "Instagram",        Icon: Instagram  },
   linkedin:        { label: "LinkedIn",          Icon: Linkedin   },
-  twitter:         { label: "X (Twitter)",       Icon: Twitter    },
+  twitter:         { label: "X",                Icon: XIcon      },
   facebook:        { label: "Facebook",          Icon: Facebook   },
   youtube:         { label: "YouTube",           Icon: Youtube    },
   tiktok:          { label: "TikTok",            Icon: () => <span className="text-[10px] font-black">TK</span> },

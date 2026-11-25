@@ -6,14 +6,14 @@ import { useToast } from "@/hooks/use-toast";
 const PLATFORMS = [
   { id: "google_business", label: "Google Business", note: "Required — connect first" },
   { id: "facebook",        label: "Facebook",        note: "Pages & profiles" },
-  { id: "twitter",         label: "Twitter / X",     note: "Public posts" },
+  { id: "twitter",         label: "X",               note: "Public posts" },
   { id: "linkedin",        label: "LinkedIn",        note: "Company pages" },
 ];
 
 const PLATFORM_COLORS: Record<string, string> = {
   google_business: "#EA4335",
   facebook: "#1877F2",
-  twitter: "#1DA1F2",
+  twitter: "#0F1419",
   linkedin: "#0A66C2",
 };
 

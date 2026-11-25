@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Globe, Instagram, Linkedin, Twitter, Facebook, Youtube,
+  Globe, Instagram, Linkedin, X as XIcon, Facebook, Youtube,
   CheckCircle2, AlertCircle, Loader2, PlugZap, Unplug, RefreshCw,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +20,7 @@ const PLATFORMS: PlatformMeta[] = [
   { id: "googlebusiness", label: "Google Business", Icon: Globe,      color: "text-blue-500"   },
   { id: "instagram",      label: "Instagram",        Icon: Instagram,  color: "text-pink-500"   },
   { id: "linkedin",       label: "LinkedIn",          Icon: Linkedin,   color: "text-blue-600"   },
-  { id: "twitter",        label: "X (Twitter)",       Icon: Twitter,    color: "text-foreground" },
+  { id: "twitter",        label: "X",                 Icon: XIcon,      color: "text-foreground" },
   { id: "facebook",       label: "Facebook",          Icon: Facebook,   color: "text-blue-500"   },
   { id: "youtube",        label: "YouTube",           Icon: Youtube,    color: "text-red-500"    },
   { id: "tiktok",         label: "TikTok",            Icon: () => <span className="text-[11px] font-black">TK</span>, color: "text-foreground" },

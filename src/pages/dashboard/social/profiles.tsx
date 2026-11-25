@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Globe, Instagram, Linkedin, Twitter, Facebook, Youtube, CheckCircle2 } from "lucide-react";
+import { Globe, Instagram, Linkedin, X as XIcon, Facebook, Youtube, CheckCircle2 } from "lucide-react";
 
 const PLATFORMS = [
   { id: "google_business", name: "Google Business", icon: Globe },
   { id: "instagram", name: "Instagram", icon: Instagram },
   { id: "linkedin", name: "LinkedIn", icon: Linkedin },
-  { id: "twitter", name: "X (Twitter)", icon: Twitter },
+  { id: "twitter", name: "X", icon: XIcon },
   { id: "facebook", name: "Facebook", icon: Facebook },
   { id: "youtube", name: "YouTube", icon: Youtube },
 ];

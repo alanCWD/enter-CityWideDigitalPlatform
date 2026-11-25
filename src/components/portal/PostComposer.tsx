@@ -6,7 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 const PLATFORMS = [
   { id: "google_business", label: "Google Business", color: "#EA4335", required: true },
   { id: "facebook", label: "Facebook", color: "#1877F2", required: false },
-  { id: "twitter", label: "Twitter / X", color: "#1DA1F2", required: false },
+  { id: "twitter", label: "X", color: "#0F1419", required: false },
   { id: "linkedin", label: "LinkedIn", color: "#0A66C2", required: false },
 ];
 
