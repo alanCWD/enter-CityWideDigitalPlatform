@@ -17,15 +17,16 @@ const tiers = [
     featured: false,
     cta: "Start Free Trial",
     features: [
-      "GMB-synced website",
+      "GMB-synced webapp",
       "Niche-specific template",
       "Auto-updating content",
       "Custom domain support",
       "Social Sync — GBP + 2 platforms",
       "Post scheduling",
-      "Basic SEO",
+      "Advanced SEO",
       "Email support",
     ],
+    note: null,
   },
   {
     name: "Growth",
@@ -38,11 +39,15 @@ const tiers = [
     cta: "Start Free Trial",
     features: [
       "Everything in Starter",
-      "Social Sync — GBP + 3 platforms",
+      "Social Sync — Synced social posting on GBP + 3 platforms",
       "40+ directory listings",
       "Monthly performance report",
       "Priority support",
     ],
+    note: {
+      lead: "Optional webapp refresh every 2 years *",
+      footnote: "* requires updated customer supplied imagery and textual content.",
+    },
   },
   {
     name: "Pro",
@@ -54,12 +59,15 @@ const tiers = [
     cta: "Start Free Trial",
     features: [
       "Everything in Growth",
-      "Social Sync — up to 10 platforms, choose from 15",
+      "Social Sync — up to 10 platforms",
       "Review Engine",
+      "Google Search Coach",
+      "Inbox Pro",
       "AI chatbot intake",
-      "3 Site Concierge credits/mo",
+      "Concierge site credits",
       "Dedicated account manager",
     ],
+    note: null,
   },
 ];
 
@@ -77,11 +85,12 @@ const features: Feature[] = [
   {
     category: "GBP Website Builder",
     items: [
-      { name: "GMB-synced website", starter: true, growth: true, pro: true },
+      { name: "GMB-synced webapp", starter: true, growth: true, pro: true },
       { name: "Niche-specific template", starter: true, growth: true, pro: true },
       { name: "Auto-updating content", starter: true, growth: true, pro: true },
       { name: "Custom domain support", starter: true, growth: true, pro: true },
       { name: "SEO optimization", starter: "Advanced", growth: "Advanced", pro: "Advanced" },
+      { name: "Optional webapp refresh every 2 years *", starter: false, growth: true, pro: true },
     ],
   },
   {
@@ -89,7 +98,6 @@ const features: Feature[] = [
     items: [
       { name: "Auto-publish to social", starter: true, growth: true, pro: true },
       { name: "Platforms supported", starter: "3 (GBP + 2)", growth: "4 (GBP + 3)", pro: "Up to 10" },
-      { name: "Choose from 15 platforms", starter: false, growth: false, pro: true },
       { name: "Post scheduling", starter: true, growth: true, pro: true },
       { name: "Extra platforms", starter: false, growth: false, pro: "+ add-on" },
     ],
@@ -113,8 +121,15 @@ const features: Feature[] = [
   {
     category: "Site Concierge",
     items: [
-      { name: "Modification credits/mo", starter: false, growth: false, pro: "3 credits" },
+      { name: "Concierge site credits", starter: false, growth: false, pro: true },
       { name: "AI chatbot intake", starter: false, growth: false, pro: true },
+    ],
+  },
+  {
+    category: "Additional apps",
+    items: [
+      { name: "Google Search Coach", starter: false, growth: false, pro: true },
+      { name: "Inbox Pro", starter: false, growth: false, pro: true },
     ],
   },
   {
@@ -246,6 +261,17 @@ export default function Pricing() {
                   ))}
                 </ul>
 
+                {tier.note && (
+                  <div className="mt-6 border-t border-white/10 pt-4">
+                    <p className="text-[12.5px] font-light leading-relaxed text-[var(--gp-ink-72)]">
+                      {tier.note.lead}
+                    </p>
+                    <p className="mt-1.5 text-[11px] font-light leading-relaxed text-[var(--gp-ink-55)]">
+                      {tier.note.footnote}
+                    </p>
+                  </div>
+                )}
+
                 <button
                   type="button"
                   onClick={() => startTrial(tier.planKey)}
@@ -302,6 +328,9 @@ export default function Pricing() {
                 </tbody>
               </table>
             </div>
+            <p className="border-t border-white/10 px-6 py-4 text-[11.5px] font-light leading-relaxed text-[var(--gp-ink-55)]">
+              * Optional webapp refresh applies to Growth and Pro, and requires updated customer supplied imagery and textual content.
+            </p>
           </div>
         </div>
       </section>

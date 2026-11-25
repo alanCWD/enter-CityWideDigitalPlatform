@@ -9,12 +9,14 @@ const tiers = [
     tagline: "Perfect for getting found online",
     featured: false,
     features: [
-      "GMB-integrated website",
+      "GMB-synced webapp",
       "Niche-specific template",
       "Auto-updating content",
-      "SEO optimization",
-      "Basic analytics",
+      "Custom domain support",
+      "Social Sync — GBP + 2 platforms",
+      "Advanced SEO",
     ],
+    note: null,
   },
   {
     name: "Growth",
@@ -25,11 +27,15 @@ const tiers = [
     featured: true,
     features: [
       "Everything in Starter",
-      "Social Sync Pro (4 platforms)",
-      "Listing Sync Pro (40+ directories)",
+      "Social Sync — Synced social posting on GBP + 3 platforms",
+      "40+ directory listings",
       "Monthly performance report",
       "Priority support",
     ],
+    note: {
+      lead: "Optional webapp refresh every 2 years *",
+      footnote: "* requires updated customer supplied imagery and textual content.",
+    },
   },
   {
     name: "Pro",
@@ -40,11 +46,13 @@ const tiers = [
     featured: false,
     features: [
       "Everything in Growth",
+      "Social Sync — up to 10 platforms",
       "Review Engine",
-      "Site Concierge credits (3/mo)",
-      "Dedicated account manager",
-      "White-label option available",
+      "Google Search Coach",
+      "Inbox Pro",
+      "Concierge site credits",
     ],
+    note: null,
   },
 ];
 
@@ -99,6 +107,17 @@ export function CapsulePricing() {
                       </li>
                     ))}
                   </ul>
+
+                  {tier.note && (
+                    <div className="mt-6 border-t border-white/10 pt-4">
+                      <p className="text-[0.75rem] font-light leading-relaxed text-[var(--cap-ink-72)]">
+                        {tier.note.lead}
+                      </p>
+                      <p className="mt-2 text-[0.625rem] font-light leading-relaxed text-[var(--cap-ink-40)]">
+                        {tier.note.footnote}
+                      </p>
+                    </div>
+                  )}
 
                   <Link
                     to={`/pricing?plan=${tier.planKey}#start-trial`}

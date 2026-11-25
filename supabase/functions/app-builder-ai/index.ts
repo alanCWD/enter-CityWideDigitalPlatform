@@ -75,17 +75,17 @@ const TIER_DETAIL: Record<string, { name: string; price: string; summary: string
   starter: {
     name: "Starter",
     price: "$197/mo CAD",
-    summary: "GBP-synced website, industry template, custom domain, social sync to Google plus 2 platforms, post scheduling, basic SEO",
+    summary: "GMB-synced webapp, industry template, custom domain, social sync to Google plus 2 platforms, post scheduling, advanced SEO",
   },
   growth: {
     name: "Growth",
     price: "$397/mo CAD",
-    summary: "everything in Starter, social sync to Google plus 3 platforms, 40+ directory listings, monthly performance report, priority support",
+    summary: "everything in Starter, synced social posting to Google plus 3 platforms, 40+ directory listings, monthly performance report, priority support, optional webapp refresh every 2 years (customer-supplied imagery and content required)",
   },
   pro: {
     name: "Pro",
     price: "$597/mo CAD",
-    summary: "everything in Growth, social sync to up to 10 platforms, Review Engine, AI chatbot intake, 3 Site Concierge credits, dedicated account manager",
+    summary: "everything in Growth, social sync to up to 10 platforms, Review Engine, Google Search Coach, Inbox Pro, AI chatbot intake, Concierge site credits, dedicated account manager",
   },
 };
 

@@ -48,9 +48,9 @@ const TEMPLATES = [
 
 // Plan names and prices must match /pricing (CAD, plus GST).
 const TIERS: { id: Tier; name: string; price: string; features: string[] }[] = [
-  { id: "starter", name: "Starter", price: "$197/mo", features: ["GBP-synced website", "Industry template", "Custom domain", "Basic SEO"] },
-  { id: "growth", name: "Growth", price: "$397/mo", features: ["Everything in Starter", "Social Sync Pro", "40+ directory listings", "Monthly report"] },
-  { id: "pro", name: "Pro", price: "$597/mo", features: ["Everything in Growth", "Review Engine", "3 Site Concierge credits", "Account manager"] },
+  { id: "starter", name: "Starter", price: "$197/mo", features: ["GMB-synced webapp", "Industry template", "Custom domain", "Advanced SEO"] },
+  { id: "growth", name: "Growth", price: "$397/mo", features: ["Everything in Starter", "Social Sync — Synced social posting on GBP + 3 platforms", "40+ directory listings", "Monthly report", "Optional webapp refresh every 2 years *"] },
+  { id: "pro", name: "Pro", price: "$597/mo", features: ["Everything in Growth", "Social Sync — up to 10 platforms", "Review Engine", "Google Search Coach", "Inbox Pro", "Concierge site credits"] },
 ];
 
 function OutputPanel({
