@@ -38,6 +38,7 @@ Not synchronised: content that does not exist in Google, such as custom page cop
 - [Google Business Profile as a local listing](https://www.citywidedigital.ca/gbp-local-listing): standalone guide to local search, Maps, the Local Pack, citation accuracy and reviews. Full text is rendered in the page HTML.
 - [Do Google posts and social media help SEO?](https://www.citywidedigital.ca/google-posts-and-local-seo): guide to what Google posting, social syndication and website content each contribute to local search visibility, with an honest treatment of what is and is not a ranking factor. Full text is rendered in the page HTML.
 - [AI search for local businesses](https://www.citywidedigital.ca/ai-search-local-businesses): service guide to how AI search tools find local businesses, what the Google Business Profile sync changes, and what CityWide does not claim about AI recommendations. Full text is rendered in the page HTML.
+- [Website best practices for Google](https://www.citywidedigital.ca/google-website-best-practices): guide to what Google recommends for a local business website — helpful content, titles, headings, meta descriptions, crawlable pages, LocalBusiness structured data, trust pages and consistent business facts — and which basics CityWide handles. Full text is rendered in the page HTML.
 - [Privacy policy](https://www.citywidedigital.ca/privacy) · [Terms of service](https://www.citywidedigital.ca/terms)
 
 ## Contact

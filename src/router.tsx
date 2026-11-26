@@ -53,6 +53,7 @@ import GbpSourceOfTruth from "./pages/GbpSourceOfTruth";
 import GbpLocalListing from "./pages/GbpLocalListing";
 import GooglePostsAndLocalSeo from "./pages/GooglePostsAndLocalSeo";
 import AiSearchLocalBusinesses from "./pages/AiSearchLocalBusinesses";
+import GoogleWebsiteBestPractices from "./pages/GoogleWebsiteBestPractices";
 import { QboCallback } from "./pages/QboCallback";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
@@ -129,6 +130,11 @@ export const routers = [
     path: "/ai-search-local-businesses",
     name: "ai-search-local-businesses",
     element: <AiSearchLocalBusinesses />,
+  },
+  {
+    path: "/google-website-best-practices",
+    name: "google-website-best-practices",
+    element: <GoogleWebsiteBestPractices />,
   },
   {
     path: "/privacy",

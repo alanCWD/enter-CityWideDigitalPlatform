@@ -12,7 +12,7 @@ The header carries the primary navigation and conversion actions. The footer car
 | React footer markup and content | `src/components/layout/Footer.tsx` |
 | "Ask about CityWide Digital" links and prompt | `src/components/layout/AskAboutCityWide.tsx` |
 | Static guide chrome styles | `public/gbp-guide.css` |
-| Static reference pages | `public/gbp-source-of-truth.html`, `public/gbp-local-listing.html`, `public/google-business-profile-website-sync.html`, `public/google-posts-and-local-seo.html`, `public/ai-search-local-businesses.html` |
+| Static reference pages | `public/gbp-source-of-truth.html`, `public/gbp-local-listing.html`, `public/google-business-profile-website-sync.html`, `public/google-posts-and-local-seo.html`, `public/ai-search-local-businesses.html`, `public/google-website-best-practices.html` |
 
 If the site header or footer changes, update this document and the static guide pages in the same change. Do not create a variant header or footer unless it is for a genuinely different product surface, and never with a reduced link set.
 

@@ -69,6 +69,11 @@ const PUBLIC_META: Record<string, PageMeta> = {
     description:
       "How AI search tools find local businesses, what CityWide's Google Business Profile sync changes, and what no provider can guarantee.",
   },
+  "/google-website-best-practices": {
+    title: "Website Best Practices for Google: A Local Business Guide | CityWide Digital",
+    description:
+      "What Google recommends for a local business website: helpful pages, unique titles, clean technical basics, structured data and consistent business facts.",
+  },
   "/privacy": {
     title: "Privacy Policy — CityWide Digital",
     description: "How CityWide Digital collects, uses and protects business and customer information.",
