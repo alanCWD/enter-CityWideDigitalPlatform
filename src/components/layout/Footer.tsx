@@ -38,6 +38,7 @@ const footerLinks: Record<string, FooterLink[]> = {
     { label: "GBP as source of truth", href: "/gbp-source-of-truth.html", plain: true },
     { label: "GBP local listing", href: "/gbp-local-listing.html", plain: true },
     { label: "Google posts and SEO", href: "/google-posts-and-local-seo.html", plain: true },
+    { label: "AI search for local businesses", href: "/ai-search-local-businesses.html", plain: true },
     { label: "Inbox Pro", href: "/inbox" },
   ],
 };

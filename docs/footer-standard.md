@@ -11,7 +11,7 @@ The footer is not a decorative afterthought: it carries the product line, the so
 | React footer markup and content | `src/components/layout/Footer.tsx` |
 | "Ask about CityWide Digital" links and prompt | `src/components/layout/AskAboutCityWide.tsx` |
 | Static guide footer styles | `public/gbp-guide.css` |
-| Static reference footers | `public/gbp-source-of-truth.html`, `public/gbp-local-listing.html`, `public/google-business-profile-website-sync.html`, `public/google-posts-and-local-seo.html` |
+| Static reference footers | `public/gbp-source-of-truth.html`, `public/gbp-local-listing.html`, `public/google-business-profile-website-sync.html`, `public/google-posts-and-local-seo.html`, `public/ai-search-local-businesses.html` |
 
 If the site footer changes, update this document and the static guide footers in the same change. Do not create a variant footer unless it is for a genuinely different product surface, and never with a reduced link set.
 
@@ -27,7 +27,7 @@ footer
 │   │   └── Ask about CityWide Digital
 │   ├── Products (8 links, each with an icon)
 │   ├── Company (7 links)
-│   └── Guides (5 links)
+│   └── Guides (6 links)
 └── bottom bar
     ├── copyright
     ├── social profile icons
@@ -110,6 +110,7 @@ All current guides, in this order:
 | GBP as source of truth | `/gbp-source-of-truth.html` |
 | GBP local listing | `/gbp-local-listing.html` |
 | Google posts and SEO | `/google-posts-and-local-seo.html` |
+| AI search for local businesses | `/ai-search-local-businesses.html` |
 | Inbox Pro | `/inbox` |
 
 On a static guide page, mark that page's own link with `aria-current="page"`. In React, the same guide entry must exist even though the router page uses the shared component.
@@ -174,7 +175,7 @@ Required CSS hooks:
 - [ ] All five assistant icons are present, link correctly, and open in a new tab.
 - [ ] All eight products are present with icons and correct accent colours.
 - [ ] Company column matches the seven-link list; no legal links in it.
-- [ ] Guides column lists all five entries, with `aria-current="page"` on the current static guide.
+- [ ] Guides column lists all six entries, with `aria-current="page"` on the current static guide.
 - [ ] Social links use the four CityWide profiles above.
 - [ ] X is labelled X and uses the geometric X mark; no Twitter bird or generic platform URLs.
 - [ ] Privacy Policy and Terms of Service remain reachable from static pages.
@@ -186,4 +187,4 @@ Required CSS hooks:
 1. Update `Footer.tsx` (and `AskAboutCityWide.tsx` if the prompt or assistants change).
 2. Copy the resulting structure into all static guide footers.
 3. Update this document and the content tables above.
-4. Check all four static guide pages, not just the one you started from.
+4. Check all five static guide pages, not just the one you started from.

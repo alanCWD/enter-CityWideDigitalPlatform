@@ -64,6 +64,11 @@ const PUBLIC_META: Record<string, PageMeta> = {
     description:
       "What Google posting, social syndication and website content each contribute to local search visibility — and why the combination matters more than any single channel.",
   },
+  "/ai-search-local-businesses": {
+    title: "AI Search for Local Businesses | CityWide Digital",
+    description:
+      "How AI search tools find local businesses, what CityWide's Google Business Profile sync changes, and what no provider can guarantee.",
+  },
   "/privacy": {
     title: "Privacy Policy — CityWide Digital",
     description: "How CityWide Digital collects, uses and protects business and customer information.",
