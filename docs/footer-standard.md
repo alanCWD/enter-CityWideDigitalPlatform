@@ -1,21 +1,52 @@
-# CityWide Digital footer standard
+# CityWide Digital header and footer standard
 
-This is the contract for every footer on the CityWide Digital site. Use it when adding a page, replacing a static HTML footer, or reviewing a footer that looks out of date.
+This is the contract for every header and footer on the CityWide Digital site. Use it when adding a page, replacing a static HTML header or footer, or reviewing page chrome that looks out of date.
 
-The footer is not a decorative afterthought: it carries the product line, the social profiles, and the "Ask about CityWide Digital" discovery links. A footer missing those elements is incomplete.
+The header carries the primary navigation and conversion actions. The footer carries the product line, social profiles and the "Ask about CityWide Digital" discovery links. Missing or differently ordered items are regressions, not stylistic choices.
 
 ## Source of truth
 
 | Layer | Canonical file |
 | --- | --- |
+| React header | `src/components/layout/Navbar.tsx` |
 | React footer markup and content | `src/components/layout/Footer.tsx` |
 | "Ask about CityWide Digital" links and prompt | `src/components/layout/AskAboutCityWide.tsx` |
-| Static guide footer styles | `public/gbp-guide.css` |
-| Static reference footers | `public/gbp-source-of-truth.html`, `public/gbp-local-listing.html`, `public/google-business-profile-website-sync.html`, `public/google-posts-and-local-seo.html`, `public/ai-search-local-businesses.html` |
+| Static guide chrome styles | `public/gbp-guide.css` |
+| Static reference pages | `public/gbp-source-of-truth.html`, `public/gbp-local-listing.html`, `public/google-business-profile-website-sync.html`, `public/google-posts-and-local-seo.html`, `public/ai-search-local-businesses.html` |
 
-If the site footer changes, update this document and the static guide footers in the same change. Do not create a variant footer unless it is for a genuinely different product surface, and never with a reduced link set.
+If the site header or footer changes, update this document and the static guide pages in the same change. Do not create a variant header or footer unless it is for a genuinely different product surface, and never with a reduced link set.
 
-## Required structure
+## Header (top menu)
+
+Every React page renders the shared `Navbar` through `Layout`. Glass guide pages use the capsule variant, so the static guides must match the capsule treatment: a fixed, translucent dark bar with mono uppercase navigation.
+
+Desktop, at 768px and wider:
+
+| Element | Requirement |
+| --- | --- |
+| Bar | Fixed to the top, 72px tall, translucent near-black background, hairline bottom border, backdrop blur |
+| Logo | `/cwd-logo.png`, 35px tall, links to `/` |
+| Navigation | Services, Pricing, About, Crew, Contact — in that order |
+| Right actions | Book a demo (external, new tab), Start Trial (`/pricing#start-trial`), Sign in (`/portal/login`) |
+| Type | IBM Plex Mono, 10px, 0.2em tracking, uppercase, muted; full-strength on hover or current page |
+| Start Trial | Hairline pill, 2px radius, white text, subtle white fill |
+| Sign in | Small rounded outline button with login icon |
+
+Mobile, below 768px:
+
+- Show the logo, a Sign in link and a hamburger toggle.
+- Hide the desktop navigation and actions.
+- The drawer opens below the 72px bar with the same five links in the same order, plus Book a demo and Start Trial.
+- The toggle sets `aria-expanded` and `aria-controls`, closes on link selection, Escape and resize to desktop.
+- Drawer links are mono uppercase with hairline separators; actions are stacked full width.
+
+Static pages must reproduce this structure with `.site-header`, `.header-inner`, `.nav-desktop`, `.nav-actions`, `.nav-mobile`, `.mobile-nav` and `.nav-toggle`. The old `Services / Pricing / About / Contact / Start free trial` header is obsolete.
+
+Keep the mobile drawer outside the `<header>` element. The header uses `backdrop-filter`, which creates a containing block for fixed-position descendants; nesting the drawer would break its full-height positioning.
+
+Because the header is fixed, the first hero on a static page needs `padding-top: 7.5rem` (mobile) and `10.5rem` (768px and wider), matching `.gp-hero` in the React pages.
+
+## Footer structure
 
 ```
 footer
@@ -171,8 +202,14 @@ Required CSS hooks:
 
 ## Review checklist
 
+- [ ] Header is fixed, 72px tall, with a 35px logo and blurred translucent background.
+- [ ] Desktop navigation is Services, Pricing, About, Crew, Contact in that order.
+- [ ] Header actions are Book a demo, Start Trial and Sign in, with the site's styles.
+- [ ] Mobile header shows Sign in plus the hamburger, and the drawer contains all links and actions.
+- [ ] The fixed header does not overlap the hero; static heroes keep 7.5rem/10.5rem top padding.
 - [ ] Brand column has logo, description, all three contact rows with icons, and the Ask block.
 - [ ] All five assistant icons are present, link correctly, and open in a new tab.
+- [ ] The assistant icons sit in a horizontal wrapping row, not a vertical stack.
 - [ ] All eight products are present with icons and correct accent colours.
 - [ ] Company column matches the seven-link list; no legal links in it.
 - [ ] Guides column lists all six entries, with `aria-current="page"` on the current static guide.
@@ -182,9 +219,9 @@ Required CSS hooks:
 - [ ] Footer appears on every public page, including all `.html` guide twins.
 - [ ] Links and icon assets resolve; HTML has no unclosed tags.
 
-## When the site footer changes
+## When the site chrome changes
 
-1. Update `Footer.tsx` (and `AskAboutCityWide.tsx` if the prompt or assistants change).
-2. Copy the resulting structure into all static guide footers.
+1. Update `Navbar.tsx` or `Footer.tsx` (and `AskAboutCityWide.tsx` if the prompt or assistants change).
+2. Copy the resulting header and footer structure into all static guide pages.
 3. Update this document and the content tables above.
 4. Check all five static guide pages, not just the one you started from.

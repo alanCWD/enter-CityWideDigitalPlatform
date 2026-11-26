@@ -93,33 +93,89 @@
 
     /* ── Header ─────────────────────────────────────────────── */
     .site-header {
-      position: sticky; top: 0; z-index: 50;
-      background: rgba(5, 7, 10, 0.82);
-      border-bottom: 1px solid var(--line-soft);
+      position: fixed; top: 0; left: 0; right: 0; z-index: 60;
+      height: 72px;
+      background: rgba(5, 7, 10, 0.45);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       backdrop-filter: blur(18px) saturate(150%);
       -webkit-backdrop-filter: blur(18px) saturate(150%);
+      transition: background-color 200ms ease, border-color 200ms ease;
+    }
+    .site-header.is-scrolled {
+      background: rgba(5, 7, 10, 0.85);
+      border-bottom-color: rgba(255, 255, 255, 0.1);
     }
     .header-inner {
       display: flex; align-items: center; justify-content: space-between;
-      gap: 1.5rem; min-height: 72px; flex-wrap: wrap; padding-block: 0.75rem;
+      gap: 1.5rem; height: 100%; max-width: 1400px; margin: 0 auto; padding: 0 1.5rem;
     }
+    @media (min-width: 768px) { .header-inner { padding: 0 2.5rem; } }
     .brand { display: inline-flex; align-items: center; }
-    .brand img { height: 38px; width: auto; filter: brightness(1.6) saturate(1.1); }
-    .nav { display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
-    .nav a {
+    .brand img { height: 35px; width: auto; filter: brightness(1.6) saturate(1.1); }
+    .nav-desktop { display: none; align-items: center; gap: 1.75rem; }
+    .nav-desktop a, .nav-demo {
       font-family: "IBM Plex Mono", monospace; font-size: 0.625rem; letter-spacing: 0.2em;
       text-transform: uppercase; color: var(--ink-55);
     }
-    .nav a:hover { color: var(--ink); }
-    .nav a[aria-current="page"] { color: var(--ink); }
-    .nav .nav-cta {
-      padding: 0.65rem 1.15rem; border: 1px solid rgba(255,255,255,0.85); border-radius: 10px;
-      background: rgba(255,255,255,0.94); color: #06080c;
+    .nav-desktop a:hover, .nav-demo:hover { color: var(--ink); }
+    .nav-desktop a[aria-current="page"] { color: var(--ink); }
+    .nav-actions { display: none; align-items: center; gap: 0.75rem; }
+    .nav-cta {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0.55rem 0.95rem; border: 1px solid rgba(255,255,255,0.34); border-radius: 2px;
+      background: rgba(255,255,255,0.06); color: #ffffff;
+      font-family: "IBM Plex Mono", monospace; font-size: 0.5625rem; letter-spacing: 0.2em; text-transform: uppercase;
+      transition: background-color 200ms ease, border-color 200ms ease, color 200ms ease;
     }
-    .nav .nav-cta:hover { background: #ffffff; color: #06080c; }
-    @media (max-width: 860px) {
-      .nav { gap: 1rem; }
-      .nav a:not(.nav-cta) { display: none; }
+    .nav-cta:hover { background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.55); color: #ffffff; }
+    .nav-signin {
+      display: inline-flex; align-items: center; gap: 0.375rem;
+      padding: 0.375rem 0.75rem; border: 1px solid rgba(255,255,255,0.2); border-radius: 0.5rem;
+      color: rgba(238,241,250,0.65); font-size: 0.75rem; font-weight: 700;
+      transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease;
+    }
+    .nav-signin:hover { color: #eef1fa; background: rgba(255,255,255,0.08); }
+    .nav-signin svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-mobile { display: flex; align-items: center; gap: 0.5rem; }
+    .nav-toggle {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0.5rem; border: 0; border-radius: 0.375rem; background: none;
+      color: var(--ink-72); cursor: pointer; transition: background-color 180ms ease, color 180ms ease;
+    }
+    .nav-toggle:hover { background: rgba(255,255,255,0.1); color: var(--ink); }
+    .nav-toggle svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-toggle .icon-close { display: none; }
+    .nav-toggle.is-open .icon-menu { display: none; }
+    .nav-toggle.is-open .icon-close { display: block; }
+    .mobile-nav {
+      position: fixed; inset: 0; z-index: 55;
+      background: rgba(0,0,0,0.6);
+    }
+    .mobile-nav[hidden] { display: none; }
+    .mobile-nav-panel {
+      position: absolute; top: 0; right: 0; height: 100%; width: 18rem; max-width: 85vw;
+      background: #05070a; border-left: 1px solid rgba(255,255,255,0.1);
+      padding: 5rem 1.5rem 1.5rem; overflow-y: auto;
+    }
+    .mobile-nav nav { display: flex; flex-direction: column; }
+    .mobile-nav nav a {
+      padding: 1rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+      font-family: "IBM Plex Mono", monospace; font-size: 0.625rem; letter-spacing: 0.2em;
+      text-transform: uppercase; color: var(--ink-55);
+    }
+    .mobile-nav nav a:hover { color: var(--ink); }
+    .mobile-nav-actions { display: flex; flex-direction: column; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); }
+    .mobile-nav-actions .nav-demo {
+      display: inline-flex; align-items: center; justify-content: center;
+      padding: 0.75rem 1rem; border: 1px solid rgba(255,255,255,0.22); border-radius: 2px;
+      background: rgba(255,255,255,0.07);
+    }
+    .mobile-nav-actions .nav-cta { width: 100%; }
+    @media (min-width: 768px) {
+      .nav-desktop { display: flex; }
+      .nav-actions { display: flex; }
+      .nav-mobile { display: none; }
+      .mobile-nav { display: none !important; }
     }
 
     /* ── Typography ─────────────────────────────────────────── */
@@ -147,8 +203,8 @@
     }
 
     /* ── Hero ───────────────────────────────────────────────── */
-    .hero { padding: 4.5rem 0 3rem; }
-    @media (min-width: 768px) { .hero { padding: 6.5rem 0 4rem; } }
+    .hero { padding: 7.5rem 0 3rem; }
+    @media (min-width: 768px) { .hero { padding: 10.5rem 0 5rem; } }
     .hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; margin-top: 2.25rem; }
     .btn, .btn-ghost {
       display: inline-flex; align-items: center; justify-content: center;
@@ -264,11 +320,11 @@
     .footer-contact { display: grid; gap: 0.5rem; font-size: 0.875rem; color: var(--ink-55); }
     .footer-contact span, .footer-contact a { display: flex; align-items: center; gap: 0.5rem; color: inherit; }
     .footer svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-    .footer-contact svg { color: var(--ice); width: 14px; height: 14px; flex-shrink: 0; }
+    .footer-contact svg { color: #bcd9ff; width: 14px; height: 14px; flex-shrink: 0; }
     .footer-ask { margin-top: 1.75rem; }
     .footer-brand .footer-ask p { font-size: 0.875rem; color: var(--ink-55); margin: 0; max-width: none; }
-    .footer-ask ul { display: flex; flex-wrap: wrap; align-items: center; gap: 0.625rem; margin: 0.75rem 0 0; padding: 0; }
-    .footer-ask li { display: block; }
+    .footer .footer-ask ul { display: flex; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 0.625rem; margin: 0.75rem 0 0; padding: 0; }
+    .footer .footer-ask li { display: block; }
     .footer-ask a {
       display: inline-flex; align-items: center; justify-content: center;
       width: 2rem; height: 2rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 999px;
@@ -292,7 +348,7 @@
     .footer-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--line); padding-top: 2rem; }
     .footer-bottom p { font-family: "IBM Plex Mono", monospace; font-size: 0.5625rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(242,245,250,0.24); margin: 0; }
     .footer-bottom-links { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; }
-    .footer-bottom-links .social { width: 2rem; height: 2rem; border: 1px solid var(--line); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; transition: border-color 180ms ease, color 180ms ease; }
+    .footer-bottom-links .social { width: 2rem; height: 2rem; border: 1px solid var(--line); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: rgba(242,245,250,0.4); transition: border-color 180ms ease, color 180ms ease; }
     .footer-bottom-links .social:hover { border-color: rgba(255,255,255,0.3); color: var(--ink); }
     .social svg { width: 14px; height: 14px; }
   </style>
@@ -301,19 +357,53 @@
   <a class="skip" href="#main">Skip to content</a>
 
   <header class="site-header">
-    <div class="shell header-inner">
+    <div class="header-inner">
       <a class="brand" href="/" aria-label="CityWide Digital — home">
         <img src="/cwd-logo.png" alt="CityWide Digital" width="3447" height="1200" />
       </a>
-      <nav class="nav" aria-label="Primary">
+      <nav class="nav-desktop" aria-label="Primary">
         <a href="/services">Services</a>
         <a href="/pricing">Pricing</a>
         <a href="/about">About</a>
+        <a href="/crew">Crew</a>
         <a href="/contact">Contact</a>
-        <a href="/pricing#start-trial">Start free trial</a>
       </nav>
+      <div class="nav-actions">
+        <a class="nav-demo" href="https://calendly.com/alan-citywidedigital/30min" target="_blank" rel="noopener noreferrer">Book a demo</a>
+        <a class="nav-cta" href="/pricing#start-trial">Start Trial</a>
+        <a class="nav-signin" href="/portal/login">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>
+          Sign in
+        </a>
+      </div>
+      <div class="nav-mobile">
+        <a class="nav-signin" href="/portal/login">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>
+          Sign in
+        </a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="Toggle navigation">
+          <svg class="icon-menu" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          <svg class="icon-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
     </div>
   </header>
+
+    <div class="mobile-nav" id="mobile-nav" hidden>
+      <div class="mobile-nav-panel">
+      <nav aria-label="Mobile">
+        <a href="/services">Services</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/about">About</a>
+        <a href="/crew">Crew</a>
+        <a href="/contact">Contact</a>
+      </nav>
+      <div class="mobile-nav-actions">
+        <a class="nav-demo" href="https://calendly.com/alan-citywidedigital/30min" target="_blank" rel="noopener noreferrer">Book a demo</a>
+        <a class="nav-cta" href="/pricing#start-trial">Start Trial</a>
+      </div>
+      </div>
+    </div>
 
   <main id="main">
     <section class="hero">
@@ -968,6 +1058,46 @@
       }
     ]
   }
+  </script>
+  <script>
+    (function () {
+      var toggle = document.querySelector('.nav-toggle');
+      var menu = document.getElementById('mobile-nav');
+      var header = document.querySelector('.site-header');
+      if (!toggle || !menu) return;
+
+      function onScroll() {
+        if (header) header.classList.toggle('is-scrolled', window.scrollY > 16);
+      }
+      onScroll();
+      window.addEventListener('scroll', onScroll, { passive: true });
+
+      function setOpen(open) {
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.classList.toggle('is-open', open);
+        menu.hidden = !open;
+      }
+
+      toggle.addEventListener('click', function () {
+        setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+      });
+
+      menu.addEventListener('click', function (event) {
+        if (event.target === menu) setOpen(false);
+      });
+
+      menu.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', function () { setOpen(false); });
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') setOpen(false);
+      });
+
+      window.addEventListener('resize', function () {
+        if (window.innerWidth >= 768) setOpen(false);
+      });
+    })();
   </script>
   <script>document.getElementById('year').textContent = String(new Date().getFullYear());</script>
 </body>

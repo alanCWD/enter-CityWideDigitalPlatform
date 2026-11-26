@@ -31,19 +31,53 @@
   <a class="skip" href="#main">Skip to content</a>
 
   <header class="site-header">
-    <div class="shell header-inner">
+    <div class="header-inner">
       <a class="brand" href="/" aria-label="CityWide Digital — home">
         <img src="/cwd-logo.png" alt="CityWide Digital" width="3447" height="1200" />
       </a>
-      <nav class="nav" aria-label="Primary">
+      <nav class="nav-desktop" aria-label="Primary">
         <a href="/services">Services</a>
         <a href="/pricing">Pricing</a>
         <a href="/about">About</a>
+        <a href="/crew">Crew</a>
         <a href="/contact">Contact</a>
-        <a href="/pricing#start-trial">Start free trial</a>
       </nav>
+      <div class="nav-actions">
+        <a class="nav-demo" href="https://calendly.com/alan-citywidedigital/30min" target="_blank" rel="noopener noreferrer">Book a demo</a>
+        <a class="nav-cta" href="/pricing#start-trial">Start Trial</a>
+        <a class="nav-signin" href="/portal/login">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>
+          Sign in
+        </a>
+      </div>
+      <div class="nav-mobile">
+        <a class="nav-signin" href="/portal/login">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>
+          Sign in
+        </a>
+        <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="mobile-nav" aria-label="Toggle navigation">
+          <svg class="icon-menu" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+          <svg class="icon-close" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
     </div>
   </header>
+
+    <div class="mobile-nav" id="mobile-nav" hidden>
+      <div class="mobile-nav-panel">
+      <nav aria-label="Mobile">
+        <a href="/services">Services</a>
+        <a href="/pricing">Pricing</a>
+        <a href="/about">About</a>
+        <a href="/crew">Crew</a>
+        <a href="/contact">Contact</a>
+      </nav>
+      <div class="mobile-nav-actions">
+        <a class="nav-demo" href="https://calendly.com/alan-citywidedigital/30min" target="_blank" rel="noopener noreferrer">Book a demo</a>
+        <a class="nav-cta" href="/pricing#start-trial">Start Trial</a>
+      </div>
+      </div>
+    </div>
 
   <main id="main">
     <section class="hero">
@@ -369,6 +403,46 @@
       }
     ]
   }
+  </script>
+  <script>
+    (function () {
+      var toggle = document.querySelector('.nav-toggle');
+      var menu = document.getElementById('mobile-nav');
+      var header = document.querySelector('.site-header');
+      if (!toggle || !menu) return;
+
+      function onScroll() {
+        if (header) header.classList.toggle('is-scrolled', window.scrollY > 16);
+      }
+      onScroll();
+      window.addEventListener('scroll', onScroll, { passive: true });
+
+      function setOpen(open) {
+        toggle.setAttribute('aria-expanded', String(open));
+        toggle.classList.toggle('is-open', open);
+        menu.hidden = !open;
+      }
+
+      toggle.addEventListener('click', function () {
+        setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+      });
+
+      menu.addEventListener('click', function (event) {
+        if (event.target === menu) setOpen(false);
+      });
+
+      menu.querySelectorAll('a').forEach(function (link) {
+        link.addEventListener('click', function () { setOpen(false); });
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') setOpen(false);
+      });
+
+      window.addEventListener('resize', function () {
+        if (window.innerWidth >= 768) setOpen(false);
+      });
+    })();
   </script>
   <script>document.getElementById('year').textContent = String(new Date().getFullYear());</script>
 </body>
