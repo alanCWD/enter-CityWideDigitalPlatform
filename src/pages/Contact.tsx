@@ -89,7 +89,7 @@ export default function Contact() {
 
       <section className="gp-section">
         <div className="gp-shell">
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-10">
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-10">
             {/* Intro panel — top of the left column on desktop, first on mobile */}
             <div className="order-1 lg:order-none lg:col-start-1 lg:row-start-1">
               <RobIntroPanel />
