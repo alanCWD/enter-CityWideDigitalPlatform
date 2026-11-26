@@ -234,6 +234,20 @@
     .footer-contact span, .footer-contact a { display: flex; align-items: center; gap: 0.5rem; color: inherit; }
     .footer svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
     .footer-contact svg { color: var(--ice); width: 14px; height: 14px; flex-shrink: 0; }
+    .footer-ask { margin-top: 1.75rem; }
+    .footer-brand .footer-ask p { font-size: 0.875rem; color: var(--ink-55); margin: 0; max-width: none; }
+    .footer-ask ul { display: flex; flex-wrap: wrap; align-items: center; gap: 0.625rem; margin: 0.75rem 0 0; padding: 0; }
+    .footer-ask li { display: block; }
+    .footer-ask a {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 2rem; height: 2rem; border: 1px solid rgba(255,255,255,0.1); border-radius: 999px;
+      background: rgba(255,255,255,0.03);
+      transition: border-color 180ms ease, background 180ms ease;
+    }
+    .footer-ask a:hover { border-color: rgba(0,120,215,0.5); background: rgba(255,255,255,0.07); }
+    .footer-ask a:focus-visible { outline: 2px solid rgba(0,120,215,0.6); outline-offset: 2px; }
+    .footer-ask img { width: 17px; height: 17px; object-fit: contain; opacity: 0.7; transition: opacity 180ms ease; }
+    .footer-ask a:hover img, .footer-ask a:focus-visible img { opacity: 1; }
     .footer h2 { font-family: "IBM Plex Mono", monospace; font-size: 0.5625rem; letter-spacing: 0.24em; text-transform: uppercase; color: rgba(242,245,250,0.24); margin: 0 0 1rem; font-weight: 400; }
     .footer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.625rem; }
     .footer li a, .footer-bottom a { font-size: 0.8125rem; color: var(--ink-55); }
@@ -244,10 +258,12 @@
     .footer-product .social-product { color: var(--product-social-icon); } .footer-product .concierge { color: var(--product-concierge-icon); }
     .footer-product .review { color: #ffc4bc; } .footer-product .creator { color: #ffe6a2; }
     .footer-product .health { color: #b5f3cf; } .footer-product .coach { color: #e1cbff; }
+    .footer-product .inbox-pro { color: #ffd0ad; }
     .footer-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid var(--line); padding-top: 2rem; }
     .footer-bottom p { font-family: "IBM Plex Mono", monospace; font-size: 0.5625rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(242,245,250,0.24); margin: 0; }
     .footer-bottom-links { display: flex; align-items: center; flex-wrap: wrap; gap: 1rem; }
-    .footer-bottom-links .social { width: 2rem; height: 2rem; border: 1px solid var(--line); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+    .footer-bottom-links .social { width: 2rem; height: 2rem; border: 1px solid var(--line); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; transition: border-color 180ms ease, color 180ms ease; }
+    .footer-bottom-links .social:hover { border-color: rgba(255,255,255,0.3); color: var(--ink); }
     .social svg { width: 14px; height: 14px; }
 
     /* ── Guide article ──────────────────────────────────────── */
