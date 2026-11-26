@@ -11,10 +11,10 @@ export function RobIntroPanel() {
       <div className="cwd-intro__media">
         <img
           className="cwd-intro__image"
-          src="/rob-at-panel.jpg"
-          alt="Rob@, CityWide Digital's chrome helpbot, lit by two amber eyes"
-          width={640}
-          height={512}
+          src="/rob-at-panel-2.jpg"
+          alt="Rob@, CityWide Digital's chrome helpbot, lit by two amber eyes, cigar in his grille"
+          width={1280}
+          height={1024}
           loading="eager"
           decoding="async"
         />
