@@ -93,7 +93,7 @@ export function RobIntakeEmbed() {
 
       {/* The frame is loaded eagerly so its app boots alongside the page instead
           of waiting for a scroll into view, which is what made mobile slow. */}
-      <div className="relative">
+      <div className="relative" style={{ minHeight: height }} aria-busy={!revealed}>
         <iframe
           ref={frameRef}
           src={INTAKE_URL}
@@ -103,12 +103,16 @@ export function RobIntakeEmbed() {
           className="block w-full border-0 bg-transparent transition-opacity duration-200"
         />
         {!revealed && (
-          <div className="pointer-events-none absolute inset-x-0 top-0 flex h-40 items-center justify-center">
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4 rounded-2xl border border-[var(--gp-line-soft)] bg-[#080d16]/80">
+            <span className="relative flex h-10 w-10 items-center justify-center">
+              <span className="absolute inset-0 animate-ping rounded-full bg-[#ffb547]/10" />
+              <span className="relative flex h-3 w-3 rounded-full bg-[#ffb547]" />
+            </span>
             <span
               role="status"
-              className="animate-pulse font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--gp-ink-38)]"
+              className="px-6 text-center font-mono text-[10px] uppercase tracking-[0.2em] text-[var(--gp-ink-55)]"
             >
-              Waking Rob@…
+              Loading Rob@… what&rsquo;s the hurry?
             </span>
           </div>
         )}
