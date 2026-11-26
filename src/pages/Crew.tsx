@@ -52,7 +52,7 @@ const nicheCrew: CrewMember[] = [
   {
     id: "restaurants",
     firstName: "Nadia",
-    portrait: "https://cdn.enter.pro/resources/uid_100027458/crew-nadia_ff0619ea.png",
+    portrait: "https://cdn.enter.pro/resources/uid_100027458/crew2-nadia_69308a20.png",
     title: "Restaurant Lead",
     niche: "Restaurants",
     blurb:
@@ -64,7 +64,7 @@ const nicheCrew: CrewMember[] = [
   {
     id: "service",
     firstName: "Owen",
-    portrait: "https://cdn.enter.pro/resources/uid_100027458/crew-owen_9c1350db.png",
+    portrait: "https://cdn.enter.pro/resources/uid_100027458/crew2-owen_f3052743.png",
     title: "Service & Trades Lead",
     niche: "Service companies",
     blurb:
@@ -76,7 +76,7 @@ const nicheCrew: CrewMember[] = [
   {
     id: "wholesale",
     firstName: "Priya",
-    portrait: "https://cdn.enter.pro/resources/uid_100027458/crew-priya_60840578.png",
+    portrait: "https://cdn.enter.pro/resources/uid_100027458/crew2-priya_cd82badb.png",
     title: "Wholesale Lead",
     niche: "Wholesale",
     blurb:
@@ -88,7 +88,7 @@ const nicheCrew: CrewMember[] = [
   {
     id: "retail",
     firstName: "Cole",
-    portrait: "https://cdn.enter.pro/resources/uid_100027458/crew-cole_ac684bb1.png",
+    portrait: "https://cdn.enter.pro/resources/uid_100027458/crew2-cole_b60f17a2.png",
     title: "Retail Lead",
     niche: "Retail",
     blurb:
@@ -100,7 +100,7 @@ const nicheCrew: CrewMember[] = [
   {
     id: "ecommerce",
     firstName: "Sam",
-    portrait: "https://cdn.enter.pro/resources/uid_100027458/crew-sam_88593dbb.png",
+    portrait: "https://cdn.enter.pro/resources/uid_100027458/crew2-sam_9818225d.png",
     title: "eCommerce Lead",
     niche: "eCommerce",
     blurb:
