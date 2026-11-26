@@ -1,4 +1,4 @@
-import { ArrowLeft, FileCheck2, Globe2, ListChecks, Search, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Building2, FileCheck2, Globe2, ListChecks, Search, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
 import Layout from "@/components/layout/Layout";
 import { GlassHero } from "@/components/marketing/glass/GlassHero";
@@ -9,6 +9,11 @@ import { GlassCTA } from "@/components/marketing/glass/GlassCTA";
  * Keep the guide copy in both places in step.
  */
 const trustPages = [
+  {
+    icon: Building2,
+    title: "About page",
+    body: "Explains who the business is, where it operates and who the people behind it are. Real names, photos and history make the trust part of E-E-A-T visible, and give customers a reason to choose you over a directory listing.",
+  },
   {
     icon: ShieldCheck,
     title: "Privacy policy",
@@ -32,6 +37,7 @@ const checklist = [
   "Content is original, helpful and shows real experience.",
   "Images have descriptive alt text.",
   "LocalBusiness structured data matches the visible page.",
+  "An About page introduces the business, where it operates and the people behind it.",
   "Privacy policy, terms of service and copyright notice are published.",
   "Name, address, phone number and hours match everywhere.",
 ];
@@ -116,9 +122,8 @@ export default function GoogleWebsiteBestPractices() {
               <p className="text-lg leading-relaxed text-muted-foreground">
                 Google's guidance for a local business website is plain. Write helpful pages for people, give every
                 page a unique title, keep the technical basics clean, and make your business facts match everywhere.
-                Google's own documentation doesn't list a privacy policy, terms of service or a copyright notice as
-                ranking factors, so this guide treats them as trust and legal basics instead. It also shows which of
-                the basics CityWide Digital handles for you.
+                This guide covers what Google recommends, the trust pages that support it, and which of the basics
+                CityWide Digital handles for you.
               </p>
 
               <div className="space-y-4 border-t border-border pt-6">
@@ -235,12 +240,14 @@ export default function GoogleWebsiteBestPractices() {
               </div>
 
               <div className="space-y-4 border-t border-border pt-6">
-                <h2 className="text-2xl font-bold text-foreground">7. Trust pages: privacy, terms and copyright</h2>
+                <h2 className="text-2xl font-bold text-foreground">7. Trust pages: about, privacy, terms and copyright</h2>
                 <p className="leading-relaxed text-muted-foreground">
-                  These pages are mainly about legal protection and customer trust. Google does not present them as
-                  ranking factors. Still, a site that collects emails, bookings or analytics data should have them.
+                  Google's own documentation doesn't list an About page, a privacy policy, terms of service or a
+                  copyright notice as ranking factors. They are trust and legal basics, not tricks: they tell visitors
+                  who you are, what you promise and how you handle their information. A site that collects emails,
+                  bookings or analytics data should have all of them.
                 </p>
-                <div className="grid gap-3 sm:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2">
                   {trustPages.map(({ icon: Icon, title, body }) => (
                     <div key={title} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                       <Icon className="h-4 w-4 text-[var(--gp-blue)]" aria-hidden="true" />
